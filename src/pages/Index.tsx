@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import { supabase } from "../lib/supabase";
 import ImageSlideshow from "../components/ImageSlideshow";
 import { TiLocationArrowOutline } from "react-icons/ti";
@@ -14,12 +15,19 @@ interface Cancha {
   id: number;
   nombre: string;
   img: string;
-  cantidad: number;
+  cantidad: string;
   local: number;
-  precio?: number;
+  precio?: string; // varchar like "23.000" (period as thousands separator)
 }
 
+// Parse precio string "23.000" -> 23000 (period is thousands separator)
+const parsePrecio = (precioStr: string | undefined): number => {
+  if (!precioStr) return 0;
+  return parseInt(precioStr.replace(/\./g, ""), 10) || 0;
+};
+
 function Index() {
+  const navigate = useNavigate();
   const [canchas, setCanchas] = useState<Cancha[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -63,8 +71,8 @@ function Index() {
     return `unknown (${local})`;
   };
 
-  const handleReservar = () => {
-    alert("reservando");
+  const handleReservar = (canchaId: number) => {
+    navigate(`/cancha/${canchaId}`);
   };
 
   const bannerImages = [
@@ -74,7 +82,7 @@ function Index() {
   ];
 
   return (
-    <div className="min-h-full bg-bg">
+    <div className="min-h-full bg-bg px-4 py-6 sm:px-6 lg:px-8">
       <div className="mb-4">
         <ImageSlideshow images={bannerImages} interval={3000} />
       </div>
@@ -165,12 +173,12 @@ function Index() {
                         <div className="flex items-center gap-2 text-white/80">
                           <LiaMoneyBillWaveSolid className="h-4 w-4 text-primary" />
                           <span className="text-sm font-semibold">
-                            ₡{cancha.precio.toLocaleString()}
+                            ₡{parsePrecio(cancha.precio).toLocaleString()}
                           </span>
                         </div>
                       )}
                       <button
-                        onClick={handleReservar}
+                        onClick={() => handleReservar(cancha.id)}
                         className="w-full mt-3 px-4 py-2 bg-primary hover:bg-primary/90 text-white rounded-lg transition-colors flex items-center justify-center gap-2 font-medium"
                       >
                         <FaRegCalendarCheck className="h-4 w-4" />
@@ -187,7 +195,7 @@ function Index() {
                           className="w-full h-full object-cover"
                         />
                         <button
-                          onClick={handleReservar}
+                          onClick={() => handleReservar(cancha.id)}
                           className="absolute top-2 right-2 p-2 bg-primary/90 hover:bg-primary text-white rounded-full transition-all opacity-0 group-hover:opacity-100"
                         >
                           <FaRegCalendarCheck className="h-5 w-5" />
@@ -220,7 +228,7 @@ function Index() {
                       className="w-full h-full object-cover rounded-2xl "
                     />
                     <button
-                      onClick={handleReservar}
+                      onClick={() => handleReservar(cancha.id)}
                       className="absolute top-6 right-6 p-2.5 bg-bg hover:bg-primary text-secondary rounded-full transition-all shadow-lg"
                     >
                       <FaRegCalendarCheck className="size-4" />
@@ -261,7 +269,7 @@ function Index() {
                       <div className="flex items-center gap-2 text-white/80 -mt-1">
                         {/* <LiaMoneyBillWaveSolid className="h-4 w-4 text-primary shrink-0" /> */}
                         <span className="text-sm font-bold">
-                          ₡ {cancha.precio.toLocaleString()}
+                          ₡ {parsePrecio(cancha.precio).toLocaleString()}
                         </span>
                       </div>
                     )}
@@ -270,7 +278,7 @@ function Index() {
                   {/* Reservar Button */}
                   <div className="w-full flex justify-end mb-4 mt-2">
                     <button
-                      onClick={handleReservar}
+                      onClick={() => handleReservar(cancha.id)}
                       className="w-2/5 py-3 px-2 bg-primary text-white font-medium justify-center items-center text-center text-base  flex gap-2 rounded-lg "
                     >
                       <FaRegCalendarCheck className="text-base" />

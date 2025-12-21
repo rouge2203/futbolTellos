@@ -25,7 +25,7 @@ export default function Layout({ children }: LayoutProps) {
   return (
     <div className="min-h-full bg-bg">
       <Disclosure as="nav" className="bg-bg">
-        <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+        <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 ">
           <div className="flex h-16 items-center justify-between">
             <div className="flex items-center">
               <div className="shrink-0 flex items-center gap-1.5">
@@ -126,9 +126,7 @@ export default function Layout({ children }: LayoutProps) {
       </Disclosure>
 
       <main>
-        <div className="mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:px-8">
-          {children}
-        </div>
+        <div className="mx-auto max-w-7xl ">{children}</div>
       </main>
     </div>
   );
