@@ -217,7 +217,7 @@ function Index() {
             {filteredCanchas.map((cancha) => (
               <div
                 key={cancha.id}
-                className="bg-transparentn border-2 border-double border-primary shadow-primary  rounded-2xl overflow-hidden shadow-md"
+                className="bg-gray-700/10 border-2 border-double border-primary shadow-primary  rounded-2xl overflow-hidden shadow-md"
               >
                 {/* Image with reservar icon */}
                 {cancha.img && (

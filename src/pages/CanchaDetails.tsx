@@ -235,15 +235,18 @@ function CanchaDetails() {
   };
 
   const handleReservar = () => {
-    const info = {
-      cancha: cancha?.nombre,
-      fecha: selectedDate.toISOString().split("T")[0],
-      hora: selectedHour ? `${selectedHour}:00` : "No seleccionada",
-      jugadores: isSpecialCancha ? selectedPlayers : cancha?.cantidad,
-      precio: getPrice(),
-      precioPorPersona: getPricePerPerson(),
-    };
-    alert(JSON.stringify(info, null, 2));
+    if (!cancha || !selectedHour) return;
+
+    navigate(`/confirmar/${cancha.id}`, {
+      state: {
+        cancha,
+        selectedDate: selectedDate.toISOString(),
+        selectedHour,
+        selectedPlayers,
+        precio: getPrice(),
+        precioPorPersona: getPricePerPerson(),
+      },
+    });
   };
 
   if (loading) {
