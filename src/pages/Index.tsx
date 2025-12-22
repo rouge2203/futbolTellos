@@ -26,6 +26,24 @@ const parsePrecio = (precioStr: string | undefined): number => {
   return parseInt(precioStr.replace(/\./g, ""), 10) || 0;
 };
 
+// Format precio for display - handles ranges like "40.000-50.000"
+const formatPrecio = (precioStr: string | undefined): string => {
+  if (!precioStr) return "0";
+
+  // Check if it's a range (contains "-")
+  if (precioStr.includes("-")) {
+    const parts = precioStr.split("-");
+    const formattedParts = parts.map((part) => {
+      const num = parseInt(part.replace(/\./g, ""), 10) || 0;
+      return num.toLocaleString();
+    });
+    return formattedParts.join(" - ");
+  }
+
+  // Single price
+  return parsePrecio(precioStr).toLocaleString();
+};
+
 function Index() {
   const navigate = useNavigate();
   const [canchas, setCanchas] = useState<Cancha[]>([]);
@@ -135,7 +153,9 @@ function Index() {
         </button> */}
       </div>
 
-      {loading && <div className="text-center text-white mb-4">Loading...</div>}
+      {loading && (
+        <div className="text-center text-white mb-4">Cargando...</div>
+      )}
 
       {error && (
         <div className="text-red-400 mb-4 p-4 bg-red-900/20 rounded-lg">
@@ -173,7 +193,7 @@ function Index() {
                         <div className="flex items-center gap-2 text-white/80">
                           <LiaMoneyBillWaveSolid className="h-4 w-4 text-primary" />
                           <span className="text-sm font-semibold">
-                            ₡{parsePrecio(cancha.precio).toLocaleString()}
+                            ₡{formatPrecio(cancha.precio)}
                           </span>
                         </div>
                       )}
@@ -269,7 +289,7 @@ function Index() {
                       <div className="flex items-center gap-2 text-white/80 -mt-1">
                         {/* <LiaMoneyBillWaveSolid className="h-4 w-4 text-primary shrink-0" /> */}
                         <span className="text-sm font-bold">
-                          ₡ {parsePrecio(cancha.precio).toLocaleString()}
+                          ₡ {formatPrecio(cancha.precio)}
                         </span>
                       </div>
                     )}

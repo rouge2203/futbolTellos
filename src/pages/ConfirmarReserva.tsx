@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import {
   Dialog,
@@ -12,6 +12,8 @@ import { MdLocationOn } from "react-icons/md";
 import { FaUsers } from "react-icons/fa6";
 import { FaRegCalendarCheck } from "react-icons/fa";
 import { IoWarning } from "react-icons/io5";
+import { GiWhistle } from "react-icons/gi";
+import { supabase } from "../lib/supabase";
 
 interface Cancha {
   id: number;
@@ -28,7 +30,7 @@ interface ReservationState {
   selectedHour: number;
   selectedPlayers: number | null;
   precio: number;
-  precioPorPersona: number;
+  arbitro: boolean;
 }
 
 const DAYS_SPANISH = ["Dom", "Lun", "Mar", "Mié", "Jue", "Vie", "Sáb"];
@@ -57,11 +59,25 @@ function ConfirmarReserva() {
   const [celular, setCelular] = useState("");
   const [correo, setCorreo] = useState("");
 
+  // Arbitro state (can be modified here too)
+  const [arbitroLocal, setArbitroLocal] = useState(false);
+
+  // SINPE acknowledgment toggle (for local == 1 Sabana only)
+  const [sinpeAcknowledged, setSinpeAcknowledged] = useState(false);
+
   // Dialog state
   const [dialogOpen, setDialogOpen] = useState(false);
 
-  // Check if form is valid
-  const isFormValid = nombre.trim() && celular.trim() && correo.trim();
+  // Loading state for submission
+  const [submitting, setSubmitting] = useState(false);
+
+  // Stored reservation data after successful insert
+  const [reservaId, setReservaId] = useState<number | null>(null);
+  // Use a ref for created_at to avoid async state issues
+  const reservaCreatedAtRef = useRef<string | null>(null);
+
+  // Referee cost
+  const ARBITRO_COST = 5000;
 
   // Handle missing state
   if (!state) {
@@ -86,10 +102,50 @@ function ConfirmarReserva() {
     selectedHour,
     selectedPlayers,
     precio,
-    precioPorPersona,
+    arbitro: arbitroFromState,
   } = state;
 
   const date = new Date(selectedDate);
+
+  // Use local arbitro state, initialized from navigation state
+  const effectiveArbitro = arbitroLocal || arbitroFromState;
+
+  // Get base price (cancha only, without arbitro added here)
+  const getBasePrice = (): number => {
+    // If arbitro was already included in precio from CanchaDetails, subtract it
+    if (arbitroFromState) {
+      return precio - ARBITRO_COST;
+    }
+    return precio;
+  };
+
+  // Calculate final price with potential arbitro addition
+  const getFinalPrice = (): number => {
+    // If arbitro was already included in precio from CanchaDetails, don't add again
+    // But if user adds it here, we need to add it
+    if (arbitroLocal && !arbitroFromState) {
+      return precio + ARBITRO_COST;
+    }
+    return precio;
+  };
+
+  // Validation helpers
+  const isValidCelular = (cel: string): boolean => {
+    const digitsOnly = cel.replace(/\D/g, "");
+    return digitsOnly.length >= 8;
+  };
+
+  const isValidEmail = (email: string): boolean => {
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    return emailRegex.test(email);
+  };
+
+  // Check if form is valid
+  const isFormValid =
+    nombre.trim() && isValidCelular(celular) && isValidEmail(correo);
+
+  // For Sabana (local == 1), also require SINPE acknowledgment
+  const canSubmit = isFormValid && (cancha.local === 2 || sinpeAcknowledged);
 
   const getLocalName = (local: number): string => {
     if (local === 1) return "Sabana";
@@ -109,36 +165,105 @@ function ConfirmarReserva() {
     return parseInt(cancha.cantidad?.toString() || "0", 10);
   };
 
-  const handleConfirmar = () => {
-    // Log the reservation data
-    const reservaData = {
-      cancha: {
-        id: cancha.id,
-        nombre: cancha.nombre,
-        local: getLocalName(cancha.local),
-      },
-      fecha: date.toISOString().split("T")[0],
-      hora: `${selectedHour}:00`,
-      jugadores: getPlayerCount() * 2,
-      precio,
-      precioPorPersona,
-      contacto: {
-        nombre,
-        celular,
-        correo,
-      },
-    };
+  const handleConfirmar = async () => {
+    if (submitting) return;
 
-    console.log("=== RESERVA CONFIRMADA ===");
-    console.log(JSON.stringify(reservaData, null, 2));
+    setSubmitting(true);
 
-    // Show success dialog
-    setDialogOpen(true);
+    try {
+      // Build hora_inicio timestamp (format as local time, not UTC)
+      const horaInicio = new Date(date);
+      horaInicio.setHours(selectedHour, 0, 0, 0);
+
+      // Build hora_fin (1 hour later)
+      const horaFin = new Date(horaInicio);
+      horaFin.setHours(horaFin.getHours() + 1);
+
+      // Format as local timestamp string "YYYY-MM-DD HH:MM:SS" to avoid UTC conversion
+      const formatLocalTimestamp = (d: Date): string => {
+        const year = d.getFullYear();
+        const month = String(d.getMonth() + 1).padStart(2, "0");
+        const day = String(d.getDate()).padStart(2, "0");
+        const hours = String(d.getHours()).padStart(2, "0");
+        const minutes = String(d.getMinutes()).padStart(2, "0");
+        const seconds = String(d.getSeconds()).padStart(2, "0");
+        return `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`;
+      };
+
+      const finalPrice = getFinalPrice();
+
+      // Insert into reservas table
+      const { data, error } = await supabase
+        .from("reservas")
+        .insert({
+          hora_inicio: formatLocalTimestamp(horaInicio),
+          hora_fin: formatLocalTimestamp(horaFin),
+          nombre_reserva: nombre,
+          celular_reserva: celular,
+          cancha_id: cancha.id,
+          precio: finalPrice,
+          arbitro: effectiveArbitro,
+        })
+        .select()
+        .single();
+
+      if (error) throw error;
+
+      // Log the reservation data
+      const reservaData = {
+        id: data.id,
+        cancha: {
+          id: cancha.id,
+          nombre: cancha.nombre,
+          local: getLocalName(cancha.local),
+        },
+        fecha: date.toISOString().split("T")[0],
+        hora: `${selectedHour}:00`,
+        jugadores: getPlayerCount() * 2,
+        precio: finalPrice,
+        arbitro: effectiveArbitro,
+        contacto: {
+          nombre,
+          celular,
+          correo,
+        },
+      };
+
+      console.log("=== RESERVA CONFIRMADA ===");
+      console.log(JSON.stringify(reservaData, null, 2));
+
+      // Store the reservation ID and created_at for navigation
+      setReservaId(data.id);
+      reservaCreatedAtRef.current = data.created_at;
+
+      // Show success dialog
+      setDialogOpen(true);
+    } catch (error) {
+      console.error("Error creating reservation:", error);
+      alert("Error al crear la reserva. Por favor intente de nuevo.");
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   const handleDialogClose = () => {
     setDialogOpen(false);
-    navigate("/");
+    // Navigate to reservation details page with all necessary data
+    navigate(`/reserva/${reservaId}`, {
+      state: {
+        cancha,
+        selectedDate,
+        selectedHour,
+        selectedPlayers,
+        precio: getFinalPrice(),
+        arbitro: effectiveArbitro,
+        nombre,
+        celular,
+        correo,
+        reservaId,
+        createdAt: reservaCreatedAtRef.current,
+      },
+    });
   };
 
   return (
@@ -201,36 +326,139 @@ function ConfirmarReserva() {
             </span>
           </div>
           <div className="border-t border-white/10" />
+          {/* Precio por cancha */}
           <div className="flex items-center justify-between">
-            <span className="text-white/80 text-sm">Precio total</span>
-            <span className="text-white font-bold text-lg">
-              ₡ {precio.toLocaleString()}
+            <span className="text-white/80 text-sm">Precio por cancha</span>
+            <span className="text-white font-medium">
+              ₡ {getBasePrice().toLocaleString()}
             </span>
           </div>
+          {/* Arbitro (if selected) */}
+          {effectiveArbitro && (
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <GiWhistle className="text-secondary text-sm" />
+                <span className="text-white/80 text-sm">Árbitro incluido</span>
+              </div>
+              <span className="text-white font-medium">+ ₡5,000</span>
+            </div>
+          )}
+          <div className="border-t border-white/10" />
+          {/* Precio total */}
           <div className="flex items-center justify-between">
-            <span className="text-white/80 text-sm">
-              Precio por persona (aprox)
+            <span className="text-white/80 text-sm font-medium">
+              Precio total
             </span>
-            <span className="text-white font-medium">
-              ₡ {precioPorPersona.toLocaleString()}
+            <span className="text-white font-bold text-lg">
+              ₡ {getFinalPrice().toLocaleString()}
             </span>
           </div>
         </div>
       </div>
 
-      {/* Warning Banner */}
-      <div className="px-4 mb-6">
-        <div className="bg-yellow-500/10 border border-yellow-500/30 rounded-xl px-4 py-4">
-          <div className="flex items-start gap-3">
-            <IoWarning className="text-yellow-500 text-xl shrink-0 mt-0.5" />
-            <p className="text-white/90 text-sm">
-              Tiene <strong className="text-yellow-500">2 horas</strong> para
-              realizar el SINPE y subir el comprobante para mantener su reserva.
-              Si no lo realiza, su reserva se cancelará automáticamente.
+      {/* Arbitro checkbox (if not already selected) */}
+      {!arbitroFromState && (
+        <div className="px-4 mb-6">
+          <div className="flex gap-3">
+            <div className="flex h-6 shrink-0 items-center">
+              <div className="group grid size-4 grid-cols-1">
+                <input
+                  id="arbitro-confirm"
+                  name="arbitro-confirm"
+                  type="checkbox"
+                  checked={arbitroLocal}
+                  onChange={(e) => setArbitroLocal(e.target.checked)}
+                  className="col-start-1 row-start-1 appearance-none rounded-sm border border-white/10 bg-white/5 checked:border-primary checked:bg-primary focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary disabled:border-white/5 disabled:bg-white/10 disabled:checked:bg-white/10 forced-colors:appearance-auto"
+                />
+                <svg
+                  fill="none"
+                  viewBox="0 0 14 14"
+                  className="pointer-events-none col-start-1 row-start-1 size-3.5 self-center justify-self-center stroke-white group-has-disabled:stroke-white/25"
+                >
+                  <path
+                    d="M3 8L6 11L11 3.5"
+                    strokeWidth={2}
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    className="opacity-0 group-has-checked:opacity-100"
+                  />
+                </svg>
+              </div>
+            </div>
+            <div className="text-sm/6">
+              <label
+                htmlFor="arbitro-confirm"
+                className="font-medium text-white flex items-center gap-2"
+              >
+                <GiWhistle className="text-secondary" />
+                Contratar árbitro
+              </label>
+              <p className="text-gray-400">+₡5,000 al precio total</p>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Warning Banner - Only for Sabana (local == 1) */}
+      {cancha.local === 1 && (
+        <div className="px-4 mb-6">
+          <div className="bg-yellow-500/10 border border-yellow-500/30 rounded-xl px-4 py-4">
+            <div className="flex items-start gap-3">
+              <IoWarning className="text-yellow-500 text-xl shrink-0 mt-0.5" />
+              <p className="text-white/90 text-sm">
+                Tiene <strong className="text-yellow-500">2 horas</strong> para
+                realizar el SINPE y subir el comprobante para mantener su
+                reserva. Si no lo realiza, su reserva se cancelará
+                automáticamente.
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Pay at field note - Only for Guadalupe (local == 2) */}
+      {cancha.local === 2 && (
+        <div className="px-4 mb-6">
+          <div className="bg-primary/10 border border-primary/30 rounded-xl px-4 py-4">
+            <p className="text-white/90 text-sm text-center">
+              💵 El pago se realiza directamente en la cancha
             </p>
           </div>
         </div>
-      </div>
+      )}
+
+      {/* SINPE Acknowledgment Toggle - Only for Sabana (local == 1) */}
+      {cancha.local === 1 && (
+        <div className="px-4 mb-6">
+          <div className="flex items-center justify-between bg-white/5 rounded-xl p-4">
+            <span className="flex grow flex-col">
+              <label
+                id="sinpe-label"
+                className="text-sm/6 font-medium text-white"
+              >
+                Confirmo que realizaré el SINPE
+              </label>
+              <span id="sinpe-description" className="text-sm text-gray-400">
+                Entiendo que tengo 2 horas para subir el comprobante o mi
+                reserva será cancelada
+              </span>
+            </span>
+            <div className="group relative inline-flex w-11 shrink-0 rounded-full bg-white/5 p-0.5 inset-ring inset-ring-white/10 outline-offset-2 outline-primary transition-colors duration-200 ease-in-out has-checked:bg-primary has-focus-visible:outline-2 ml-4">
+              <span className="size-5 rounded-full bg-white shadow-xs ring-1 ring-gray-900/5 transition-transform duration-200 ease-in-out group-has-checked:translate-x-5" />
+              <input
+                id="sinpe-toggle"
+                name="sinpe-toggle"
+                type="checkbox"
+                checked={sinpeAcknowledged}
+                onChange={(e) => setSinpeAcknowledged(e.target.checked)}
+                aria-labelledby="sinpe-label"
+                aria-describedby="sinpe-description"
+                className="absolute inset-0 size-full appearance-none focus:outline-hidden"
+              />
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Contact Form */}
       <div className="px-4 mb-6 space-y-4">
@@ -311,15 +539,15 @@ function ConfirmarReserva() {
           </button>
           <button
             onClick={handleConfirmar}
-            disabled={!isFormValid}
+            disabled={!canSubmit || submitting}
             className={` py-3 w-2/5 rounded-lg font-medium flex items-center justify-center gap-2 transition-all ${
-              isFormValid
+              canSubmit && !submitting
                 ? "bg-primary text-white"
                 : "bg-gray-700 text-gray-400 cursor-not-allowed"
             }`}
           >
             <FaRegCalendarCheck className="text-lg" />
-            Confirmar
+            {submitting ? "Cargando" : "Confirmar"}
           </button>
         </div>
       </div>

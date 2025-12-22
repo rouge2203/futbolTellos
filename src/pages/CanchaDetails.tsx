@@ -7,6 +7,7 @@ import { FaRegCalendarCheck } from "react-icons/fa";
 import { IoArrowBack } from "react-icons/io5";
 import { FaUsers } from "react-icons/fa6";
 import { FaRegClock } from "react-icons/fa";
+import { GiWhistle } from "react-icons/gi";
 
 interface Cancha {
   id: number;
@@ -42,6 +43,10 @@ function CanchaDetails() {
   const [selectedPlayers, setSelectedPlayers] = useState<number | null>(null);
   const [reservedHours, setReservedHours] = useState<number[]>([]);
   const [loadingReservas, setLoadingReservas] = useState(false);
+  const [arbitro, setArbitro] = useState(false);
+
+  // Referee cost
+  const ARBITRO_COST = 5000;
 
   // Canchas that share availability with cancha 6
   const LINKED_CANCHAS = [1, 3, 5];
@@ -97,6 +102,25 @@ function CanchaDetails() {
     }
   }, [id]);
 
+  // Format date as local timestamp string for queries
+  const formatLocalDate = (d: Date): string => {
+    const year = d.getFullYear();
+    const month = String(d.getMonth() + 1).padStart(2, "0");
+    const day = String(d.getDate()).padStart(2, "0");
+    return `${year}-${month}-${day}`;
+  };
+
+  // Parse hour from timestamp string (handles both ISO and local formats)
+  const parseHourFromTimestamp = (timestamp: string): number => {
+    // If it's a local format like "2025-12-24 08:00:00", extract hour directly
+    const timeMatch = timestamp.match(/(\d{2}):(\d{2}):(\d{2})/);
+    if (timeMatch) {
+      return parseInt(timeMatch[1], 10);
+    }
+    // Fallback to Date parsing
+    return new Date(timestamp).getHours();
+  };
+
   // Fetch reservations when date or cancha changes
   useEffect(() => {
     const fetchReservas = async () => {
@@ -104,11 +128,10 @@ function CanchaDetails() {
 
       setLoadingReservas(true);
       try {
-        // Build date range for the selected date
-        const startOfDay = new Date(selectedDate);
-        startOfDay.setHours(0, 0, 0, 0);
-        const endOfDay = new Date(selectedDate);
-        endOfDay.setHours(23, 59, 59, 999);
+        // Build date range for the selected date (as local date strings)
+        const dateStr = formatLocalDate(selectedDate);
+        const startOfDay = `${dateStr} 00:00:00`;
+        const endOfDay = `${dateStr} 23:59:59`;
 
         // For canchas 1, 3, 5 - also check cancha 6
         const canchaIds = LINKED_CANCHAS.includes(cancha.id)
@@ -119,16 +142,15 @@ function CanchaDetails() {
           .from("reservas")
           .select("hora_inicio")
           .in("cancha_id", canchaIds)
-          .gte("hora_inicio", startOfDay.toISOString())
-          .lt("hora_inicio", endOfDay.toISOString());
+          .gte("hora_inicio", startOfDay)
+          .lte("hora_inicio", endOfDay);
 
         if (reservasError) throw reservasError;
 
         // Extract hours from timestamps
-        const hours = (reservasData || []).map((r) => {
-          const date = new Date(r.hora_inicio);
-          return date.getHours();
-        });
+        const hours = (reservasData || []).map((r) =>
+          parseHourFromTimestamp(r.hora_inicio)
+        );
 
         setReservedHours(hours);
       } catch (err) {
@@ -193,8 +215,8 @@ function CanchaDetails() {
     return parseInt(precioStr.replace(/\./g, ""), 10) || 0;
   };
 
-  // Get price based on player selection for special cancha
-  const getPrice = (): number => {
+  // Get base price based on player selection for special cancha
+  const getBasePrice = (): number => {
     if (!cancha) return 0;
 
     if (isSpecialCancha && selectedPlayers) {
@@ -204,6 +226,11 @@ function CanchaDetails() {
     }
 
     return parsePrecio(cancha.precio);
+  };
+
+  // Get total price including arbitro
+  const getPrice = (): number => {
+    return getBasePrice() + (arbitro ? ARBITRO_COST : 0);
   };
 
   // Get number of players per team
@@ -245,6 +272,7 @@ function CanchaDetails() {
         selectedPlayers,
         precio: getPrice(),
         precioPorPersona: getPricePerPerson(),
+        arbitro,
       },
     });
   };
@@ -379,7 +407,7 @@ function CanchaDetails() {
 
       {/* Hour selector */}
       <div className="px-4 mb-6">
-        <h3 className="text-white font-medium mb-3 flex gap-1 items-center">
+        <h3 className="text-white font-medium mb-3 flex gap-2 items-center">
           <FaRegClock className="text-secondary" />
           Seleccione una hora
           {loadingReservas && (
@@ -415,6 +443,47 @@ function CanchaDetails() {
         )}
       </div>
 
+      {/* Arbitro checkbox */}
+      <div className="px-4 mb-6">
+        <div className="flex gap-3">
+          <div className="flex h-6 shrink-0 items-center">
+            <div className="group grid size-4 grid-cols-1">
+              <input
+                id="arbitro"
+                name="arbitro"
+                type="checkbox"
+                checked={arbitro}
+                onChange={(e) => setArbitro(e.target.checked)}
+                className="col-start-1 row-start-1 appearance-none rounded-sm border border-white/10 bg-white/5 checked:border-primary checked:bg-primary focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary disabled:border-white/5 disabled:bg-white/10 disabled:checked:bg-white/10 forced-colors:appearance-auto"
+              />
+              <svg
+                fill="none"
+                viewBox="0 0 14 14"
+                className="pointer-events-none col-start-1 row-start-1 size-3.5 self-center justify-self-center stroke-white group-has-disabled:stroke-white/25"
+              >
+                <path
+                  d="M3 8L6 11L11 3.5"
+                  strokeWidth={2}
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  className="opacity-0 group-has-checked:opacity-100"
+                />
+              </svg>
+            </div>
+          </div>
+          <div className="text-base">
+            <label
+              htmlFor="arbitro"
+              className="font-medium text-white flex items-center gap-2"
+            >
+              <GiWhistle className="text-secondary text-lg" />
+              Contratar árbitro
+            </label>
+            <p className="text-gray-400 text-sm">+ ₡5,000 al precio total</p>
+          </div>
+        </div>
+      </div>
+
       {/* Note */}
       <div className="px-4 mb-6">
         <div className="bg-primary/10 border border-primary/30 rounded-xl px-4 py-3">
@@ -434,14 +503,14 @@ function CanchaDetails() {
             </p>
           </div>
           <div className="text-right">
-            <p className="text-white/60 text-xs">Precio por persona (aprox)</p>
-            <p className="text-white text-lg font-medium">
+            <p className="text-white/60 text-xs">Precio por persona</p>
+            <p className="text-white text-sm font-medium">
               ₡ {getPricePerPerson().toLocaleString()}
             </p>
           </div>
         </div>
         <div className="flex items-center gap-3">
-          <div className="flex-1 text-white/80 text-sm">
+          <div className="flex-1 text-white/80 text-base">
             📅 {getFormattedDateTime()}
           </div>
           <button
