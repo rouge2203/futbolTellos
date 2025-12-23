@@ -5,6 +5,8 @@ import {
 } from "@headlessui/react";
 import { Bars3Icon, XMarkIcon } from "@heroicons/react/24/outline";
 import { Link, useLocation } from "react-router-dom";
+import { useAuth } from "../contexts/AuthContext";
+import { FaUser, FaSignInAlt } from "react-icons/fa";
 
 const navigation = [
   { name: "Home", href: "/", path: "/" },
@@ -21,6 +23,7 @@ interface LayoutProps {
 
 export default function Layout({ children }: LayoutProps) {
   const location = useLocation();
+  const { user, loading } = useAuth();
 
   return (
     <div className="min-h-full bg-bg">
@@ -66,7 +69,24 @@ export default function Layout({ children }: LayoutProps) {
             </div>
             <div className="hidden md:block">
               <div className="ml-4 flex items-center md:ml-6">
-                <span className="text-white font-medium">Futbol Tello</span>
+                {!loading && (
+                  <Link
+                    to={user ? "/admin" : "/login"}
+                    className="flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium text-gray-300 hover:bg-white/5 hover:text-white transition-colors"
+                  >
+                    {user ? (
+                      <>
+                        <FaUser className="text-sm" />
+                        Panel Admin
+                      </>
+                    ) : (
+                      <>
+                        <FaSignInAlt className="text-sm" />
+                        Login
+                      </>
+                    )}
+                  </Link>
+                )}
               </div>
             </div>
             <div className="-mr-2 flex md:hidden">
@@ -110,19 +130,26 @@ export default function Layout({ children }: LayoutProps) {
             })}
           </div>
           <div className="border-t border-white/10 pt-4 pb-3">
-            <div className="flex items-center px-5">
-              <div className="shrink-0">
-                <img
-                  alt="Futbol Tello"
-                  src="/tellos-square.webp"
-                  className="size-10 rounded-full outline -outline-offset-1 outline-white/10"
-                />
-              </div>
-              <div className="ml-3">
-                <div className="text-base font-medium text-white">
-                  Futbol Tello
-                </div>
-              </div>
+            <div className="px-5">
+              {!loading && (
+                <DisclosureButton
+                  as={Link}
+                  to={user ? "/admin" : "/login"}
+                  className="flex items-center gap-2 w-full rounded-md px-3 py-2 text-base font-medium text-gray-300 hover:bg-white/5 hover:text-white transition-colors"
+                >
+                  {user ? (
+                    <>
+                      <FaUser className="text-sm" />
+                      Panel Administrativo
+                    </>
+                  ) : (
+                    <>
+                      <FaSignInAlt className="text-sm" />
+                      Iniciar Sesión
+                    </>
+                  )}
+                </DisclosureButton>
+              )}
             </div>
           </div>
         </DisclosurePanel>
