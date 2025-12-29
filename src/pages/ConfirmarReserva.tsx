@@ -200,6 +200,7 @@ function ConfirmarReserva() {
           hora_fin: formatLocalTimestamp(horaFin),
           nombre_reserva: nombre,
           celular_reserva: celular,
+          correo_reserva: correo,
           cancha_id: cancha.id,
           precio: finalPrice,
           arbitro: effectiveArbitro,

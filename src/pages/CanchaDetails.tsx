@@ -174,6 +174,33 @@ function CanchaDetails() {
     return parseInt(timeStr.split(":")[0], 10);
   };
 
+  // Get current hour in Costa Rica timezone (UTC-6)
+  const getCurrentHourCR = (): number => {
+    const now = new Date();
+    // Convert to Costa Rica time (UTC-6)
+    const crTime = new Date(
+      now.toLocaleString("en-US", { timeZone: "America/Costa_Rica" })
+    );
+    return crTime.getHours();
+  };
+
+  // Check if selected date is today in Costa Rica
+  const isToday = (): boolean => {
+    const today = new Date();
+    const crToday = new Date(
+      today.toLocaleString("en-US", { timeZone: "America/Costa_Rica" })
+    );
+    const crSelected = new Date(
+      selectedDate.toLocaleString("en-US", { timeZone: "America/Costa_Rica" })
+    );
+
+    return (
+      crToday.getFullYear() === crSelected.getFullYear() &&
+      crToday.getMonth() === crSelected.getMonth() &&
+      crToday.getDate() === crSelected.getDate()
+    );
+  };
+
   // Get available hours based on location
   const getAvailableHours = (): number[] => {
     if (!configuracion || !cancha) return [];
@@ -198,10 +225,28 @@ function CanchaDetails() {
     }
 
     const hours: number[] = [];
+    const hourMapping: { displayHour: number; isNextDay: boolean }[] = [];
+
     for (let h = apertura; h < cierre; h++) {
       // For display, hours >= 24 should show as 0, 1, 2, etc.
-      hours.push(h < 24 ? h : h - 24);
+      const displayHour = h < 24 ? h : h - 24;
+      const isNextDay = h >= 24;
+      hours.push(displayHour);
+      hourMapping.push({ displayHour, isNextDay });
     }
+
+    // If selected date is today, filter out past hours
+    if (isToday()) {
+      const currentHour = getCurrentHourCR();
+      return hours.filter((hour, index) => {
+        const mapping = hourMapping[index];
+        // If it's a next-day hour (after midnight), always include it
+        if (mapping.isNextDay) return true;
+        // Otherwise, only include if hour is greater than current hour
+        return hour > currentHour;
+      });
+    }
+
     return hours;
   };
 

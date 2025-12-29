@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { supabase } from "../lib/supabase";
 import ImageSlideshow from "../components/ImageSlideshow";
 import { TiLocationArrowOutline } from "react-icons/ti";
@@ -46,10 +46,20 @@ const formatPrecio = (precioStr: string | undefined): string => {
 
 function Index() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const [canchas, setCanchas] = useState<Cancha[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [filter, setFilter] = useState<number | null>(null); // null = all, 1 = Sabana, 2 = Guadalupe
+  
+  // Read filter from URL params: sabana → 1, guadalupe → 2, no param → null
+  const getFilterFromParams = (): number | null => {
+    const filterParam = searchParams.get("filter");
+    if (filterParam === "sabana") return 1;
+    if (filterParam === "guadalupe") return 2;
+    return null;
+  };
+  
+  const [filter, setFilter] = useState<number | null>(getFilterFromParams()); // null = all, 1 = Sabana, 2 = Guadalupe
 
   const fetchCanchas = async () => {
     setLoading(true);
@@ -76,6 +86,11 @@ function Index() {
   useEffect(() => {
     fetchCanchas();
   }, []);
+
+  // Update filter when URL params change
+  useEffect(() => {
+    setFilter(getFilterFromParams());
+  }, [searchParams]);
 
   // Filter canchas based on selected filter
   const filteredCanchas =

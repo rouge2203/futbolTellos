@@ -9,8 +9,10 @@ import { useAuth } from "../contexts/AuthContext";
 import { FaUser, FaSignInAlt } from "react-icons/fa";
 
 const navigation = [
-  { name: "Home", href: "/", path: "/" },
-  { name: "About", href: "/about", path: "/about" },
+  { name: "Inicio", href: "/", path: "/", matchPath: true },
+  { name: "Sabana", href: "/?filter=sabana", path: "/", filter: "sabana" },
+  { name: "Guadalupe", href: "/?filter=guadalupe", path: "/", filter: "guadalupe" },
+  { name: "Reservas de hoy", href: "/reservas-hoy", path: "/reservas-hoy" },
 ];
 
 function classNames(...classes: (string | boolean | undefined)[]) {
@@ -24,6 +26,25 @@ interface LayoutProps {
 export default function Layout({ children }: LayoutProps) {
   const location = useLocation();
   const { user, loading } = useAuth();
+  
+  // Helper to check if nav item is active
+  const isNavActive = (item: typeof navigation[0]): boolean => {
+    if (item.path !== location.pathname) return false;
+    
+    // For items with filter, check search params
+    if (item.filter) {
+      const searchParams = new URLSearchParams(location.search);
+      return searchParams.get("filter") === item.filter;
+    }
+    
+    // For items with matchPath (like Inicio), check if no filter is present
+    if (item.matchPath) {
+      const searchParams = new URLSearchParams(location.search);
+      return !searchParams.get("filter");
+    }
+    
+    return true;
+  };
 
   return (
     <div className="min-h-full bg-bg">
@@ -47,7 +68,7 @@ export default function Layout({ children }: LayoutProps) {
               <div className="hidden md:block">
                 <div className="ml-10 flex items-baseline space-x-4">
                   {navigation.map((item) => {
-                    const isCurrent = location.pathname === item.path;
+                    const isCurrent = isNavActive(item);
                     return (
                       <Link
                         key={item.name}
@@ -110,7 +131,7 @@ export default function Layout({ children }: LayoutProps) {
         <DisclosurePanel className="md:hidden">
           <div className="space-y-1 px-2 pt-2 pb-3 sm:px-3">
             {navigation.map((item) => {
-              const isCurrent = location.pathname === item.path;
+              const isCurrent = isNavActive(item);
               return (
                 <DisclosureButton
                   key={item.name}

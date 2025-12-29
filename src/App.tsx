@@ -9,6 +9,7 @@ import About from "./pages/About";
 import CanchaDetails from "./pages/CanchaDetails";
 import ConfirmarReserva from "./pages/ConfirmarReserva";
 import ReservaDetalles from "./pages/ReservaDetalles";
+import ReservasHoy from "./pages/ReservasHoy";
 import NotFound from "./pages/NotFound";
 import Login from "./pages/Login";
 
@@ -62,6 +63,14 @@ function App() {
           element={
             <Layout>
               <About />
+            </Layout>
+          }
+        />
+        <Route
+          path="/reservas-hoy"
+          element={
+            <Layout>
+              <ReservasHoy />
             </Layout>
           }
         />
