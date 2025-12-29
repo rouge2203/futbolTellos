@@ -11,8 +11,13 @@ import { FaUser, FaSignInAlt } from "react-icons/fa";
 const navigation = [
   { name: "Inicio", href: "/", path: "/", matchPath: true },
   { name: "Sabana", href: "/?filter=sabana", path: "/", filter: "sabana" },
-  { name: "Guadalupe", href: "/?filter=guadalupe", path: "/", filter: "guadalupe" },
-  { name: "Reservas de hoy", href: "/reservas-hoy", path: "/reservas-hoy" },
+  {
+    name: "Guadalupe",
+    href: "/?filter=guadalupe",
+    path: "/",
+    filter: "guadalupe",
+  },
+  { name: "Reservaciones", href: "/reservas-hoy", path: "/reservas-hoy" },
 ];
 
 function classNames(...classes: (string | boolean | undefined)[]) {
@@ -26,23 +31,23 @@ interface LayoutProps {
 export default function Layout({ children }: LayoutProps) {
   const location = useLocation();
   const { user, loading } = useAuth();
-  
+
   // Helper to check if nav item is active
-  const isNavActive = (item: typeof navigation[0]): boolean => {
+  const isNavActive = (item: (typeof navigation)[0]): boolean => {
     if (item.path !== location.pathname) return false;
-    
+
     // For items with filter, check search params
     if (item.filter) {
       const searchParams = new URLSearchParams(location.search);
       return searchParams.get("filter") === item.filter;
     }
-    
+
     // For items with matchPath (like Inicio), check if no filter is present
     if (item.matchPath) {
       const searchParams = new URLSearchParams(location.search);
       return !searchParams.get("filter");
     }
-    
+
     return true;
   };
 
@@ -140,7 +145,7 @@ export default function Layout({ children }: LayoutProps) {
                   aria-current={isCurrent ? "page" : undefined}
                   className={classNames(
                     isCurrent
-                      ? "bg-gray-900 text-white"
+                      ? "bg-primary text-white"
                       : "text-gray-300 hover:bg-white/5 hover:text-white",
                     "block rounded-md px-3 py-2 text-base font-medium"
                   )}

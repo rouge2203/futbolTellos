@@ -25,6 +25,7 @@ interface Reserva {
   hora_fin: string;
   nombre_reserva: string;
   celular_reserva: string;
+  correo_reserva: string;
   cancha_id: number;
   precio: number;
   arbitro: boolean;
@@ -216,6 +217,7 @@ function ReservaDetalles() {
   const arbitro = reserva.arbitro;
   const nombre = reserva.nombre_reserva;
   const celular = reserva.celular_reserva;
+  const correo = reserva.correo_reserva;
   const reservaId = reserva.id;
   const deadlineTime = getDeadlineTime();
 
@@ -464,6 +466,7 @@ function ReservaDetalles() {
               <p className="text-white font-medium">{nombre}</p>
               <p className="text-white/80 text-sm">({celular})</p>
             </div>
+            <p className="text-white/80 text-xs">{correo}</p>
           </div>
         </div>
       </div>
