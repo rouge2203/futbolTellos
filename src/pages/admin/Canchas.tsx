@@ -46,7 +46,7 @@ export default function Canchas() {
   return (
     <AdminLayout title="Canchas">
       {loading ? (
-        <div className="flex items-center justify-center h-64">
+        <div className="flex h-screen items-center justify-center">
           <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary"></div>
         </div>
       ) : (
@@ -96,7 +96,7 @@ export default function Canchas() {
       )}
 
       {/* Placeholder for future functionality */}
-      <div className="mt-6 bg-white rounded-lg shadow p-6">
+      <div className="mt-6  bg-white rounded-lg shadow p-6">
         <h3 className="text-lg font-medium text-gray-900 mb-2">
           Gestión de Canchas
         </h3>
@@ -108,4 +108,3 @@ export default function Canchas() {
     </AdminLayout>
   );
 }
-

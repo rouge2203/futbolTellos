@@ -580,7 +580,7 @@ export default function Dashboard() {
               {/* Location filters */}
               <button
                 onClick={() => toggleLocationFilter(1)}
-                className={`rounded-full px-3 py-1 border border-gray-300 text-xs font-medium transition-colors ${
+                className={`rounded-md px-3 py-1 border border-gray-300 text-xs font-medium transition-colors ${
                   selectedLocations.includes(1)
                     ? "bg-primary text-white"
                     : "bg-gray-100 text-gray-700 hover:bg-gray-200"
@@ -590,7 +590,7 @@ export default function Dashboard() {
               </button>
               <button
                 onClick={() => toggleLocationFilter(2)}
-                className={`rounded-full px-3 py-1 border border-gray-300 text-xs font-medium transition-colors ${
+                className={`rounded-md px-3 py-1 border border-gray-300 text-xs font-medium transition-colors ${
                   selectedLocations.includes(2)
                     ? "bg-primary text-white"
                     : "bg-gray-100 text-gray-700 hover:bg-gray-200"
@@ -603,7 +603,7 @@ export default function Dashboard() {
                 <button
                   key={cancha.id}
                   onClick={() => toggleCanchaFilter(cancha.id)}
-                  className={`rounded-full px-3 border border-gray-300 py-1 text-xs font-medium transition-colors ${
+                  className={`rounded-md px-3 border border-gray-300 py-1 text-xs font-medium transition-colors ${
                     selectedCanchas.includes(cancha.id)
                       ? "bg-primary text-white"
                       : "bg-gray-100 text-gray-700 hover:bg-gray-200"
