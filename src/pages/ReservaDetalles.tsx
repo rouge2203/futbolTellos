@@ -728,7 +728,7 @@ function ReservaDetalles() {
           ¿Desea cancelar esta reserva?
         </h3>
         <a
-          href="https://wa.me/50688888888?text=Hola,%20quisiera%20cancelar%20mi%20reserva%20con%20ID:%20"
+          href="https://wa.me/50688888888?text=Hola,%20quisiera%20cancelar%20mi%20reserva%del%20:%20"
           target="_blank"
           rel="noopener noreferrer"
           className="w-full py-3 text-white text-base rounded-lg font-medium flex items-center justify-center gap-2 bg-white/5 hover:bg-white/10  transition-colors"

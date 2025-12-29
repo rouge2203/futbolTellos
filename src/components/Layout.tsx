@@ -60,7 +60,10 @@ export default function Layout({ children }: LayoutProps) {
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 ">
           <div className="flex h-16 items-center justify-between">
             <div className="flex items-center">
-              <div className="shrink-0 flex items-center gap-1.5">
+              <Link
+                to="/"
+                className="shrink-0 flex items-center gap-1.5 hover:opacity-80 transition-opacity cursor-pointer"
+              >
                 <img
                   alt="Futbol Tello"
                   src="/tellos-square.webp"
@@ -69,7 +72,7 @@ export default function Layout({ children }: LayoutProps) {
                 <h2 className="text-white font-extrabold text-xl tracking-tight">
                   FUTBOL TELLO
                 </h2>
-              </div>
+              </Link>
               <div className="hidden md:block">
                 <div className="ml-10 flex items-baseline space-x-4">
                   {navigation.map((item) => {

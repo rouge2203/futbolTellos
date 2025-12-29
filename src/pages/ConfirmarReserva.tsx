@@ -1,4 +1,4 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import {
   Dialog,
@@ -71,6 +71,21 @@ function ConfirmarReserva() {
   // Loading state for submission
   const [submitting, setSubmitting] = useState(false);
 
+  // Loading messages slideshow
+  const loadingMessages = [
+    "Cargando",
+    "Danos un segundo",
+    "Ya casi",
+    "Vamo' al fútbol",
+    "Casi listo",
+    ":)",
+  ];
+  const [currentLoadingMessageIndex, setCurrentLoadingMessageIndex] =
+    useState(0);
+
+  // Email sending state
+  const [emailSent, setEmailSent] = useState<boolean | null>(null);
+
   // Stored reservation data after successful insert
   const [reservaId, setReservaId] = useState<number | null>(null);
   // Use a ref for created_at to avoid async state issues
@@ -79,12 +94,29 @@ function ConfirmarReserva() {
   // Referee cost
   const ARBITRO_COST = 5000;
 
+  // Cycle through loading messages when submitting
+  useEffect(() => {
+    if (!submitting) {
+      setCurrentLoadingMessageIndex(0);
+      return;
+    }
+
+    const interval = setInterval(() => {
+      setCurrentLoadingMessageIndex((prev) => {
+        const next = (prev + 1) % loadingMessages.length;
+        return next;
+      });
+    }, 1500); // Change message every 1.5 seconds
+
+    return () => clearInterval(interval);
+  }, [submitting, loadingMessages.length]);
+
   // Handle missing state
   if (!state) {
     return (
       <div className="min-h-screen bg-bg flex flex-col items-center justify-center gap-4 px-4">
         <div className="text-red-400 text-lg text-center">
-          No se encontró información de la reserva
+          No se encontró información de la reservación
         </div>
         <button
           onClick={() => navigate("/")}
@@ -169,6 +201,7 @@ function ConfirmarReserva() {
     if (submitting) return;
 
     setSubmitting(true);
+    setEmailSent(null); // Reset email status
 
     try {
       // Build hora_inicio timestamp (format as local time, not UTC)
@@ -210,38 +243,68 @@ function ConfirmarReserva() {
 
       if (error) throw error;
 
-      // Log the reservation data
-      const reservaData = {
-        id: data.id,
-        cancha: {
-          id: cancha.id,
-          nombre: cancha.nombre,
-          local: getLocalName(cancha.local),
-        },
-        fecha: date.toISOString().split("T")[0],
-        hora: `${selectedHour}:00`,
-        jugadores: getPlayerCount() * 2,
-        precio: finalPrice,
-        arbitro: effectiveArbitro,
-        contacto: {
-          nombre,
-          celular,
-          correo,
-        },
-      };
-
-      console.log("=== RESERVA CONFIRMADA ===");
-      console.log(JSON.stringify(reservaData, null, 2));
-
       // Store the reservation ID and created_at for navigation
       setReservaId(data.id);
       reservaCreatedAtRef.current = data.created_at;
+
+      // Call Django endpoint to send confirmation email
+      try {
+        const djangoApiUrl = import.meta.env.VITE_DJANGO_API_URL || "";
+        if (djangoApiUrl) {
+          const reservaUrl = `${window.location.origin}/reserva/${data.id}`;
+
+          // Format datetime strings for Django endpoint
+          const horaInicioStr = formatLocalTimestamp(horaInicio);
+          const horaFinStr = formatLocalTimestamp(horaFin);
+
+          const emailPayload = {
+            reserva_id: data.id,
+            hora_inicio: horaInicioStr,
+            hora_fin: horaFinStr,
+            cancha_id: cancha.id,
+            cancha_nombre: cancha.nombre,
+            cancha_local: cancha.local,
+            nombre_reserva: nombre,
+            celular_reserva: celular,
+            correo_reserva: correo,
+            precio: finalPrice,
+            arbitro: effectiveArbitro,
+            jugadores: getPlayerCount() * 2,
+            reserva_url: reservaUrl,
+          };
+
+          const response = await fetch(
+            `${djangoApiUrl}/tellos/confirm-reservation`,
+            {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+              },
+              body: JSON.stringify(emailPayload),
+            }
+          );
+
+          if (response.ok) {
+            const result = await response.json();
+            setEmailSent(result.email_sent || false);
+          } else {
+            console.error("Error sending email:", response.statusText);
+            setEmailSent(false);
+          }
+        } else {
+          console.warn("Django API URL not configured");
+          setEmailSent(false);
+        }
+      } catch (error) {
+        console.error("Error calling email endpoint:", error);
+        setEmailSent(false);
+      }
 
       // Show success dialog
       setDialogOpen(true);
     } catch (error) {
       console.error("Error creating reservation:", error);
-      alert("Error al crear la reserva. Por favor intente de nuevo.");
+      alert("Error al crear la reservación. Por favor intente de nuevo.");
     } finally {
       setSubmitting(false);
     }
@@ -268,7 +331,20 @@ function ConfirmarReserva() {
   };
 
   return (
-    <div className="min-h-screen bg-bg pb-32 px-0 py-0 sm:px-6 lg:px-8">
+    <div className="min-h-screen bg-bg pb-32 px-0 py-0 sm:px-6 lg:px-8 relative">
+      {/* Loading Overlay */}
+      {submitting && (
+        <div className="fixed inset-0 z-[100] bg-black/80 backdrop-blur-sm flex items-center justify-center">
+          <div className="flex flex-col items-center gap-6">
+            {/* Spinner */}
+            <div className="animate-spin rounded-full h-16 w-16 border-t-4 border-b-4 border-primary border-r-transparent border-l-transparent"></div>
+            {/* Loading Message */}
+            <p className="text-white text-base font-medium animate-pulse">
+              {loadingMessages[currentLoadingMessageIndex]}
+            </p>
+          </div>
+        </div>
+      )}
       {/* Header with back button */}
       <div className="top-0 z-10 bg-bg/95 backdrop-blur-sm px-2 pb-2 flex items-center gap-3 border-gray-800">
         <button
@@ -278,7 +354,7 @@ function ConfirmarReserva() {
           <IoArrowBack className="text-xl text-white" />
         </button>
         <h1 className="text-lg tracking-tight font-medium text-white truncate">
-          Confirmar Reserva
+          Confirmar Reservación
         </h1>
       </div>
 
@@ -409,7 +485,7 @@ function ConfirmarReserva() {
               <p className="text-white/90 text-sm">
                 Tiene <strong className="text-yellow-500">2 horas</strong> para
                 realizar el SINPE y subir el comprobante para mantener su
-                reserva. Si no lo realiza, su reserva se cancelará
+                reservación. Si no lo realiza, su reservación se cancelará
                 automáticamente.
               </p>
             </div>
@@ -431,7 +507,11 @@ function ConfirmarReserva() {
       {/* SINPE Acknowledgment Toggle - Only for Sabana (local == 1) */}
       {cancha.local === 1 && (
         <div className="px-4 mb-6">
-          <div className="flex items-center justify-between bg-white/5 rounded-xl p-4">
+          <div
+            className={`flex items-center justify-between bg-white/5 rounded-xl p-4 ${
+              sinpeAcknowledged ? "animate-none" : "animate-pulse"
+            }`}
+          >
             <span className="flex grow flex-col">
               <label
                 id="sinpe-label"
@@ -441,7 +521,7 @@ function ConfirmarReserva() {
               </label>
               <span id="sinpe-description" className="text-sm text-gray-400">
                 Entiendo que tengo 2 horas para subir el comprobante o mi
-                reserva será cancelada
+                reservación será cancelada
               </span>
             </span>
             <div className="group relative inline-flex w-11 shrink-0 rounded-full bg-white/5 p-0.5 inset-ring inset-ring-white/10 outline-offset-2 outline-primary transition-colors duration-200 ease-in-out has-checked:bg-primary has-focus-visible:outline-2 ml-4">
@@ -564,7 +644,7 @@ function ConfirmarReserva() {
           <div className="flex min-h-full items-end justify-center p-4 text-center sm:items-center sm:p-0">
             <DialogPanel
               transition
-              className="relative transform overflow-hidden rounded-lg bg-bg px-4 pt-5 pb-4 text-left shadow-xl outline -outline-offset-1 outline-white/10 transition-all data-closed:translate-y-4 data-closed:opacity-0 data-enter:duration-300 data-enter:ease-out data-leave:duration-200 data-leave:ease-in sm:my-8 sm:w-full sm:max-w-sm sm:p-6 data-closed:sm:translate-y-0 data-closed:sm:scale-95"
+              className="relative transform w-full overflow-hidden rounded-lg bg-bg px-4 pt-5 pb-4 text-left shadow-xl outline -outline-offset-1 outline-white/10 transition-all data-closed:translate-y-4 data-closed:opacity-0 data-enter:duration-300 data-enter:ease-out data-leave:duration-200 data-leave:ease-in sm:my-8 sm:w-full sm:max-w-sm sm:p-6 data-closed:sm:translate-y-0 data-closed:sm:scale-95"
             >
               <div>
                 <div className="mx-auto flex size-12 items-center justify-center rounded-full bg-green-500/10">
@@ -578,14 +658,29 @@ function ConfirmarReserva() {
                     as="h3"
                     className="text-base font-semibold text-white"
                   >
-                    ¡Reserva Confirmada!
+                    ¡Reservación Confirmada!
                   </DialogTitle>
                   <div className="mt-2">
                     <p className="text-sm text-gray-400">
-                      Su reserva ha sido registrada. Ahora puede subir su
-                      comprobante de SINPE en la siguiente página para confirmar
-                      el pago.
+                      Su reservación ha sido registrada con éxito.
+                      {cancha.local === 1 && (
+                        <>
+                          Ahora puede subir su comprobante de SINPE en la
+                          siguiente página para confirmar el pago.
+                        </>
+                      )}
                     </p>
+                    {emailSent !== null && (
+                      <p
+                        className={`text-xs mt-2 ${
+                          emailSent ? "text-green-400" : "text-yellow-400"
+                        }`}
+                      >
+                        {emailSent
+                          ? "(Email enviado con detalles de reservación)"
+                          : "No pudimos enviarle la reservacion)"}
+                      </p>
+                    )}
                   </div>
                 </div>
               </div>
