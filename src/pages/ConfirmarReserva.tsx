@@ -313,7 +313,9 @@ function ConfirmarReserva() {
   const handleDialogClose = () => {
     setDialogOpen(false);
     // Navigate to reservation details page with all necessary data
+    // Use replace: true to remove ConfirmarReserva from history
     navigate(`/reserva/${reservaId}`, {
+      replace: true,
       state: {
         cancha,
         selectedDate,

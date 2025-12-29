@@ -133,10 +133,19 @@ function CanchaDetails() {
         const startOfDay = `${dateStr} 00:00:00`;
         const endOfDay = `${dateStr} 23:59:59`;
 
-        // For canchas 1, 3, 5 - also check cancha 6
-        const canchaIds = LINKED_CANCHAS.includes(cancha.id)
-          ? [cancha.id, 6]
-          : [cancha.id];
+        // Determine which canchas to check for reservations
+        // Cancha 6 blocks canchas 1, 3, 5, and vice versa
+        let canchaIds: number[];
+        if (cancha.id === 6) {
+          // Cancha 6: check itself + linked canchas 1, 3, 5
+          canchaIds = [6, ...LINKED_CANCHAS];
+        } else if (LINKED_CANCHAS.includes(cancha.id)) {
+          // Canchas 1, 3, 5: check themselves + cancha 6
+          canchaIds = [cancha.id, 6];
+        } else {
+          // Other canchas: only check themselves
+          canchaIds = [cancha.id];
+        }
 
         const { data: reservasData, error: reservasError } = await supabase
           .from("reservas")
