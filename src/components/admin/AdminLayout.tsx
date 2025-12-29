@@ -13,10 +13,14 @@ import { useAuth } from "../../contexts/AuthContext";
 import { FaUser } from "react-icons/fa";
 
 const navigation = [
-  { name: "Dashboard", href: "/admin", path: "/admin" },
+  { name: "Reservaciones", href: "/admin", path: "/admin" },
   { name: "Reservas", href: "/admin/reservas", path: "/admin/reservas" },
   { name: "Canchas", href: "/admin/canchas", path: "/admin/canchas" },
-  { name: "Configuración", href: "/admin/configuracion", path: "/admin/configuracion" },
+  {
+    name: "Horarios",
+    href: "/admin/configuracion",
+    path: "/admin/configuracion",
+  },
 ];
 
 const userNavigation = [
@@ -56,7 +60,7 @@ export default function AdminLayout({ children, title }: AdminLayoutProps) {
                     src="/tellos-square.svg"
                     className="h-8 w-auto"
                   />
-                  <span className="font-bold text-gray-900 hidden sm:block">
+                  <span className="font-extrabold tracking-tight text-black text-xl">
                     FUTBOL TELLO
                   </span>
                 </Link>
@@ -218,4 +222,3 @@ export default function AdminLayout({ children, title }: AdminLayoutProps) {
     </div>
   );
 }
-
