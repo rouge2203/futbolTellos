@@ -112,6 +112,7 @@ export default function Dashboard() {
             correo_reserva,
             sinpe_reserva,
             confirmada,
+            confirmada_por,
             precio,
             arbitro,
             cancha:cancha_id (
@@ -410,33 +411,49 @@ export default function Dashboard() {
     reservaId: number,
     _hasComprobante: boolean
   ) => {
-    if (!user) return;
+    if (!user) {
+      console.error("No user found when trying to confirm SINPE");
+      return;
+    }
 
     try {
-      // Try with confirmada_por first
-      let updateData: any = {
+      // Build update data with confirmada and confirmada_por (using email)
+      const updateData: any = {
         confirmada: true,
+        confirmada_por: user.email || user.id,
       };
 
-      if (user.id) {
-        updateData.confirmada_por = user.id;
-      }
+      console.log("Confirming SINPE with admin email:", user.email);
 
-      const { error } = await supabase
+      const { data, error } = await supabase
         .from("reservas")
         .update(updateData)
-        .eq("id", reservaId);
+        .eq("id", reservaId)
+        .select("id, confirmada, confirmada_por")
+        .single();
 
-      // If error and it's about confirmada_por column, retry without it
-      if (error && error.message?.includes("confirmada_por")) {
-        const { error: retryError } = await supabase
-          .from("reservas")
-          .update({ confirmada: true })
-          .eq("id", reservaId);
+      if (error) {
+        console.error("Error updating reservation:", error);
 
-        if (retryError) throw retryError;
-      } else if (error) {
-        throw error;
+        // If error is about confirmada_por column not existing, try without it
+        if (
+          error.message?.includes("confirmada_por") ||
+          error.code === "42703"
+        ) {
+          console.warn(
+            "confirmada_por column may not exist, retrying without it"
+          );
+          const { error: retryError } = await supabase
+            .from("reservas")
+            .update({ confirmada: true })
+            .eq("id", reservaId);
+
+          if (retryError) throw retryError;
+        } else {
+          throw error;
+        }
+      } else {
+        console.log("SINPE confirmation successful:", data);
       }
 
       // Refresh reservation details
@@ -630,9 +647,15 @@ export default function Dashboard() {
                 {reservas.map((reserva) => {
                   const isSabana = reserva.cancha.local === 1;
                   const sinpePendiente =
-                    isSabana && reserva.sinpe_reserva === null;
-                  const sinpeSubido =
-                    isSabana && reserva.sinpe_reserva !== null;
+                    isSabana &&
+                    reserva.sinpe_reserva === null &&
+                    !reserva.confirmada;
+                  const sinpeFaltaConfirmar =
+                    isSabana &&
+                    reserva.sinpe_reserva !== null &&
+                    !reserva.confirmada;
+                  const sinpeConfirmado =
+                    isSabana && reserva.confirmada === true;
 
                   return (
                     <li
@@ -681,16 +704,22 @@ export default function Dashboard() {
                         {isSabana && (
                           <div className="mt-2">
                             {sinpePendiente ? (
-                              <span className="inline-flex items-center rounded-full bg-yellow-100 px-2 py-1 text-xs font-medium text-yellow-700">
+                              <span className="inline-flex items-center gap-1.5 rounded-lg bg-yellow-50 border border-yellow-200 px-3 py-1.5 text-xs font-semibold text-yellow-800 shadow-sm">
+                                <span className="size-1.5 rounded-full bg-yellow-500"></span>
                                 SINPE Pendiente
                               </span>
-                            ) : sinpeSubido ? (
+                            ) : sinpeFaltaConfirmar ? (
                               <button
                                 onClick={() => handleConfirmarSinpe(reserva.id)}
-                                className="inline-flex items-center rounded-md bg-primary px-2 py-1 text-xs font-medium text-white hover:bg-primary/90"
+                                className="inline-flex items-center gap-1.5 rounded-lg bg-primary px-3 py-1.5 text-xs font-semibold text-white shadow-sm hover:bg-primary/90 transition-colors"
                               >
-                                Confirmar SINPE
+                                Falta Confirmar Sinpe
                               </button>
+                            ) : sinpeConfirmado ? (
+                              <span className="inline-flex items-center gap-1.5 rounded-lg bg-primary/10 border border-primary/20 px-3 py-1.5 text-xs font-semibold text-primary shadow-sm">
+                                <span className="size-1.5 rounded-full bg-primary"></span>
+                                SINPE Confirmado
+                              </span>
                             ) : null}
                           </div>
                         )}
@@ -713,7 +742,7 @@ export default function Dashboard() {
                           className="absolute right-0 z-10 mt-2 w-36 origin-top-right rounded-md bg-white shadow-lg outline-1 outline-black/5 transition data-closed:scale-95 data-closed:transform data-closed:opacity-0 data-enter:duration-100 data-enter:ease-out data-leave:duration-75 data-leave:ease-in"
                         >
                           <div className="py-1">
-                            {sinpeSubido && (
+                            {sinpeFaltaConfirmar && (
                               <MenuItem>
                                 <button
                                   onClick={() =>
