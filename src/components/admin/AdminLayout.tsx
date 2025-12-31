@@ -8,9 +8,10 @@ import {
   MenuItems,
 } from "@headlessui/react";
 import { Bars3Icon, XMarkIcon } from "@heroicons/react/24/outline";
-import { Link, useLocation } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "../../contexts/AuthContext";
-import { FaUser } from "react-icons/fa";
+import { FaUser, FaEye, FaSignOutAlt } from "react-icons/fa";
+import { useState } from "react";
 
 const navigation = [
   { name: "Reservaciones", href: "/admin", path: "/admin" },
@@ -29,8 +30,8 @@ const navigation = [
 ];
 
 const userNavigation = [
-  { name: "Vista Clientes", href: "/" },
-  { name: "Cerrar sesión", href: "#", action: "signout" },
+  { name: "Vista Clientes", href: "/", icon: FaEye },
+  { name: "Cerrar sesión", href: "#", action: "signout", icon: FaSignOutAlt },
 ];
 
 function classNames(...classes: (string | boolean | undefined)[]) {
@@ -44,11 +45,21 @@ interface AdminLayoutProps {
 
 export default function AdminLayout({ children, title }: AdminLayoutProps) {
   const location = useLocation();
+  const navigate = useNavigate();
   const { user, signOut } = useAuth();
+  const [signingOut, setSigningOut] = useState(false);
 
   const handleNavClick = async (item: { href: string; action?: string }) => {
     if (item.action === "signout") {
-      await signOut();
+      setSigningOut(true);
+      try {
+        await signOut();
+        // Smooth redirect to login page
+        navigate("/admin/login", { replace: true });
+      } catch (error) {
+        console.error("Error signing out:", error);
+        setSigningOut(false);
+      }
     }
   };
 
@@ -107,27 +118,46 @@ export default function AdminLayout({ children, title }: AdminLayoutProps) {
 
                 <MenuItems
                   transition
-                  className="absolute right-0 z-10 mt-2 w-48 origin-top-right rounded-md bg-white py-1 shadow-lg ring-1 ring-black/5 transition data-closed:scale-95 data-closed:transform data-closed:opacity-0 data-enter:duration-200 data-enter:ease-out data-leave:duration-75 data-leave:ease-in"
+                  className="absolute right-0 z-10 mt-2 w-56 origin-top-right rounded-md bg-white py-1 shadow-lg ring-1 ring-black/5 transition data-closed:scale-95 data-closed:transform data-closed:opacity-0 data-enter:duration-200 data-enter:ease-out data-leave:duration-75 data-leave:ease-in"
                 >
-                  {userNavigation.map((item) => (
-                    <MenuItem key={item.name}>
-                      {item.action === "signout" ? (
-                        <button
-                          onClick={() => handleNavClick(item)}
-                          className="block w-full text-left px-4 py-2 text-sm text-gray-700 data-focus:bg-gray-100"
-                        >
-                          {item.name}
-                        </button>
-                      ) : (
-                        <Link
-                          to={item.href}
-                          className="block px-4 py-2 text-sm text-gray-700 data-focus:bg-gray-100"
-                        >
-                          {item.name}
-                        </Link>
-                      )}
-                    </MenuItem>
-                  ))}
+                  {/* Profile info */}
+                  <div className="px-4 py-3 border-b border-gray-200">
+                    <div className="text-sm font-medium text-gray-800">
+                      {user?.email?.split("@")[0] || "Admin"}
+                    </div>
+                    <div className="text-xs text-gray-500 truncate">
+                      {user?.email}
+                    </div>
+                  </div>
+
+                  {/* Menu items */}
+                  {userNavigation.map((item) => {
+                    const Icon = item.icon;
+                    return (
+                      <MenuItem key={item.name}>
+                        {item.action === "signout" ? (
+                          <button
+                            onClick={() => handleNavClick(item)}
+                            disabled={signingOut}
+                            className="flex items-center gap-2 w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                          >
+                            {Icon && <Icon className="size-4" />}
+                            <span>
+                              {signingOut ? "Cerrando sesión..." : item.name}
+                            </span>
+                          </button>
+                        ) : (
+                          <Link
+                            to={item.href}
+                            className="flex items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 transition-colors"
+                          >
+                            {Icon && <Icon className="size-4" />}
+                            <span>{item.name}</span>
+                          </Link>
+                        )}
+                      </MenuItem>
+                    );
+                  })}
                 </MenuItems>
               </Menu>
             </div>
@@ -138,11 +168,11 @@ export default function AdminLayout({ children, title }: AdminLayoutProps) {
                 <span className="sr-only">Open main menu</span>
                 <Bars3Icon
                   aria-hidden="true"
-                  className="block size-6 group-data-[open]:hidden"
+                  className="block size-6 group-data-open:hidden"
                 />
                 <XMarkIcon
                   aria-hidden="true"
-                  className="hidden size-6 group-data-[open]:block"
+                  className="hidden size-6 group-data-open:block"
                 />
               </DisclosureButton>
             </div>
@@ -171,6 +201,33 @@ export default function AdminLayout({ children, title }: AdminLayoutProps) {
               );
             })}
           </div>
+          <div className="-mt-3  space-y-1">
+            {userNavigation.map((item) => {
+              const Icon = item.icon;
+              return item.action === "signout" ? (
+                <DisclosureButton
+                  key={item.name}
+                  as="button"
+                  onClick={() => handleNavClick(item)}
+                  disabled={signingOut}
+                  className="flex items-center gap-2 w-full text-left px-4 py-2 text-base font-medium text-gray-600 hover:bg-gray-50 hover:text-gray-800 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                >
+                  {Icon && <Icon className="size-4" />}
+                  <span>{signingOut ? "Cerrando sesión..." : item.name}</span>
+                </DisclosureButton>
+              ) : (
+                <DisclosureButton
+                  key={item.name}
+                  as={Link}
+                  to={item.href}
+                  className="flex items-center gap-2 w-full text-left px-4 py-2 text-base font-medium text-gray-600 hover:bg-gray-50 hover:text-gray-800 transition-colors"
+                >
+                  {Icon && <Icon className="size-4" />}
+                  <span>{item.name}</span>
+                </DisclosureButton>
+              );
+            })}
+          </div>
           <div className="border-t border-gray-200 pt-4 pb-3">
             <div className="flex items-center px-4">
               <div className="shrink-0">
@@ -186,23 +243,6 @@ export default function AdminLayout({ children, title }: AdminLayoutProps) {
                   {user?.email}
                 </div>
               </div>
-            </div>
-            <div className="mt-3 space-y-1">
-              {userNavigation.map((item) => (
-                <DisclosureButton
-                  key={item.name}
-                  as={item.action === "signout" ? "button" : Link}
-                  to={item.action === "signout" ? undefined : item.href}
-                  onClick={
-                    item.action === "signout"
-                      ? () => handleNavClick(item)
-                      : undefined
-                  }
-                  className="block w-full text-left px-4 py-2 text-base font-medium text-gray-500 hover:bg-gray-100 hover:text-gray-800"
-                >
-                  {item.name}
-                </DisclosureButton>
-              ))}
             </div>
           </div>
         </DisclosurePanel>
