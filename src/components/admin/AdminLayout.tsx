@@ -15,6 +15,11 @@ import { FaUser } from "react-icons/fa";
 const navigation = [
   { name: "Reservaciones", href: "/admin", path: "/admin" },
   { name: "Reservas", href: "/admin/reservas", path: "/admin/reservas" },
+  {
+    name: "Reservaciones por hora",
+    href: "/admin/reservas-2",
+    path: "/admin/reservas-2",
+  },
   { name: "Canchas", href: "/admin/canchas", path: "/admin/canchas" },
   {
     name: "Horarios",

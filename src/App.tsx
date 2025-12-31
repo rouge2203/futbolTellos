@@ -17,6 +17,7 @@ import Login from "./pages/Login";
 import ProtectedRoute from "./components/admin/ProtectedRoute";
 import Dashboard from "./pages/admin/Dashboard";
 import Reservas from "./pages/admin/Reservas";
+import Reservas2 from "./pages/admin/Reservas2";
 import Canchas from "./pages/admin/Canchas";
 import Configuracion from "./pages/admin/Configuracion";
 
@@ -92,6 +93,14 @@ function App() {
           element={
             <ProtectedRoute>
               <Reservas />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/admin/reservas-2"
+          element={
+            <ProtectedRoute>
+              <Reservas2 />
             </ProtectedRoute>
           }
         />
