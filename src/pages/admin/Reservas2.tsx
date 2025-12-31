@@ -1,6 +1,8 @@
 import { useState, useEffect } from "react";
 import AdminLayout from "../../components/admin/AdminLayout";
 import ReservationDrawer from "../../components/admin/ReservationDrawer";
+import CreateReservationDrawer from "../../components/admin/CreateReservationDrawer";
+import SuccessNotification from "../../components/admin/SuccessNotification";
 import { supabase } from "../../lib/supabase";
 import { useAuth } from "../../contexts/AuthContext";
 import {
@@ -67,6 +69,10 @@ export default function Reservas2() {
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [drawerMode, setDrawerMode] = useState<"edit" | "cancel">("edit");
   const [selectedReserva, setSelectedReserva] = useState<Reserva | null>(null);
+
+  // Create drawer state
+  const [createDrawerOpen, setCreateDrawerOpen] = useState(false);
+  const [showSuccessNotification, setShowSuccessNotification] = useState(false);
 
   // Fetch canchas
   useEffect(() => {
@@ -359,7 +365,14 @@ export default function Reservas2() {
   };
 
   const handleCrearReservacion = () => {
-    // TODO: Implement crear reservacion
+    setCreateDrawerOpen(true);
+  };
+
+  const handleReservationCreated = async (reservaId: number) => {
+    await fetchReservas();
+    setShowSuccessNotification(true);
+    // Open drawer for the newly created reservation
+    await handleReservaClick(reservaId);
   };
 
   // Generate calendar days for side panel
@@ -850,6 +863,22 @@ export default function Reservas2() {
         onConfirmSinpe={handleConfirmSinpe}
         onRefresh={fetchReservas}
         user={user}
+      />
+
+      {/* Create Reservation Drawer */}
+      <CreateReservationDrawer
+        open={createDrawerOpen}
+        onClose={() => setCreateDrawerOpen(false)}
+        defaultCanchaId={selectedCanchaId}
+        onSuccess={handleReservationCreated}
+      />
+
+      {/* Success Notification */}
+      <SuccessNotification
+        show={showSuccessNotification}
+        onClose={() => setShowSuccessNotification(false)}
+        message="Reserva creada"
+        description="La reservación se ha creado exitosamente."
       />
     </AdminLayout>
   );
