@@ -84,7 +84,7 @@ export default function Layout({ children }: LayoutProps) {
                         aria-current={isCurrent ? "page" : undefined}
                         className={classNames(
                           isCurrent
-                            ? "bg-gray-900 text-white"
+                            ? "bg-white/5 border-white text-secondary"
                             : "text-gray-300 hover:bg-white/5 hover:text-white",
                           "rounded-md px-3 py-2 text-sm font-medium"
                         )}
@@ -125,11 +125,11 @@ export default function Layout({ children }: LayoutProps) {
                 <span className="sr-only">Open main menu</span>
                 <Bars3Icon
                   aria-hidden="true"
-                  className="block size-6 group-data-[open]:hidden"
+                  className="block size-6 group-data-open:hidden"
                 />
                 <XMarkIcon
                   aria-hidden="true"
-                  className="hidden size-6 group-data-[open]:block"
+                  className="hidden size-6 group-data-open:block"
                 />
               </DisclosureButton>
             </div>
@@ -187,6 +187,25 @@ export default function Layout({ children }: LayoutProps) {
       <main>
         <div className="mx-auto max-w-7xl ">{children}</div>
       </main>
+
+      {/* Footer */}
+      <footer className="mt-16 border-t border-white/10 bg-bg">
+        <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
+          <div className="flex flex-col items-center justify-center gap-2">
+            <p className="text-sm text-white/60">
+              Built by{" "}
+              <a
+                href="https://lobsterlabs.net"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-white hover:text-white/80 font-bold text-lg transition-colors"
+              >
+                Lobster Labs
+              </a>
+            </p>
+          </div>
+        </div>
+      </footer>
     </div>
   );
 }
