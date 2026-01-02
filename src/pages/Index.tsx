@@ -269,18 +269,20 @@ function Index() {
               {sabanaCanchas.length > 0 &&
                 (filter === null || filter === 1) && (
                   <section className="mb-16">
-                    <div className="flex items-center gap-3 mb-8">
-                      <TiLocationArrow className="text-3xl text-primary" />
-                      <h2 className="text-3xl font-bold text-white">Sabana</h2>
+                    <div className="flex items-center gap-1 mb-8">
+                      <TiLocationArrow className="text-3xl text-secondary" />
+                      <h2 className="text-3xl font-bold text-white tracking-tight">
+                        Sabana
+                      </h2>
                     </div>
                     <div className="grid grid-cols-1 gap-x-6 gap-y-10 sm:grid-cols-2 lg:grid-cols-2 xl:grid-cols-3 xl:gap-x-8">
                       {sabanaCanchas.map((cancha) => (
                         <div
                           key={cancha.id}
-                          className="group relative bg-white rounded-4xl shadow-lg hover:shadow-xl transition-all duration-300"
+                          className="group relative bg-white rounded-4xl shadow-lg shadow-gray-500/75 hover:shadow-gray-500/50 transition-all duration-300"
                         >
                           <div className="p-4">
-                            <div className="aspect-square w-full overflow-hidden bg-gray-100 rounded-xl relative">
+                            <div className="aspect-square w-full overflow-hidden bg-gray-100 rounded-4xl relative">
                               {cancha.img ? (
                                 <>
                                   <img
@@ -291,18 +293,18 @@ function Index() {
                                   {/* Badges inside image */}
                                   <div className="absolute top-3 left-3 flex flex-col gap-2">
                                     {/* Location badge */}
-                                    <div className="bg-white/90 backdrop-blur-sm rounded-full px-3 py-1.5 flex items-center gap-1.5 shadow-md">
-                                      <MdLocationOn className="h-4 w-4 text-secondary" />
+                                    <div className="bg-white/90 backdrop-blur-sm rounded-full px-3 py-1.5 flex items-center gap-1 shadow-md">
+                                      <MdLocationOn className="h-4 w-4 text-primary" />
                                       <span className="text-xs font-semibold text-gray-900">
                                         {getLocalName(cancha.local)}
                                       </span>
                                     </div>
                                     {/* Price badge */}
                                     {cancha.precio && (
-                                      <div className="bg-white/90 backdrop-blur-sm rounded-full px-3 py-1.5 flex items-center gap-1.5 shadow-md">
-                                        <LiaMoneyBillWaveSolid className="h-4 w-4 text-secondary" />
+                                      <div className="bg-white/90 backdrop-blur-sm rounded-full px-3 py-1.5 flex items-center gap-1 shadow-md">
+                                        <LiaMoneyBillWaveSolid className="h-4 w-4 text-primary" />
                                         <span className="text-xs font-semibold text-gray-900">
-                                          ₡{formatPrecio(cancha.precio)}
+                                          ₡ {formatPrecio(cancha.precio)}
                                         </span>
                                       </div>
                                     )}
@@ -319,10 +321,10 @@ function Index() {
                             <h3 className="text-xl font-bold text-gray-900 mb-1">
                               {cancha.nombre}
                             </h3>
-                            <p className="text-sm text-gray-500 mb-2">
-                              {getLocalName(cancha.local)}
+                            <p className="text-sm text-gray-500 tracking-tight ">
+                              Futbol Tello {getLocalName(cancha.local)}
                             </p>
-                            <p className="text-sm text-gray-600 mb-4 line-clamp-2">
+                            <p className="text-sm text-gray-600 line-clamp-2 mb-4">
                               {cancha.id === 6
                                 ? "Cancha de fútbol 7-8-9 vs 7-8-9"
                                 : `Cancha de fútbol ${cancha.cantidad} vs ${cancha.cantidad}`}
@@ -331,13 +333,13 @@ function Index() {
                               {cancha.precio && (
                                 <div className="bg-gray-100 rounded-full px-4 py-1.5">
                                   <span className="text-sm font-semibold text-gray-900">
-                                    ₡{formatPrecio(cancha.precio)}
+                                    ₡ {formatPrecio(cancha.precio)}
                                   </span>
                                 </div>
                               )}
                               <button
                                 onClick={() => handleReservar(cancha.id)}
-                                className="bg-gray-900 hover:bg-gray-800 rounded-full px-5 py-2 text-sm font-medium text-white transition-colors flex items-center gap-2"
+                                className="bg-gray-900 hover:cursor-pointer hover:bg-gray-800 rounded-full px-5 py-2 text-sm font-medium text-white transition-colors flex items-center gap-2"
                               >
                                 <span>Reservar</span>
                                 <FaRegCalendarCheck className="h-4 w-4 text-secondary" />
@@ -354,9 +356,9 @@ function Index() {
               {guadalupeCanchas.length > 0 &&
                 (filter === null || filter === 2) && (
                   <section>
-                    <div className="flex items-center gap-3 mb-8">
-                      <TiLocationArrow className="text-3xl text-primary" />
-                      <h2 className="text-3xl font-bold text-white">
+                    <div className="flex items-center gap-1 mb-8">
+                      <TiLocationArrow className="text-3xl text-secondary" />
+                      <h2 className="text-3xl font-bold text-white tracking-tight">
                         Guadalupe
                       </h2>
                     </div>
@@ -364,21 +366,21 @@ function Index() {
                       {guadalupeCanchas.map((cancha) => (
                         <div
                           key={cancha.id}
-                          className="group relative bg-white rounded-4xl shadow-lg hover:shadow-xl transition-all duration-300"
+                          className="group relative bg-white rounded-4xl shadow-lg shadow-gray-500/75 hover:shadow-gray-500/50 transition-all duration-300"
                         >
                           <div className="p-4">
-                            <div className="aspect-square w-full overflow-hidden bg-gray-100 rounded-xl relative">
+                            <div className="aspect-square w-full overflow-hidden bg-gray-100 rounded-4xl relative">
                               {cancha.img ? (
                                 <>
                                   <img
                                     src={cancha.img}
                                     alt={cancha.nombre}
-                                    className="h-full w-full object-cover object-center rounded-xl group-hover:scale-105 transition-transform duration-500"
+                                    className="h-full w-full object-cover object-center rounded-xl  group-hover:scale-105 transition-transform duration-500"
                                   />
                                   {/* Badges inside image */}
                                   <div className="absolute top-3 left-3 flex flex-col gap-2">
                                     {/* Location badge */}
-                                    <div className="bg-white/90 backdrop-blur-sm rounded-full px-3 py-1.5 flex items-center gap-1.5 shadow-md">
+                                    <div className="bg-white/90 backdrop-blur-sm rounded-full px-3 py-1.5 flex items-center gap-1 shadow-md">
                                       <MdLocationOn className="h-4 w-4 text-primary" />
                                       <span className="text-xs font-semibold text-gray-900">
                                         {getLocalName(cancha.local)}
@@ -386,10 +388,10 @@ function Index() {
                                     </div>
                                     {/* Price badge */}
                                     {cancha.precio && (
-                                      <div className="bg-white/90 backdrop-blur-sm rounded-full px-3 py-1.5 flex items-center gap-1.5 shadow-md">
-                                        <LiaMoneyBillWaveSolid className="h-4 w-4 text-secondary" />
+                                      <div className="bg-white/90 backdrop-blur-sm rounded-full px-3 py-1.5 flex items-center gap-1 shadow-md">
+                                        <LiaMoneyBillWaveSolid className="h-4 w-4 text-primary" />
                                         <span className="text-xs font-semibold text-gray-900">
-                                          ₡{formatPrecio(cancha.precio)}
+                                          ₡ {formatPrecio(cancha.precio)}
                                         </span>
                                       </div>
                                     )}
@@ -402,14 +404,14 @@ function Index() {
                               )}
                             </div>
                           </div>
-                          <div className="px-5 pb-5 flex flex-col">
-                            <h3 className="text-xl font-bold text-gray-900 mb-1">
+                          <div className="px-5 pb-5 flex flex-col gap-0">
+                            <h3 className="text-xl font-bold tracking-tight text-gray-900 mb-1">
                               {cancha.nombre}
                             </h3>
-                            <p className="text-sm text-gray-500 mb-2">
+                            <p className="text-sm text-gray-500 tracking-tight">
                               {getLocalName(cancha.local)}
                             </p>
-                            <p className="text-sm text-gray-600 mb-4 line-clamp-2">
+                            <p className="text-sm text-gray-600 tracking-tight line-clamp-2 mb-4">
                               {cancha.id === 6
                                 ? "Cancha de fútbol 7-8-9 vs 7-8-9"
                                 : `Cancha de fútbol ${cancha.cantidad} vs ${cancha.cantidad}`}
@@ -418,13 +420,13 @@ function Index() {
                               {cancha.precio && (
                                 <div className="bg-gray-100 rounded-full px-4 py-1.5">
                                   <span className="text-sm font-semibold text-gray-900">
-                                    ₡{formatPrecio(cancha.precio)}
+                                    ₡ {formatPrecio(cancha.precio)}
                                   </span>
                                 </div>
                               )}
                               <button
                                 onClick={() => handleReservar(cancha.id)}
-                                className="bg-gray-900 hover:bg-gray-800 rounded-full px-5 py-2 text-sm font-medium text-white transition-colors flex items-center gap-2"
+                                className="bg-gray-900 hover:cursor-pointer hover:bg-gray-800 rounded-full px-5 py-2 text-sm font-medium text-white transition-colors flex items-center gap-2"
                               >
                                 <span>Reservar</span>
                                 <FaRegCalendarCheck className="h-4 w-4 text-secondary" />
