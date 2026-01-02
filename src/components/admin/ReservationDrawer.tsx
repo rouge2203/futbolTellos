@@ -93,7 +93,6 @@ export default function ReservationDrawer({
   onDelete,
   onConfirmSinpe,
   onRefresh,
-  user,
 }: ReservationDrawerProps) {
   const [configuracion, setConfiguracion] = useState<Configuracion | null>(
     null

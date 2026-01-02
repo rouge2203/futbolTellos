@@ -9,15 +9,10 @@ import {
   DialogBackdrop,
 } from "@headlessui/react";
 import { XMarkIcon } from "@heroicons/react/24/outline";
-import {
-  PencilSquareIcon,
-  ChevronDownIcon,
-  LinkIcon,
-} from "@heroicons/react/20/solid";
+import { PencilSquareIcon, ChevronDownIcon } from "@heroicons/react/20/solid";
 import { FaRegCalendarCheck, FaRegClock } from "react-icons/fa";
 import { TbPlayFootball, TbRun } from "react-icons/tb";
 import { GiWhistle } from "react-icons/gi";
-import { MdLocationOn } from "react-icons/md";
 
 interface Cancha {
   id: number;
@@ -91,7 +86,6 @@ export default function RetoDrawer({
   onReservaCreated,
   onRefresh,
   onDelete,
-  user,
 }: RetoDrawerProps) {
   const navigate = useNavigate();
   const [configuracion, setConfiguracion] = useState<Configuracion | null>(
@@ -108,7 +102,6 @@ export default function RetoDrawer({
   const [equipo2Nombre, setEquipo2Nombre] = useState<string>("");
   const [equipo2Encargado, setEquipo2Encargado] = useState<string>("");
   const [equipo2Celular, setEquipo2Celular] = useState<string>("");
-  const [equipo2Correo, setEquipo2Correo] = useState<string>("");
 
   const [availableHours, setAvailableHours] = useState<number[]>([]);
   const [reservedHours, setReservedHours] = useState<number[]>([]);
@@ -470,37 +463,37 @@ export default function RetoDrawer({
         }
 
         // Send email to equipo2 if they have email
-        if (equipo2Correo && equipo2Correo.trim()) {
-          try {
-            const emailPayload2 = {
-              reserva_id: reservaData.id,
-              hora_inicio: horaInicioStr,
-              hora_fin: horaFinStr,
-              cancha_id: editCanchaId!,
-              cancha_nombre: currentCancha?.nombre || "",
-              cancha_local: currentCancha?.local || 0,
-              nombre_reserva:
-                equipo2Nombre.trim() || equipo2Encargado.trim() || "Reto",
-              celular_reserva: equipo2Celular.trim(),
-              correo_reserva: equipo2Correo.trim(),
-              precio: totalPrice,
-              arbitro: editArbitro,
-              jugadores: jugadores,
-              reserva_url: reservaUrl,
-            };
+        // if (equipo2Correo && equipo2Correo.trim()) {
+        //   try {
+        //     const emailPayload2 = {
+        //       reserva_id: reservaData.id,
+        //       hora_inicio: horaInicioStr,
+        //       hora_fin: horaFinStr,
+        //       cancha_id: editCanchaId!,
+        //       cancha_nombre: currentCancha?.nombre || "",
+        //       cancha_local: currentCancha?.local || 0,
+        //       nombre_reserva:
+        //         equipo2Nombre.trim() || equipo2Encargado.trim() || "Reto",
+        //       celular_reserva: equipo2Celular.trim(),
+        //       correo_reserva: equipo2Correo.trim(),
+        //       precio: totalPrice,
+        //       arbitro: editArbitro,
+        //       jugadores: jugadores,
+        //       reserva_url: reservaUrl,
+        //     };
 
-            await fetch(`${djangoApiUrl}/tellos/confirm-reservation`, {
-              method: "POST",
-              headers: {
-                "Content-Type": "application/json",
-              },
-              body: JSON.stringify(emailPayload2),
-            });
-          } catch (emailError) {
-            console.error("Error sending email to equipo2:", emailError);
-            // Don't fail the reservation creation if email fails
-          }
-        }
+        //     await fetch(`${djangoApiUrl}/tellos/confirm-reservation`, {
+        //       method: "POST",
+        //       headers: {
+        //         "Content-Type": "application/json",
+        //       },
+        //       body: JSON.stringify(emailPayload2),
+        //     });
+        //   } catch (emailError) {
+        //     console.error("Error sending email to equipo2:", emailError);
+        //     // Don't fail the reservation creation if email fails
+        //   }
+        // }
       }
 
       setShowCreateConfirm(false);
@@ -583,8 +576,6 @@ export default function RetoDrawer({
       : null);
 
   if (!currentCancha) return null;
-
-  const isSabana = currentCancha.local === 1;
 
   return (
     <>

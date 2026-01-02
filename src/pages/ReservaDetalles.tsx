@@ -249,15 +249,6 @@ function ReservaDetalles() {
     return parseInt(cancha.cantidad?.toString() || "0", 10);
   };
 
-  // Calculate price per person
-  const getPricePerPerson = (): number => {
-    const playerCount = getPlayerCount();
-    if (playerCount > 0) {
-      return Math.ceil(precio / (playerCount * 2));
-    }
-    return 0;
-  };
-
   // Calculate 50% for SINPE
   const sinpeAmount = Math.ceil(precio / 2);
 
