@@ -17,6 +17,7 @@ const navigation = [
     path: "/",
     filter: "guadalupe",
   },
+  { name: "Retos 🔥", href: "/retos", path: "/retos" },
   { name: "Reservaciones", href: "/reservas-hoy", path: "/reservas-hoy" },
 ];
 

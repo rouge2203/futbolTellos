@@ -192,17 +192,6 @@ export default function Canchas() {
         message="Cancha actualizada"
         description="La cancha se ha actualizado exitosamente."
       />
-
-      {/* Placeholder for future functionality */}
-      <div className="mt-6  bg-white rounded-lg shadow p-6">
-        <h3 className="text-lg font-medium text-gray-900 mb-2">
-          Gestión de Canchas
-        </h3>
-        <p className="text-gray-600 text-sm">
-          Próximamente podrás agregar, editar y eliminar canchas desde esta
-          sección.
-        </p>
-      </div>
     </AdminLayout>
   );
 }

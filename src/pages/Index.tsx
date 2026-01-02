@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { supabase } from "../lib/supabase";
 import ImageSlideshow from "../components/ImageSlideshow";
+import { Transition } from "@headlessui/react";
 import { TiLocationArrowOutline } from "react-icons/ti";
 import { TiLocationArrow } from "react-icons/ti";
 import { TbSoccerField } from "react-icons/tb";
@@ -9,7 +10,11 @@ import { MdLocationOn } from "react-icons/md";
 import { TbPlayFootball, TbRun } from "react-icons/tb";
 import { LiaMoneyBillWaveSolid } from "react-icons/lia";
 import { FaRegCalendarCheck } from "react-icons/fa";
-import { ChevronLeftIcon, ChevronRightIcon } from "@heroicons/react/24/outline";
+import {
+  ChevronLeftIcon,
+  ChevronRightIcon,
+  XMarkIcon,
+} from "@heroicons/react/24/outline";
 
 interface Cancha {
   id: number;
@@ -50,6 +55,7 @@ function Index() {
   const [canchas, setCanchas] = useState<Cancha[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [showRetoNotification, setShowRetoNotification] = useState(true);
 
   // Read filter from URL params: sabana → 1, guadalupe → 2, no param → null
   const getFilterFromParams = (): number | null => {
@@ -237,6 +243,15 @@ function Index() {
             <span className="truncate">GUADALUPE</span>
           </button>
         </div>
+
+        {/* Mobile: Busca un reto button - full width below filters */}
+        <button
+          onClick={() => navigate("/retos")}
+          className="sm:hidden px-3 py-3 rounded-md tracking-tight text-white text-base font-bold transition-colors flex items-center justify-center gap-0.5 w-full border-red-600/50 border border-dashed bg-transparent hover:bg-red-600/20"
+        >
+          <span className="truncate">ENCUENTRA UN RETO</span>
+          <span className="text-base">🔥</span>
+        </button>
 
         {/* Mobile: Todas button below */}
         {/* <button
@@ -526,6 +541,60 @@ function Index() {
           No canchas found for the selected filter.
         </div>
       )}
+
+      {/* Desktop: Encuentra un reto notification popup */}
+      <div className="hidden lg:block">
+        <div
+          aria-live="assertive"
+          className="pointer-events-none fixed inset-0 flex items-end justify-end px-4 py-6 z-50"
+        >
+          <div className="flex w-full flex-col items-end space-y-4">
+            <Transition
+              show={showRetoNotification}
+              enter="transform transition ease-out duration-300"
+              enterFrom="translate-x-full opacity-0"
+              enterTo="translate-x-0 opacity-100"
+              leave="transform transition ease-in duration-200"
+              leaveFrom="translate-x-0 opacity-100"
+              leaveTo="translate-x-full opacity-0"
+            >
+              <div
+                className="pointer-events-auto w-full max-w-sm rounded-lg bg-bg border border-red-600/50 shadow-lg shadow-red-600/20 outline-1 outline-white/10 cursor-pointer"
+                onClick={() => navigate("/retos")}
+              >
+                <div className="p-4">
+                  <div className="flex items-start">
+                    <div className="shrink-0">
+                      <span className="text-2xl">🔥</span>
+                    </div>
+                    <div className="ml-3 w-0 flex-1 pt-0.5">
+                      <p className="text-sm font-bold text-white">
+                        Encuentra un reto
+                      </p>
+                      <p className="mt-1 text-sm text-white/70">
+                        Busca oponentes o crea tu propio reto
+                      </p>
+                    </div>
+                    <div className="ml-4 flex shrink-0">
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setShowRetoNotification(false);
+                        }}
+                        className="inline-flex rounded-md text-white/60 hover:text-white focus:outline-2 focus:outline-offset-2 focus:outline-primary"
+                      >
+                        <span className="sr-only">Close</span>
+                        <XMarkIcon aria-hidden="true" className="size-5" />
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </Transition>
+          </div>
+        </div>
+      </div>
     </div>
   );
 }
