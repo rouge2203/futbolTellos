@@ -1,5 +1,16 @@
 @import "tailwindcss";
 
+@font-face {
+  font-family: "Varien";
+  src: url("/Varien.woff2") format("woff2"),
+       url("/Varien.woff") format("woff"),
+       url("/Varien.ttf") format("truetype"),
+       url("/Varien.otf") format("opentype");
+  font-weight: normal;
+  font-style: normal;
+  font-display: swap;
+}
+
 @theme {
   --font-sans: InterVariable, sans-serif;
   --font-sans--font-feature-settings: "cv02", "cv03", "cv04", "cv11";
