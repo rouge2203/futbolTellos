@@ -113,9 +113,9 @@ export default function EditCanchaDrawer({
           <div className="pointer-events-none fixed inset-y-0 right-0 flex max-w-full pl-10 sm:pl-16">
             <DialogPanel
               transition
-              className="pointer-events-auto w-screen max-w-md transform transition duration-500 ease-in-out data-closed:translate-x-full sm:duration-700"
+              className="pointer-events-auto w-screen max-w-2xl transform transition duration-500 ease-in-out data-closed:translate-x-full sm:duration-700"
             >
-              <div className="relative flex h-full flex-col divide-y divide-white/10 bg-bg shadow-xl">
+              <div className="relative flex h-full flex-col divide-y divide-gray-200 bg-white shadow-xl">
                 <div className="h-0 flex-1 overflow-y-auto">
                   <div className="bg-primary px-4 py-6 sm:px-6">
                     <div className="flex items-center justify-between">
@@ -142,29 +142,29 @@ export default function EditCanchaDrawer({
                   </div>
 
                   <div className="flex flex-1 flex-col justify-between">
-                    <div className="divide-y divide-white/10 px-4 sm:px-6">
+                    <div className="divide-y divide-gray-200 px-4 sm:px-6">
                       <div className="space-y-6 pt-6 pb-5">
                         {/* Cancha Image */}
                         <div>
-                          <label className="block text-sm/6 font-medium text-white mb-2">
+                          <label className="block text-sm/6 font-medium text-gray-900 mb-2">
                             Imagen
                           </label>
                           <div className="mt-2">
                             <img
                               src={cancha.img}
                               alt={cancha.nombre}
-                              className="w-full h-48 object-cover rounded-lg border border-white/10"
+                              className="w-full h-48 object-cover rounded-lg border border-gray-200"
                             />
                           </div>
                         </div>
 
                         {/* Cancha Nombre */}
                         <div>
-                          <label className="block text-sm/6 font-medium text-white mb-2">
+                          <label className="block text-sm/6 font-medium text-gray-900 mb-2">
                             Nombre
                           </label>
                           <div className="mt-2">
-                            <div className="block w-full rounded-md bg-white/5 px-3 py-1.5 text-base text-white/60 sm:text-sm/6">
+                            <div className="block w-full rounded-md bg-gray-50 border border-gray-300 px-3 py-1.5 text-base text-gray-600 sm:text-sm/6">
                               {cancha.nombre}
                             </div>
                           </div>
@@ -172,11 +172,11 @@ export default function EditCanchaDrawer({
 
                         {/* Cantidad */}
                         <div>
-                          <label className="block text-sm/6 font-medium text-white mb-2">
+                          <label className="block text-sm/6 font-medium text-gray-900 mb-2">
                             Cantidad
                           </label>
                           <div className="mt-2">
-                            <div className="block w-full rounded-md bg-white/5 px-3 py-1.5 text-base text-white/60 sm:text-sm/6">
+                            <div className="block w-full rounded-md bg-gray-50 border border-gray-300 px-3 py-1.5 text-base text-gray-600 sm:text-sm/6">
                               FUT {cancha.cantidad}
                             </div>
                           </div>
@@ -184,7 +184,7 @@ export default function EditCanchaDrawer({
 
                         {/* Precio */}
                         <div>
-                          <label className="block text-sm/6 font-medium text-white mb-2">
+                          <label className="block text-sm/6 font-medium text-gray-900 mb-2">
                             Precio
                           </label>
                           <div className="mt-2 space-y-2">
@@ -193,14 +193,15 @@ export default function EditCanchaDrawer({
                               value={precio}
                               onChange={(e) => setPrecio(e.target.value)}
                               disabled={isCancha6}
-                              className="block w-full rounded-md bg-white/5 px-3 py-1.5 text-base text-white outline-1 -outline-offset-1 outline-white/10 placeholder:text-gray-400 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-primary disabled:bg-white/5 disabled:text-gray-500 disabled:cursor-not-allowed sm:text-sm/6"
+                              className="block w-full rounded-md bg-white border border-gray-300 px-3 py-1.5 text-base text-gray-900 outline-1 -outline-offset-1 outline-gray-300 placeholder:text-gray-400 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-primary disabled:bg-gray-50 disabled:text-gray-500 disabled:cursor-not-allowed sm:text-sm/6"
                               placeholder="23.000"
                             />
                             {isCancha6 && (
-                              <div className="flex items-start gap-2 bg-yellow-500/10 border border-yellow-500/30 rounded-lg p-3">
-                                <InformationCircleIcon className="size-5 text-yellow-500 shrink-0 mt-0.5" />
-                                <p className="text-sm text-yellow-200">
-                                  Contacta a Lobster para actualizar esta cancha.
+                              <div className="flex items-start gap-2 bg-yellow-50 border border-yellow-200 rounded-lg p-3">
+                                <InformationCircleIcon className="size-5 text-yellow-600 shrink-0 mt-0.5" />
+                                <p className="text-sm text-gray-900">
+                                  Contacta a Lobster para actualizar esta
+                                  cancha.
                                 </p>
                               </div>
                             )}
@@ -209,18 +210,18 @@ export default function EditCanchaDrawer({
 
                         {/* Reservation Statistics */}
                         <div>
-                          <label className="block text-sm/6 font-medium text-white mb-2 flex items-center gap-2">
-                            <FaRegCalendarCheck className="text-secondary" />
+                          <label className="block text-sm/6 font-medium text-gray-900 mb-2 flex items-center gap-2">
+                            <FaRegCalendarCheck className="text-primary" />
                             Reservaciones (últimos 7 días)
                           </label>
                           <div className="mt-2">
                             {loading ? (
-                              <div className="flex items-center gap-2 text-white/60">
+                              <div className="flex items-center gap-2 text-gray-600">
                                 <div className="animate-spin rounded-full h-4 w-4 border-t-2 border-b-2 border-primary"></div>
                                 <span className="text-sm">Cargando...</span>
                               </div>
                             ) : (
-                              <div className="block w-full rounded-md bg-white/5 px-3 py-1.5 text-base text-white sm:text-sm/6">
+                              <div className="block w-full rounded-md bg-gray-50 border border-gray-300 px-3 py-1.5 text-base text-gray-900 sm:text-sm/6">
                                 {reservationCount !== null
                                   ? `${reservationCount} reservación${
                                       reservationCount !== 1 ? "es" : ""
@@ -240,7 +241,7 @@ export default function EditCanchaDrawer({
                   <button
                     type="button"
                     onClick={onClose}
-                    className="rounded-md bg-white/5 px-3 py-2 text-sm font-semibold text-white shadow-xs inset-ring inset-ring-white/10 hover:bg-white/10"
+                    className="rounded-md bg-white px-3 py-2 text-sm font-semibold text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 hover:bg-gray-50"
                   >
                     Cerrar
                   </button>
@@ -263,4 +264,3 @@ export default function EditCanchaDrawer({
     </Dialog>
   );
 }
-

@@ -590,9 +590,9 @@ export default function RetoDrawer({
             <div className="pointer-events-none fixed inset-y-0 right-0 flex max-w-full pl-10 sm:pl-16">
               <DialogPanel
                 transition
-                className="pointer-events-auto w-screen max-w-md transform transition duration-500 ease-in-out data-closed:translate-x-full sm:duration-700"
+                className="pointer-events-auto w-screen max-w-2xl transform transition duration-500 ease-in-out data-closed:translate-x-full sm:duration-700"
               >
-                <div className="relative flex h-full flex-col divide-y divide-white/10 bg-bg shadow-xl">
+                <div className="relative flex h-full flex-col divide-y divide-gray-200 bg-white shadow-xl">
                   <div className="h-0 flex-1 overflow-y-auto">
                     <div className="bg-primary px-4 py-6 sm:px-6">
                       <div className="flex items-center justify-between">
@@ -620,7 +620,7 @@ export default function RetoDrawer({
                       </div>
                     </div>
                     <div className="flex flex-1 flex-col justify-between">
-                      <div className="divide-y divide-white/10 px-4 sm:px-6">
+                      <div className="divide-y divide-gray-200 px-4 sm:px-6">
                         <div className="space-y-6 pt-6 pb-5">
                           {/* Cancha Info */}
                           <div className="flex items-center gap-4">
@@ -632,10 +632,10 @@ export default function RetoDrawer({
                               />
                             )}
                             <div className="flex-1">
-                              <h3 className="text-base font-semibold text-white">
+                              <h3 className="text-base font-semibold text-gray-900">
                                 {currentCancha.nombre}
                               </h3>
-                              <p className="text-sm text-white/60">
+                              <p className="text-sm text-gray-500">
                                 {getLocalName(currentCancha.local)}
                               </p>
                             </div>
@@ -645,7 +645,7 @@ export default function RetoDrawer({
                                 onClick={() =>
                                   setShowCanchaSelector(!showCanchaSelector)
                                 }
-                                className="relative inline-flex shrink-0 items-center justify-center rounded-md border border-white/10 bg-white/5 px-3 py-1.5 text-sm font-medium text-white hover:bg-white/10 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+                                className="relative inline-flex shrink-0 items-center justify-center rounded-md border border-gray-300 bg-white px-3 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
                               >
                                 <PencilSquareIcon
                                   aria-hidden="true"
@@ -657,8 +657,8 @@ export default function RetoDrawer({
 
                           {/* Cancha Selector */}
                           {showCanchaSelector && mode === "assign" && (
-                            <div className="space-y-4 rounded-lg bg-white/5 p-4 border border-white/10">
-                              <label className="block text-sm/6 font-medium text-white">
+                            <div className="space-y-4 rounded-lg bg-gray-50 p-4 border border-gray-200">
+                              <label className="block text-sm/6 font-medium text-gray-900">
                                 Seleccionar Cancha
                               </label>
                               <div className="mt-2 grid grid-cols-1">
@@ -667,13 +667,13 @@ export default function RetoDrawer({
                                   onChange={(e) =>
                                     handleCanchaSelect(Number(e.target.value))
                                   }
-                                  className="col-start-1 row-start-1 w-full appearance-none rounded-md bg-white/5 py-1.5 pr-8 pl-3 text-base text-white outline-1 -outline-offset-1 outline-white/10 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-primary sm:text-sm/6"
+                                  className="col-start-1 row-start-1 w-full appearance-none rounded-md bg-white border border-gray-300 py-1.5 pr-8 pl-3 text-base text-gray-900 outline-1 -outline-offset-1 outline-gray-300 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-primary sm:text-sm/6"
                                 >
                                   {canchas.map((cancha) => (
                                     <option
                                       key={cancha.id}
                                       value={cancha.id}
-                                      className="bg-bg text-white"
+                                      className="bg-white text-gray-900"
                                     >
                                       {cancha.nombre} -{" "}
                                       {getLocalName(cancha.local)}
@@ -682,7 +682,7 @@ export default function RetoDrawer({
                                 </select>
                                 <ChevronDownIcon
                                   aria-hidden="true"
-                                  className="pointer-events-none col-start-1 row-start-1 mr-2 size-5 self-center justify-self-end text-white/50 sm:size-4"
+                                  className="pointer-events-none col-start-1 row-start-1 mr-2 size-5 self-center justify-self-end text-gray-400 sm:size-4"
                                 />
                               </div>
                             </div>
@@ -692,7 +692,7 @@ export default function RetoDrawer({
                           <div>
                             <label
                               htmlFor="reto-date"
-                              className="block text-sm/6 font-medium text-white"
+                              className="block text-sm/6 font-medium text-gray-900"
                             >
                               Fecha
                             </label>
@@ -710,14 +710,14 @@ export default function RetoDrawer({
                                         : ""
                                     }
                                     readOnly
-                                    className="flex-1 block w-full rounded-md bg-white/5 px-3 py-1.5 text-base text-white outline-1 -outline-offset-1 outline-white/10 placeholder:text-gray-400 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-primary sm:text-sm/6"
+                                    className="flex-1 block w-full rounded-md bg-white border border-gray-300 px-3 py-1.5 text-base text-gray-900 outline-1 -outline-offset-1 outline-gray-300 placeholder:text-gray-400 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-primary sm:text-sm/6"
                                   />
                                   <button
                                     type="button"
                                     onClick={() =>
                                       setShowDateSelector(!showDateSelector)
                                     }
-                                    className="relative inline-flex shrink-0 items-center justify-center rounded-md border border-white/10 bg-white/5 px-3 py-1.5 text-sm font-medium text-white hover:bg-white/10 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+                                    className="relative inline-flex shrink-0 items-center justify-center rounded-md border border-gray-300 bg-white px-3 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
                                   >
                                     <PencilSquareIcon
                                       aria-hidden="true"
@@ -726,7 +726,7 @@ export default function RetoDrawer({
                                   </button>
                                 </>
                               ) : (
-                                <div className="block w-full rounded-md bg-white/5 px-3 py-1.5 text-base text-white sm:text-sm/6">
+                                <div className="block w-full rounded-md bg-gray-50 border border-gray-300 px-3 py-1.5 text-base text-gray-900 sm:text-sm/6">
                                   {editDate
                                     ? `${editDate.getDate()} de ${
                                         MONTHS_SPANISH[editDate.getMonth()]
@@ -739,9 +739,9 @@ export default function RetoDrawer({
 
                           {/* Date Selector */}
                           {showDateSelector && mode === "assign" && (
-                            <div className="space-y-4 rounded-lg bg-white/5 p-4 border border-white/10">
-                              <h3 className="text-sm font-medium text-white flex items-center gap-2">
-                                <FaRegCalendarCheck className="text-secondary" />
+                            <div className="space-y-4 rounded-lg bg-gray-50 p-4 border border-gray-200">
+                              <h3 className="text-sm font-medium text-gray-900 flex items-center gap-2">
+                                <FaRegCalendarCheck className="text-primary" />
                                 Seleccione una fecha
                               </h3>
                               <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-hide">
@@ -759,7 +759,7 @@ export default function RetoDrawer({
                                       className={`shrink-0 w-16 py-3 rounded-xl border transition-all flex flex-col items-center ${
                                         isSelected
                                           ? "bg-primary border-primary text-white"
-                                          : "bg-transparent border-primary border-dashed text-white hover:bg-primary/20"
+                                          : "bg-white border-primary border-dashed text-gray-900 hover:bg-primary/10"
                                       }`}
                                     >
                                       <span className="text-4xl tracking-tighter font-semibold">
@@ -779,7 +779,7 @@ export default function RetoDrawer({
 
                           {/* Hour Selection */}
                           <div>
-                            <label className="block text-sm/6 font-medium text-white">
+                            <label className="block text-sm/6 font-medium text-gray-900">
                               Hora
                             </label>
                             <div className="mt-2">
@@ -797,14 +797,14 @@ export default function RetoDrawer({
                                           : ""
                                       }
                                       readOnly
-                                      className="flex-1 block w-full rounded-md bg-white/5 px-3 py-1.5 text-base text-white outline-1 -outline-offset-1 outline-white/10 placeholder:text-gray-400 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-primary sm:text-sm/6"
+                                      className="flex-1 block w-full rounded-md bg-white border border-gray-300 px-3 py-1.5 text-base text-gray-900 outline-1 -outline-offset-1 outline-gray-300 placeholder:text-gray-400 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-primary sm:text-sm/6"
                                     />
                                     <button
                                       type="button"
                                       onClick={() =>
                                         setShowHourSelector(!showHourSelector)
                                       }
-                                      className="relative inline-flex shrink-0 items-center justify-center rounded-md border border-white/10 bg-white/5 px-3 py-1.5 text-sm font-medium text-white hover:bg-white/10 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+                                      className="relative inline-flex shrink-0 items-center justify-center rounded-md border border-gray-300 bg-white px-3 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
                                     >
                                       <PencilSquareIcon
                                         aria-hidden="true"
@@ -813,9 +813,9 @@ export default function RetoDrawer({
                                     </button>
                                   </div>
                                   {showHourSelector && (
-                                    <div className="space-y-3 rounded-lg bg-white/5 p-4 border border-white/10">
-                                      <h3 className="text-sm font-medium text-white flex gap-2 items-center">
-                                        <FaRegClock className="text-secondary" />
+                                    <div className="space-y-3 rounded-lg bg-gray-50 p-4 border border-gray-200">
+                                      <h3 className="text-sm font-medium text-gray-900 flex gap-2 items-center">
+                                        <FaRegClock className="text-primary" />
                                         Seleccione una hora
                                       </h3>
                                       <div className="grid grid-cols-4 gap-2">
@@ -836,10 +836,10 @@ export default function RetoDrawer({
                                               disabled={isReserved}
                                               className={`py-3 text-base tracking-tight rounded-lg border transition-all font-medium ${
                                                 isReserved
-                                                  ? "bg-gray-800 border-gray-600 text-gray-500 cursor-not-allowed line-through"
+                                                  ? "bg-gray-100 border-gray-300 text-gray-400 cursor-not-allowed line-through"
                                                   : isSelected
                                                   ? "bg-primary border-primary text-white"
-                                                  : "bg-transparent border-primary border-dashed text-white hover:bg-primary/20"
+                                                  : "bg-white border-primary border-dashed text-gray-900 hover:bg-primary/10"
                                               }`}
                                             >
                                               {hour}:00
@@ -850,7 +850,7 @@ export default function RetoDrawer({
                                       {availableHours.every((h) =>
                                         reservedHours.includes(h)
                                       ) && (
-                                        <p className="text-white/60 text-sm text-center mt-4">
+                                        <p className="text-gray-500 text-sm text-center mt-4">
                                           No hay horarios disponibles para esta
                                           fecha
                                         </p>
@@ -859,7 +859,7 @@ export default function RetoDrawer({
                                   )}
                                 </div>
                               ) : (
-                                <div className="block w-full rounded-md bg-white/5 px-3 py-1.5 text-base text-white sm:text-sm/6">
+                                <div className="block w-full rounded-md bg-gray-50 border border-gray-300 px-3 py-1.5 text-base text-gray-900 sm:text-sm/6">
                                   {editHour !== null
                                     ? `${String(editHour).padStart(2, "0")}:00`
                                     : ""}
@@ -870,36 +870,36 @@ export default function RetoDrawer({
 
                           {/* Equipo 1 Section */}
                           <div>
-                            <h3 className="text-sm/6 font-medium text-white mb-3">
+                            <h3 className="text-sm/6 font-medium text-gray-900 mb-3">
                               Equipo 1
                             </h3>
                             <div className="space-y-2">
                               <div>
-                                <p className="text-sm text-white/60">Nombre</p>
-                                <p className="text-sm text-white">
+                                <p className="text-sm text-gray-600">Nombre</p>
+                                <p className="text-sm text-gray-900">
                                   {reto.equipo1_nombre || "Sin nombre"}
                                 </p>
                               </div>
                               <div>
-                                <p className="text-sm text-white/60">
+                                <p className="text-sm text-gray-600">
                                   Encargado
                                 </p>
-                                <p className="text-sm text-white">
+                                <p className="text-sm text-gray-900">
                                   {reto.equipo1_encargado}
                                 </p>
                               </div>
                               <div>
-                                <p className="text-sm text-white/60">Celular</p>
-                                <p className="text-sm text-white">
+                                <p className="text-sm text-gray-600">Celular</p>
+                                <p className="text-sm text-gray-900">
                                   {reto.equipo1_celular}
                                 </p>
                               </div>
                               {reto.equipo1_correo && (
                                 <div>
-                                  <p className="text-sm text-white/60">
+                                  <p className="text-sm text-gray-600">
                                     Correo
                                   </p>
-                                  <p className="text-sm text-white">
+                                  <p className="text-sm text-gray-900">
                                     {reto.equipo1_correo}
                                   </p>
                                 </div>
@@ -910,14 +910,14 @@ export default function RetoDrawer({
                           {/* Equipo 2 Section */}
                           {mode === "assign" ? (
                             <div>
-                              <h3 className="text-sm/6 font-medium text-white mb-3">
+                              <h3 className="text-sm/6 font-medium text-gray-900 mb-3">
                                 Equipo 2 (Rival)
                               </h3>
                               <div className="space-y-4">
                                 <div>
                                   <label
                                     htmlFor="equipo2-nombre"
-                                    className="block text-sm/6 font-medium text-white"
+                                    className="block text-sm/6 font-medium text-gray-900"
                                   >
                                     Nombre (opcional)
                                   </label>
@@ -929,7 +929,7 @@ export default function RetoDrawer({
                                       onChange={(e) =>
                                         setEquipo2Nombre(e.target.value)
                                       }
-                                      className="block w-full rounded-md bg-white/5 px-3 py-1.5 text-base text-white outline-1 -outline-offset-1 outline-white/10 placeholder:text-gray-400 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-primary sm:text-sm/6"
+                                      className="block w-full rounded-md bg-white border border-gray-300 px-3 py-1.5 text-base text-gray-900 outline-1 -outline-offset-1 outline-gray-300 placeholder:text-gray-400 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-primary sm:text-sm/6"
                                       placeholder="Nombre del equipo"
                                     />
                                   </div>
@@ -937,7 +937,7 @@ export default function RetoDrawer({
                                 <div>
                                   <label
                                     htmlFor="equipo2-encargado"
-                                    className="block text-sm/6 font-medium text-white"
+                                    className="block text-sm/6 font-medium text-gray-900"
                                   >
                                     Encargado *
                                   </label>
@@ -950,7 +950,7 @@ export default function RetoDrawer({
                                         setEquipo2Encargado(e.target.value)
                                       }
                                       required
-                                      className="block w-full rounded-md bg-white/5 px-3 py-1.5 text-base text-white outline-1 -outline-offset-1 outline-white/10 placeholder:text-gray-400 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-primary sm:text-sm/6"
+                                      className="block w-full rounded-md bg-white border border-gray-300 px-3 py-1.5 text-base text-gray-900 outline-1 -outline-offset-1 outline-gray-300 placeholder:text-gray-400 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-primary sm:text-sm/6"
                                       placeholder="Nombre del encargado"
                                     />
                                   </div>
@@ -958,7 +958,7 @@ export default function RetoDrawer({
                                 <div>
                                   <label
                                     htmlFor="equipo2-celular"
-                                    className="block text-sm/6 font-medium text-white"
+                                    className="block text-sm/6 font-medium text-gray-900"
                                   >
                                     Celular *
                                   </label>
@@ -971,7 +971,7 @@ export default function RetoDrawer({
                                         setEquipo2Celular(e.target.value)
                                       }
                                       required
-                                      className="block w-full rounded-md bg-white/5 px-3 py-1.5 text-base text-white outline-1 -outline-offset-1 outline-white/10 placeholder:text-gray-400 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-primary sm:text-sm/6"
+                                      className="block w-full rounded-md bg-white border border-gray-300 px-3 py-1.5 text-base text-gray-900 outline-1 -outline-offset-1 outline-gray-300 placeholder:text-gray-400 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-primary sm:text-sm/6"
                                       placeholder="Número de celular"
                                     />
                                   </div>
@@ -980,31 +980,31 @@ export default function RetoDrawer({
                             </div>
                           ) : (
                             <div>
-                              <h3 className="text-sm/6 font-medium text-white mb-3">
+                              <h3 className="text-sm/6 font-medium text-gray-900 mb-3">
                                 Equipo 2
                               </h3>
                               <div className="space-y-2">
                                 <div>
-                                  <p className="text-sm text-white/60">
+                                  <p className="text-sm text-gray-600">
                                     Nombre
                                   </p>
-                                  <p className="text-sm text-white">
+                                  <p className="text-sm text-gray-900">
                                     {reto.equipo2_nombre || "Sin nombre"}
                                   </p>
                                 </div>
                                 <div>
-                                  <p className="text-sm text-white/60">
+                                  <p className="text-sm text-gray-600">
                                     Encargado
                                   </p>
-                                  <p className="text-sm text-white">
+                                  <p className="text-sm text-gray-900">
                                     {reto.equipo2_encargado || "N/A"}
                                   </p>
                                 </div>
                                 <div>
-                                  <p className="text-sm text-white/60">
+                                  <p className="text-sm text-gray-600">
                                     Celular
                                   </p>
-                                  <p className="text-sm text-white">
+                                  <p className="text-sm text-gray-900">
                                     {reto.equipo2_celular || "N/A"}
                                   </p>
                                 </div>
@@ -1015,14 +1015,14 @@ export default function RetoDrawer({
                           {/* FUT Selection */}
                           <div>
                             <div className="flex items-center justify-between mb-3">
-                              <h3 className="text-sm/6 font-medium text-white">
+                              <h3 className="text-sm/6 font-medium text-gray-900">
                                 FUT
                               </h3>
                               {mode === "assign" && (
                                 <button
                                   type="button"
                                   onClick={() => setShowFutEdit(!showFutEdit)}
-                                  className="relative inline-flex shrink-0 items-center justify-center rounded-md border border-white/10 bg-white/5 px-2 py-1 text-xs font-medium text-white hover:bg-white/10 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+                                  className="relative inline-flex shrink-0 items-center justify-center rounded-md border border-gray-300 bg-white px-2 py-1 text-xs font-medium text-gray-700 hover:bg-gray-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
                                 >
                                   <PencilSquareIcon
                                     aria-hidden="true"
@@ -1038,7 +1038,7 @@ export default function RetoDrawer({
                                   onChange={(e) =>
                                     setEditFut(Number(e.target.value))
                                   }
-                                  className="block w-full rounded-md bg-white/5 px-3 py-1.5 text-base text-white outline-1 -outline-offset-1 outline-white/10 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-primary sm:text-sm/6"
+                                  className="block w-full rounded-md bg-white border border-gray-300 px-3 py-1.5 text-base text-gray-900 outline-1 -outline-offset-1 outline-gray-300 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-primary sm:text-sm/6"
                                 >
                                   {currentCancha.id === 6 ? (
                                     <>
@@ -1054,9 +1054,9 @@ export default function RetoDrawer({
                                 </select>
                               </div>
                             ) : (
-                              <div className="flex items-center gap-2 text-sm text-white">
-                                <TbRun className="text-secondary" />
-                                <TbPlayFootball className="text-secondary -ml-0.5" />
+                              <div className="flex items-center gap-2 text-sm text-gray-900">
+                                <TbRun className="text-primary" />
+                                <TbPlayFootball className="text-primary -ml-0.5" />
                                 {reto.fut}
                               </div>
                             )}
@@ -1065,7 +1065,7 @@ export default function RetoDrawer({
                           {/* Árbitro */}
                           <div>
                             <div className="flex items-center justify-between">
-                              <h3 className="text-sm/6 font-medium text-white">
+                              <h3 className="text-sm/6 font-medium text-gray-900">
                                 Árbitro
                               </h3>
                               {mode === "assign" ? (
@@ -1078,13 +1078,13 @@ export default function RetoDrawer({
                                     }
                                     className="sr-only peer"
                                   />
-                                  <div className="w-11 h-6 bg-gray-700 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-primary/20 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary"></div>
+                                  <div className="w-11 h-6 bg-gray-300 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-primary/20 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary"></div>
                                 </label>
                               ) : (
-                                <div className="flex items-center gap-2 text-sm text-white">
+                                <div className="flex items-center gap-2 text-sm text-gray-900">
                                   {reto.arbitro ? (
                                     <>
-                                      <GiWhistle className="text-secondary" />
+                                      <GiWhistle className="text-primary" />
                                       Sí
                                     </>
                                   ) : (
@@ -1097,15 +1097,15 @@ export default function RetoDrawer({
 
                           {/* Price Information */}
                           <div>
-                            <h3 className="text-sm/6 font-medium text-white mb-3">
+                            <h3 className="text-sm/6 font-medium text-gray-900 mb-3">
                               Precio Total
                             </h3>
                             <div className="space-y-2">
                               <div className="flex justify-between text-sm">
-                                <span className="text-white/60">
+                                <span className="text-gray-600">
                                   Precio base:
                                 </span>
-                                <span className="text-white font-medium">
+                                <span className="text-gray-900 font-medium">
                                   ₡{" "}
                                   {(() => {
                                     if (!editCanchaId || !editFut) return "0";
@@ -1134,21 +1134,21 @@ export default function RetoDrawer({
                               </div>
                               {editArbitro && (
                                 <div className="flex justify-between text-sm">
-                                  <span className="text-white/60 flex items-center gap-1">
-                                    <GiWhistle className="text-secondary" />
+                                  <span className="text-gray-600 flex items-center gap-1">
+                                    <GiWhistle className="text-primary" />
                                     Árbitro:
                                   </span>
-                                  <span className="text-white font-medium">
+                                  <span className="text-gray-900 font-medium">
                                     ₡ 5,000
                                   </span>
                                 </div>
                               )}
-                              <div className="border-t border-white/10 pt-2">
+                              <div className="border-t border-gray-200 pt-2">
                                 <div className="flex justify-between">
-                                  <span className="text-white font-semibold">
+                                  <span className="text-gray-900 font-semibold">
                                     Total:
                                   </span>
-                                  <span className="text-white font-bold text-lg">
+                                  <span className="text-gray-900 font-bold text-lg">
                                     ₡ {calculateTotalPrice().toLocaleString()}
                                   </span>
                                 </div>
@@ -1161,13 +1161,13 @@ export default function RetoDrawer({
                   </div>
                   {mode === "assign" && (
                     <div className="px-4 py-4">
-                      <div className="bg-yellow-500/10 border border-yellow-500/30 rounded-xl px-4 py-4">
-                        <p className="text-white/90 text-sm">
-                          <strong className="text-yellow-500">
+                      <div className="bg-yellow-50 border border-yellow-200 rounded-xl px-4 py-4">
+                        <p className="text-gray-900 text-sm">
+                          <strong className="text-yellow-600">
                             Importante:
                           </strong>{" "}
                           Debe notificar a{" "}
-                          <strong className="text-yellow-500">
+                          <strong className="text-yellow-600">
                             AMBOS equipos
                           </strong>{" "}
                           cuando el reto esté confirmado.
@@ -1179,7 +1179,7 @@ export default function RetoDrawer({
                     <button
                       type="button"
                       onClick={onClose}
-                      className="rounded-md bg-white/5 px-3 py-2 text-sm font-semibold text-white shadow-xs inset-ring inset-ring-white/10 hover:bg-white/10"
+                      className="rounded-md bg-white px-3 py-2 text-sm font-semibold text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 hover:bg-gray-50"
                     >
                       Cerrar
                     </button>
@@ -1238,18 +1238,18 @@ export default function RetoDrawer({
         <DialogBackdrop className="fixed inset-0 bg-black/80" />
         <div className="fixed inset-0 z-50 w-screen overflow-y-auto">
           <div className="flex min-h-full items-end justify-center p-4 text-center sm:items-center sm:p-0">
-            <DialogPanel className="relative transform w-full overflow-hidden rounded-lg bg-bg px-4 pt-5 pb-4 text-left shadow-xl outline -outline-offset-1 outline-white/10 transition-all data-closed:translate-y-4 data-closed:opacity-0 data-enter:duration-300 data-enter:ease-out data-leave:duration-200 data-leave:ease-in sm:my-8 sm:w-full sm:max-w-sm sm:p-6 data-closed:sm:translate-y-0 data-closed:sm:scale-95">
-              <DialogTitle className="text-base font-semibold text-white mb-4">
+            <DialogPanel className="relative transform w-full overflow-hidden rounded-lg bg-white px-4 pt-5 pb-4 text-left shadow-xl ring-1 ring-black/5 transition-all data-closed:translate-y-4 data-closed:opacity-0 data-enter:duration-300 data-enter:ease-out data-leave:duration-200 data-leave:ease-in sm:my-8 sm:w-full sm:max-w-sm sm:p-6 data-closed:sm:translate-y-0 data-closed:sm:scale-95">
+              <DialogTitle className="text-base font-semibold text-gray-900 mb-4">
                 ¿Está seguro de crear esta reservación?
               </DialogTitle>
-              <p className="text-sm text-white/60 mb-4">
+              <p className="text-sm text-gray-600 mb-4">
                 Se creará la reservación y se actualizará el reto con el rival
                 asignado.
               </p>
               <div className="flex gap-3">
                 <button
                   onClick={() => setShowCreateConfirm(false)}
-                  className="flex-1 rounded-md bg-white/5 px-4 py-2 text-sm font-medium text-white shadow-sm ring-1 ring-inset ring-white/10 hover:bg-white/10"
+                  className="flex-1 rounded-md bg-white px-4 py-2 text-sm font-medium text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 hover:bg-gray-50"
                 >
                   Cancelar
                 </button>
@@ -1274,18 +1274,18 @@ export default function RetoDrawer({
         <DialogBackdrop className="fixed inset-0 bg-black/80" />
         <div className="fixed inset-0 z-50 w-screen overflow-y-auto">
           <div className="flex min-h-full items-end justify-center p-4 text-center sm:items-center sm:p-0">
-            <DialogPanel className="relative transform w-full overflow-hidden rounded-lg bg-bg px-4 pt-5 pb-4 text-left shadow-xl outline -outline-offset-1 outline-white/10 transition-all data-closed:translate-y-4 data-closed:opacity-0 data-enter:duration-300 data-enter:ease-out data-leave:duration-200 data-leave:ease-in sm:my-8 sm:w-full sm:max-w-sm sm:p-6 data-closed:sm:translate-y-0 data-closed:sm:scale-95">
-              <DialogTitle className="text-base font-semibold text-white mb-4">
+            <DialogPanel className="relative transform w-full overflow-hidden rounded-lg bg-white px-4 pt-5 pb-4 text-left shadow-xl ring-1 ring-black/5 transition-all data-closed:translate-y-4 data-closed:opacity-0 data-enter:duration-300 data-enter:ease-out data-leave:duration-200 data-leave:ease-in sm:my-8 sm:w-full sm:max-w-sm sm:p-6 data-closed:sm:translate-y-0 data-closed:sm:scale-95">
+              <DialogTitle className="text-base font-semibold text-gray-900 mb-4">
                 ¿Está seguro de eliminar este reto?
               </DialogTitle>
-              <p className="text-sm text-white/60 mb-4">
+              <p className="text-sm text-gray-600 mb-4">
                 Esta acción no se puede deshacer. El reto será eliminado
                 permanentemente.
               </p>
               <div className="flex gap-3">
                 <button
                   onClick={() => setShowDeleteConfirm(false)}
-                  className="flex-1 rounded-md bg-white/5 px-4 py-2 text-sm font-medium text-white shadow-sm ring-1 ring-inset ring-white/10 hover:bg-white/10"
+                  className="flex-1 rounded-md bg-white px-4 py-2 text-sm font-medium text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 hover:bg-gray-50"
                 >
                   Cancelar
                 </button>

@@ -418,9 +418,9 @@ export default function ReservationDrawer({
             <div className="pointer-events-none fixed inset-y-0 right-0 flex max-w-full pl-10 sm:pl-16">
               <DialogPanel
                 transition
-                className="pointer-events-auto w-screen max-w-md transform transition duration-500 ease-in-out data-closed:translate-x-full sm:duration-700"
+                className="pointer-events-auto w-screen max-w-2xl transform transition duration-500 ease-in-out data-closed:translate-x-full sm:duration-700"
               >
-                <div className="relative flex h-full flex-col divide-y divide-white/10 bg-bg shadow-xl">
+                <div className="relative flex h-full flex-col divide-y divide-gray-200 bg-white shadow-xl">
                   <div className="h-0 flex-1 overflow-y-auto">
                     <div className="bg-primary px-4 py-6 sm:px-6">
                       <div className="flex items-center justify-between">
@@ -450,7 +450,7 @@ export default function ReservationDrawer({
                       </div>
                     </div>
                     <div className="flex flex-1 flex-col justify-between">
-                      <div className="divide-y divide-white/10 px-4 sm:px-6">
+                      <div className="divide-y divide-gray-200 px-4 sm:px-6">
                         <div className="space-y-6 pt-6 pb-5">
                           {/* Cancha Info */}
                           <div className="flex items-center gap-4">
@@ -460,10 +460,10 @@ export default function ReservationDrawer({
                               className="size-16 rounded-lg object-cover"
                             />
                             <div className="flex-1">
-                              <h3 className="text-base font-semibold text-white">
+                              <h3 className="text-base font-semibold text-gray-900">
                                 {currentCancha.nombre}
                               </h3>
-                              <p className="text-sm text-white/60">
+                              <p className="text-sm text-gray-500">
                                 {getLocalName(currentCancha.local)}
                               </p>
                             </div>
@@ -473,7 +473,7 @@ export default function ReservationDrawer({
                                 onClick={() =>
                                   setShowCanchaSelector(!showCanchaSelector)
                                 }
-                                className="relative inline-flex shrink-0 items-center justify-center rounded-md border border-white/10 bg-white/5 px-3 py-1.5 text-sm font-medium text-white hover:bg-white/10 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+                                className="relative inline-flex shrink-0 items-center justify-center rounded-md border border-gray-300 bg-white px-3 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
                               >
                                 <PencilSquareIcon
                                   aria-hidden="true"
@@ -485,8 +485,8 @@ export default function ReservationDrawer({
 
                           {/* Cancha Selector */}
                           {showCanchaSelector && mode === "edit" && (
-                            <div className="space-y-4 rounded-lg bg-white/5 p-4 border border-white/10">
-                              <label className="block text-sm/6 font-medium text-white">
+                            <div className="space-y-4 rounded-lg bg-gray-50 p-4 border border-gray-200">
+                              <label className="block text-sm/6 font-medium text-gray-900">
                                 Seleccionar Cancha
                               </label>
                               <div className="mt-2 grid grid-cols-1">
@@ -495,13 +495,13 @@ export default function ReservationDrawer({
                                   onChange={(e) =>
                                     handleCanchaSelect(Number(e.target.value))
                                   }
-                                  className="col-start-1 row-start-1 w-full appearance-none rounded-md bg-white/5 py-1.5 pr-8 pl-3 text-base text-white outline-1 -outline-offset-1 outline-white/10 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-primary sm:text-sm/6"
+                                  className="col-start-1 row-start-1 w-full appearance-none rounded-md bg-white border border-gray-300 py-1.5 pr-8 pl-3 text-base text-gray-900 outline-1 -outline-offset-1 outline-gray-300 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-primary sm:text-sm/6"
                                 >
                                   {canchas.map((cancha) => (
                                     <option
                                       key={cancha.id}
                                       value={cancha.id}
-                                      className="bg-bg text-white"
+                                      className="bg-white text-gray-900"
                                     >
                                       {cancha.nombre} -{" "}
                                       {getLocalName(cancha.local)}
@@ -510,7 +510,7 @@ export default function ReservationDrawer({
                                 </select>
                                 <ChevronDownIcon
                                   aria-hidden="true"
-                                  className="pointer-events-none col-start-1 row-start-1 mr-2 size-5 self-center justify-self-end text-white/50 sm:size-4"
+                                  className="pointer-events-none col-start-1 row-start-1 mr-2 size-5 self-center justify-self-end text-gray-400 sm:size-4"
                                 />
                               </div>
                             </div>
@@ -520,7 +520,7 @@ export default function ReservationDrawer({
                           <div>
                             <label
                               htmlFor="reserva-date"
-                              className="block text-sm/6 font-medium text-white"
+                              className="block text-sm/6 font-medium text-gray-900"
                             >
                               Fecha
                             </label>
@@ -538,14 +538,14 @@ export default function ReservationDrawer({
                                         : ""
                                     }
                                     readOnly
-                                    className="flex-1 block w-full rounded-md bg-white/5 px-3 py-1.5 text-base text-white outline-1 -outline-offset-1 outline-white/10 placeholder:text-gray-400 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-primary sm:text-sm/6"
+                                    className="flex-1 block w-full rounded-md bg-white border border-gray-300 px-3 py-1.5 text-base text-gray-900 outline-1 -outline-offset-1 outline-gray-300 placeholder:text-gray-400 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-primary sm:text-sm/6"
                                   />
                                   <button
                                     type="button"
                                     onClick={() =>
                                       setShowDateSelector(!showDateSelector)
                                     }
-                                    className="relative inline-flex shrink-0 items-center justify-center rounded-md border border-white/10 bg-white/5 px-3 py-1.5 text-sm font-medium text-white hover:bg-white/10 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+                                    className="relative inline-flex shrink-0 items-center justify-center rounded-md border border-gray-300 bg-white px-3 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
                                   >
                                     <PencilSquareIcon
                                       aria-hidden="true"
@@ -554,7 +554,7 @@ export default function ReservationDrawer({
                                   </button>
                                 </>
                               ) : (
-                                <div className="block w-full rounded-md bg-white/5 px-3 py-1.5 text-base text-white sm:text-sm/6">
+                                <div className="block w-full rounded-md bg-gray-50 border border-gray-300 px-3 py-1.5 text-base text-gray-900 sm:text-sm/6">
                                   {editDate
                                     ? `${editDate.getDate()} de ${
                                         MONTHS_SPANISH[editDate.getMonth()]
@@ -567,8 +567,8 @@ export default function ReservationDrawer({
 
                           {/* Date Selector */}
                           {showDateSelector && mode === "edit" && (
-                            <div className="space-y-4 rounded-lg bg-white/5 p-4 border border-white/10">
-                              <h3 className="text-sm font-medium text-white flex items-center gap-2">
+                            <div className="space-y-4 rounded-lg bg-gray-50 p-4 border border-gray-200">
+                              <h3 className="text-sm font-medium text-gray-900 flex items-center gap-2">
                                 <FaRegCalendarCheck className="text-secondary" />
                                 Seleccione una fecha
                               </h3>
@@ -587,7 +587,7 @@ export default function ReservationDrawer({
                                       className={`shrink-0 w-16 py-3 rounded-xl border transition-all flex flex-col items-center ${
                                         isSelected
                                           ? "bg-primary border-primary text-white"
-                                          : "bg-transparent border-primary border-dashed text-white hover:bg-primary/20"
+                                          : "bg-white border-primary border-dashed text-gray-900 hover:bg-primary/10"
                                       }`}
                                     >
                                       <span className="text-4xl tracking-tighter font-semibold">
@@ -607,7 +607,7 @@ export default function ReservationDrawer({
 
                           {/* Hour Selection */}
                           <div>
-                            <label className="block text-sm/6 font-medium text-white">
+                            <label className="block text-sm/6 font-medium text-gray-900">
                               Hora
                             </label>
                             <div className="mt-2">
@@ -625,14 +625,14 @@ export default function ReservationDrawer({
                                           : ""
                                       }
                                       readOnly
-                                      className="flex-1 block w-full rounded-md bg-white/5 px-3 py-1.5 text-base text-white outline-1 -outline-offset-1 outline-white/10 placeholder:text-gray-400 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-primary sm:text-sm/6"
+                                      className="flex-1 block w-full rounded-md bg-white border border-gray-300 px-3 py-1.5 text-base text-gray-900 outline-1 -outline-offset-1 outline-gray-300 placeholder:text-gray-400 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-primary sm:text-sm/6"
                                     />
                                     <button
                                       type="button"
                                       onClick={() =>
                                         setShowHourSelector(!showHourSelector)
                                       }
-                                      className="relative inline-flex shrink-0 items-center justify-center rounded-md border border-white/10 bg-white/5 px-3 py-1.5 text-sm font-medium text-white hover:bg-white/10 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+                                      className="relative inline-flex shrink-0 items-center justify-center rounded-md border border-gray-300 bg-white px-3 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
                                     >
                                       <PencilSquareIcon
                                         aria-hidden="true"
@@ -641,8 +641,8 @@ export default function ReservationDrawer({
                                     </button>
                                   </div>
                                   {showHourSelector && (
-                                    <div className="space-y-3 rounded-lg bg-white/5 p-4 border border-white/10">
-                                      <h3 className="text-sm font-medium text-white flex gap-2 items-center">
+                                    <div className="space-y-3 rounded-lg bg-gray-50 p-4 border border-gray-200">
+                                      <h3 className="text-sm font-medium text-gray-900 flex gap-2 items-center">
                                         <FaRegClock className="text-secondary" />
                                         Seleccione una hora
                                       </h3>
@@ -664,10 +664,10 @@ export default function ReservationDrawer({
                                               disabled={isReserved}
                                               className={`py-3 text-base tracking-tight rounded-lg border transition-all font-medium ${
                                                 isReserved
-                                                  ? "bg-gray-800 border-gray-600 text-gray-500 cursor-not-allowed line-through"
+                                                  ? "bg-gray-100 border-gray-300 text-gray-400 cursor-not-allowed line-through"
                                                   : isSelected
                                                   ? "bg-primary border-primary text-white"
-                                                  : "bg-transparent border-primary border-dashed text-white hover:bg-primary/20"
+                                                  : "bg-white border-primary border-dashed text-gray-900 hover:bg-primary/10"
                                               }`}
                                             >
                                               {hour}:00
@@ -678,7 +678,7 @@ export default function ReservationDrawer({
                                       {availableHours.every((h) =>
                                         reservedHours.includes(h)
                                       ) && (
-                                        <p className="text-white/60 text-sm text-center mt-4">
+                                        <p className="text-gray-500 text-sm text-center mt-4">
                                           No hay horarios disponibles para esta
                                           fecha
                                         </p>
@@ -687,7 +687,7 @@ export default function ReservationDrawer({
                                   )}
                                 </div>
                               ) : (
-                                <div className="block w-full rounded-md bg-white/5 px-3 py-1.5 text-base text-white sm:text-sm/6">
+                                <div className="block w-full rounded-md bg-gray-50 border border-gray-300 px-3 py-1.5 text-base text-gray-900 sm:text-sm/6">
                                   {editHour !== null
                                     ? `${String(editHour).padStart(2, "0")}:00`
                                     : ""}
@@ -698,14 +698,14 @@ export default function ReservationDrawer({
 
                           {/* Reservado por section */}
                           <div>
-                            <h3 className="text-sm/6 font-medium text-white mb-3">
+                            <h3 className="text-sm/6 font-medium text-gray-900 mb-3">
                               Reservado por
                             </h3>
                             <div className="space-y-4">
                               <div>
                                 <label
                                   htmlFor="reserva-nombre"
-                                  className="block text-sm/6 font-medium text-white"
+                                  className="block text-sm/6 font-medium text-gray-900"
                                 >
                                   Nombre
                                 </label>
@@ -718,14 +718,14 @@ export default function ReservationDrawer({
                                       setEditNombre(e.target.value)
                                     }
                                     disabled={mode === "cancel"}
-                                    className="block w-full rounded-md bg-white/5 px-3 py-1.5 text-base text-white outline-1 -outline-offset-1 outline-white/10 placeholder:text-gray-400 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-primary disabled:bg-white/5 disabled:text-gray-500 sm:text-sm/6"
+                                    className="block w-full rounded-md bg-white border border-gray-300 px-3 py-1.5 text-base text-gray-900 outline-1 -outline-offset-1 outline-gray-300 placeholder:text-gray-400 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-primary disabled:bg-gray-50 disabled:text-gray-500 sm:text-sm/6"
                                   />
                                 </div>
                               </div>
                               <div>
                                 <label
                                   htmlFor="reserva-correo"
-                                  className="block text-sm/6 font-medium text-white"
+                                  className="block text-sm/6 font-medium text-gray-900"
                                 >
                                   Correo
                                 </label>
@@ -738,14 +738,14 @@ export default function ReservationDrawer({
                                       setEditCorreo(e.target.value)
                                     }
                                     disabled={mode === "cancel"}
-                                    className="block w-full rounded-md bg-white/5 px-3 py-1.5 text-base text-white outline-1 -outline-offset-1 outline-white/10 placeholder:text-gray-400 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-primary disabled:bg-white/5 disabled:text-gray-500 sm:text-sm/6"
+                                    className="block w-full rounded-md bg-white border border-gray-300 px-3 py-1.5 text-base text-gray-900 outline-1 -outline-offset-1 outline-gray-300 placeholder:text-gray-400 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-primary disabled:bg-gray-50 disabled:text-gray-500 sm:text-sm/6"
                                   />
                                 </div>
                               </div>
                               <div>
                                 <label
                                   htmlFor="reserva-celular"
-                                  className="block text-sm/6 font-medium text-white"
+                                  className="block text-sm/6 font-medium text-gray-900"
                                 >
                                   Celular
                                 </label>
@@ -758,7 +758,7 @@ export default function ReservationDrawer({
                                       setEditCelular(e.target.value)
                                     }
                                     disabled={mode === "cancel"}
-                                    className="block w-full rounded-md bg-white/5 px-3 py-1.5 text-base text-white outline-1 -outline-offset-1 outline-white/10 placeholder:text-gray-400 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-primary disabled:bg-white/5 disabled:text-gray-500 sm:text-sm/6"
+                                    className="block w-full rounded-md bg-white border border-gray-300 px-3 py-1.5 text-base text-gray-900 outline-1 -outline-offset-1 outline-gray-300 placeholder:text-gray-400 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-primary disabled:bg-gray-50 disabled:text-gray-500 sm:text-sm/6"
                                   />
                                 </div>
                               </div>
@@ -768,7 +768,7 @@ export default function ReservationDrawer({
                           {/* Price Information */}
                           <div>
                             <div className="flex items-center justify-between mb-3">
-                              <h3 className="text-sm/6 font-medium text-white">
+                              <h3 className="text-sm/6 font-medium text-gray-900">
                                 Precio
                               </h3>
                               {mode === "edit" && (
@@ -777,7 +777,7 @@ export default function ReservationDrawer({
                                   onClick={() =>
                                     setShowPrecioEdit(!showPrecioEdit)
                                   }
-                                  className="relative inline-flex shrink-0 items-center justify-center rounded-md border border-white/10 bg-white/5 px-2 py-1 text-xs font-medium text-white hover:bg-white/10 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+                                  className="relative inline-flex shrink-0 items-center justify-center rounded-md border border-gray-300 bg-white px-2 py-1 text-xs font-medium text-gray-700 hover:bg-gray-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
                                 >
                                   <PencilSquareIcon
                                     aria-hidden="true"
@@ -791,7 +791,7 @@ export default function ReservationDrawer({
                                 <div>
                                   <label
                                     htmlFor="reserva-precio"
-                                    className="block text-sm/6 font-medium text-white mb-2"
+                                    className="block text-sm/6 font-medium text-gray-900 mb-2"
                                   >
                                     Precio total
                                   </label>
@@ -802,14 +802,14 @@ export default function ReservationDrawer({
                                     onChange={(e) =>
                                       setEditPrecio(Number(e.target.value))
                                     }
-                                    className="block w-full rounded-md bg-white/5 px-3 py-1.5 text-base text-white outline-1 -outline-offset-1 outline-white/10 placeholder:text-gray-400 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-primary sm:text-sm/6"
+                                    className="block w-full rounded-md bg-white border border-gray-300 px-3 py-1.5 text-base text-gray-900 outline-1 -outline-offset-1 outline-gray-300 placeholder:text-gray-400 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-primary sm:text-sm/6"
                                     placeholder="0"
                                     min="0"
                                     step="1000"
                                   />
                                 </div>
                                 {isSabana && (
-                                  <div className="flex justify-between text-sm text-white/60">
+                                  <div className="flex justify-between text-sm text-gray-600">
                                     <span>Adelanto (50%):</span>
                                     <span>
                                       ₡
@@ -820,8 +820,8 @@ export default function ReservationDrawer({
                                   </div>
                                 )}
                                 {reserva.arbitro && (
-                                  <div className="flex items-center gap-2 text-sm text-white/60">
-                                    <GiWhistle className="text-secondary" />
+                                  <div className="flex items-center gap-2 text-sm text-gray-600">
+                                    <GiWhistle className="text-primary" />
                                     <span>Árbitro incluido</span>
                                   </div>
                                 )}
@@ -829,19 +829,19 @@ export default function ReservationDrawer({
                             ) : (
                               <div className="space-y-2">
                                 <div className="flex justify-between text-sm">
-                                  <span className="text-white/60">
+                                  <span className="text-gray-600">
                                     Precio total:
                                   </span>
-                                  <span className="font-medium text-white">
+                                  <span className="font-medium text-gray-900">
                                     ₡{reserva.precio.toLocaleString()}
                                   </span>
                                 </div>
                                 {isSabana && (
                                   <div className="flex justify-between text-sm">
-                                    <span className="text-white/60">
+                                    <span className="text-gray-600">
                                       Adelanto (50%):
                                     </span>
-                                    <span className="font-medium text-white">
+                                    <span className="font-medium text-gray-900">
                                       ₡
                                       {Math.ceil(
                                         reserva.precio / 2
@@ -850,8 +850,8 @@ export default function ReservationDrawer({
                                   </div>
                                 )}
                                 {reserva.arbitro && (
-                                  <div className="flex items-center gap-2 text-sm text-white/60">
-                                    <GiWhistle className="text-secondary" />
+                                  <div className="flex items-center gap-2 text-sm text-gray-600">
+                                    <GiWhistle className="text-primary" />
                                     <span>Árbitro incluido</span>
                                   </div>
                                 )}
@@ -862,7 +862,7 @@ export default function ReservationDrawer({
                           {/* SINPE Section (Sabana only) */}
                           {isSabana && (
                             <div>
-                              <h3 className="text-sm/6 font-medium text-white mb-3">
+                              <h3 className="text-sm/6 font-medium text-gray-900 mb-3">
                                 Comprobante SINPE (adelanto)
                               </h3>
                               {reserva.sinpe_reserva ? (
@@ -870,7 +870,7 @@ export default function ReservationDrawer({
                                   <img
                                     src={reserva.sinpe_reserva}
                                     alt="Comprobante SINPE"
-                                    className="w-full max-h-64 object-contain rounded-lg border border-white/10"
+                                    className="w-full max-h-64 object-contain rounded-lg border border-gray-200"
                                   />
                                   {reserva.confirmada && (
                                     <div className="bg-green-500/10 border border-green-500/30 rounded-lg p-3">
@@ -908,7 +908,7 @@ export default function ReservationDrawer({
                                     </div>
                                   ) : (
                                     <>
-                                      <p className="text-sm text-white/60">
+                                      <p className="text-sm text-gray-600">
                                         SINPE pendiente
                                       </p>
                                       {mode === "edit" && (
@@ -935,14 +935,14 @@ export default function ReservationDrawer({
                               href={`${window.location.origin}/reserva/${reserva.id}`}
                               target="_blank"
                               rel="noopener noreferrer"
-                              className="group inline-flex items-center font-medium text-secondary hover:text-secondary/80"
+                              className="group inline-flex items-center font-medium text-primary hover:text-secondary/80"
                             >
                               <LinkIcon
                                 aria-hidden="true"
-                                className="size-5 text-secondary group-hover:text-secondary/80"
+                                className="size-5 text-primary group-hover:text-secondary/80"
                               />
                               <span className="ml-2">
-                                Ver vista del cliente
+                                Ir a vista del cliente
                               </span>
                             </a>
                           </div>
@@ -954,7 +954,7 @@ export default function ReservationDrawer({
                     <button
                       type="button"
                       onClick={onClose}
-                      className="rounded-md bg-white/5 px-3 py-2 text-sm font-semibold text-white shadow-xs inset-ring inset-ring-white/10 hover:bg-white/10"
+                      className="rounded-md bg-white px-3 py-2 text-sm font-semibold text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 hover:bg-gray-50"
                     >
                       Cerrar
                     </button>
@@ -1001,14 +1001,14 @@ export default function ReservationDrawer({
         <DialogBackdrop className="fixed inset-0 bg-black/80" />
         <div className="fixed inset-0 z-50 w-screen overflow-y-auto">
           <div className="flex min-h-full items-end justify-center p-4 text-center sm:items-center sm:p-0">
-            <DialogPanel className="relative transform w-full overflow-hidden rounded-lg bg-bg px-4 pt-5 pb-4 text-left shadow-xl outline -outline-offset-1 outline-white/10 transition-all data-closed:translate-y-4 data-closed:opacity-0 data-enter:duration-300 data-enter:ease-out data-leave:duration-200 data-leave:ease-in sm:my-8 sm:w-full sm:max-w-sm sm:p-6 data-closed:sm:translate-y-0 data-closed:sm:scale-95">
-              <DialogTitle className="text-base font-semibold text-white mb-4">
+            <DialogPanel className="relative transform w-full overflow-hidden rounded-lg bg-white px-4 pt-5 pb-4 text-left shadow-xl ring-1 ring-black/5 transition-all data-closed:translate-y-4 data-closed:opacity-0 data-enter:duration-300 data-enter:ease-out data-leave:duration-200 data-leave:ease-in sm:my-8 sm:w-full sm:max-w-sm sm:p-6 data-closed:sm:translate-y-0 data-closed:sm:scale-95">
+              <DialogTitle className="text-base font-semibold text-gray-900 mb-4">
                 ¿Está seguro de actualizar esta reservación?
               </DialogTitle>
               <div className="flex gap-3">
                 <button
                   onClick={() => setShowUpdateConfirm(false)}
-                  className="flex-1 rounded-md bg-white/5 px-4 py-2 text-sm font-medium text-white shadow-sm ring-1 ring-inset ring-white/10 hover:bg-white/10"
+                  className="flex-1 rounded-md bg-white px-4 py-2 text-sm font-medium text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 hover:bg-gray-50"
                 >
                   Cancelar
                 </button>
@@ -1033,17 +1033,17 @@ export default function ReservationDrawer({
         <DialogBackdrop className="fixed inset-0 bg-black/80" />
         <div className="fixed inset-0 z-50 w-screen overflow-y-auto">
           <div className="flex min-h-full items-end justify-center p-4 text-center sm:items-center sm:p-0">
-            <DialogPanel className="relative transform w-full overflow-hidden rounded-lg bg-bg px-4 pt-5 pb-4 text-left shadow-xl outline -outline-offset-1 outline-white/10 transition-all data-closed:translate-y-4 data-closed:opacity-0 data-enter:duration-300 data-enter:ease-out data-leave:duration-200 data-leave:ease-in sm:my-8 sm:w-full sm:max-w-sm sm:p-6 data-closed:sm:translate-y-0 data-closed:sm:scale-95">
-              <DialogTitle className="text-base font-semibold text-white mb-4">
+            <DialogPanel className="relative transform w-full overflow-hidden rounded-lg bg-white px-4 pt-5 pb-4 text-left shadow-xl ring-1 ring-black/5 transition-all data-closed:translate-y-4 data-closed:opacity-0 data-enter:duration-300 data-enter:ease-out data-leave:duration-200 data-leave:ease-in sm:my-8 sm:w-full sm:max-w-sm sm:p-6 data-closed:sm:translate-y-0 data-closed:sm:scale-95">
+              <DialogTitle className="text-base font-semibold text-gray-900 mb-4">
                 ¿Está seguro de cancelar esta reservación?
               </DialogTitle>
-              <p className="text-sm text-white/60 mb-4">
+              <p className="text-sm text-gray-600 mb-4">
                 Esta acción no se puede deshacer.
               </p>
               <div className="flex gap-3">
                 <button
                   onClick={() => setShowCancelConfirm(false)}
-                  className="flex-1 rounded-md bg-white/5 px-4 py-2 text-sm font-medium text-white shadow-sm ring-1 ring-inset ring-white/10 hover:bg-white/10"
+                  className="flex-1 rounded-md bg-white px-4 py-2 text-sm font-medium text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 hover:bg-gray-50"
                 >
                   No, mantener
                 </button>
@@ -1068,14 +1068,14 @@ export default function ReservationDrawer({
         <DialogBackdrop className="fixed inset-0 bg-black/80" />
         <div className="fixed inset-0 z-50 w-screen overflow-y-auto">
           <div className="flex min-h-full items-end justify-center p-4 text-center sm:items-center sm:p-0">
-            <DialogPanel className="relative transform w-full overflow-hidden rounded-lg bg-bg px-4 pt-5 pb-4 text-left shadow-xl outline -outline-offset-1 outline-white/10 transition-all data-closed:translate-y-4 data-closed:opacity-0 data-enter:duration-300 data-enter:ease-out data-leave:duration-200 data-leave:ease-in sm:my-8 sm:w-full sm:max-w-sm sm:p-6 data-closed:sm:translate-y-0 data-closed:sm:scale-95">
-              <DialogTitle className="text-base font-semibold text-white mb-4">
+            <DialogPanel className="relative transform w-full overflow-hidden rounded-lg bg-white px-4 pt-5 pb-4 text-left shadow-xl ring-1 ring-black/5 transition-all data-closed:translate-y-4 data-closed:opacity-0 data-enter:duration-300 data-enter:ease-out data-leave:duration-200 data-leave:ease-in sm:my-8 sm:w-full sm:max-w-sm sm:p-6 data-closed:sm:translate-y-0 data-closed:sm:scale-95">
+              <DialogTitle className="text-base font-semibold text-gray-900 mb-4">
                 ¿Confirmar el SINPE de esta reservación?
               </DialogTitle>
               <div className="flex gap-3">
                 <button
                   onClick={() => setShowSinpeConfirm(false)}
-                  className="flex-1 rounded-md bg-white/5 px-4 py-2 text-sm font-medium text-white shadow-sm ring-1 ring-inset ring-white/10 hover:bg-white/10"
+                  className="flex-1 rounded-md bg-white px-4 py-2 text-sm font-medium text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 hover:bg-gray-50"
                 >
                   Cancelar
                 </button>
@@ -1100,11 +1100,11 @@ export default function ReservationDrawer({
         <DialogBackdrop className="fixed inset-0 bg-black/80" />
         <div className="fixed inset-0 z-50 w-screen overflow-y-auto">
           <div className="flex min-h-full items-end justify-center p-4 text-center sm:items-center sm:p-0">
-            <DialogPanel className="relative transform w-full overflow-hidden rounded-lg bg-bg px-4 pt-5 pb-4 text-left shadow-xl outline -outline-offset-1 outline-white/10 transition-all data-closed:translate-y-4 data-closed:opacity-0 data-enter:duration-300 data-enter:ease-out data-leave:duration-200 data-leave:ease-in sm:my-8 sm:w-full sm:max-w-sm sm:p-6 data-closed:sm:translate-y-0 data-closed:sm:scale-95">
-              <DialogTitle className="text-base font-semibold text-white mb-4">
+            <DialogPanel className="relative transform w-full overflow-hidden rounded-lg bg-white px-4 pt-5 pb-4 text-left shadow-xl ring-1 ring-black/5 transition-all data-closed:translate-y-4 data-closed:opacity-0 data-enter:duration-300 data-enter:ease-out data-leave:duration-200 data-leave:ease-in sm:my-8 sm:w-full sm:max-w-sm sm:p-6 data-closed:sm:translate-y-0 data-closed:sm:scale-95">
+              <DialogTitle className="text-base font-semibold text-gray-900 mb-4">
                 ¿Confirmar sin comprobante?
               </DialogTitle>
-              <p className="text-sm text-white/60 mb-4">
+              <p className="text-sm text-gray-600 mb-4">
                 ¿Está seguro de confirmar esta reservación sin comprobante
                 SINPE? Esta acción confirmará el pago sin verificación del
                 comprobante.
@@ -1112,7 +1112,7 @@ export default function ReservationDrawer({
               <div className="flex gap-3">
                 <button
                   onClick={() => setShowSinpeNoComprobanteConfirm(false)}
-                  className="flex-1 rounded-md bg-white/5 px-4 py-2 text-sm font-medium text-white shadow-sm ring-1 ring-inset ring-white/10 hover:bg-white/10"
+                  className="flex-1 rounded-md bg-white px-4 py-2 text-sm font-medium text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 hover:bg-gray-50"
                 >
                   Cancelar
                 </button>
@@ -1137,16 +1137,16 @@ export default function ReservationDrawer({
         <DialogBackdrop className="fixed inset-0 bg-black/80" />
         <div className="fixed inset-0 z-50 w-screen overflow-y-auto">
           <div className="flex min-h-full items-end justify-center p-4 text-center sm:items-center sm:p-0">
-            <DialogPanel className="relative transform w-full overflow-hidden rounded-lg bg-bg px-4 pt-5 pb-4 text-left shadow-xl outline -outline-offset-1 outline-white/10 transition-all data-closed:translate-y-4 data-closed:opacity-0 data-enter:duration-300 data-enter:ease-out data-leave:duration-200 data-leave:ease-in sm:my-8 sm:w-full sm:max-w-sm sm:p-6 data-closed:sm:translate-y-0 data-closed:sm:scale-95">
+            <DialogPanel className="relative transform w-full overflow-hidden rounded-lg bg-white px-4 pt-5 pb-4 text-left shadow-xl ring-1 ring-black/5 transition-all data-closed:translate-y-4 data-closed:opacity-0 data-enter:duration-300 data-enter:ease-out data-leave:duration-200 data-leave:ease-in sm:my-8 sm:w-full sm:max-w-sm sm:p-6 data-closed:sm:translate-y-0 data-closed:sm:scale-95">
               <div className="flex items-center gap-3 mb-4">
                 <div className="shrink-0">
                   <FaCheck className="text-secondary text-2xl" />
                 </div>
-                <DialogTitle className="text-base font-semibold text-white">
+                <DialogTitle className="text-base font-semibold text-gray-900">
                   Reservación confirmada
                 </DialogTitle>
               </div>
-              <p className="text-sm text-white/60 mb-4">
+              <p className="text-sm text-gray-600 mb-4">
                 El SINPE ha sido confirmado exitosamente.
               </p>
               <button

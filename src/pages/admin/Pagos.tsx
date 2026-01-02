@@ -1,18 +1,14 @@
 import { useState, useEffect } from "react";
 import AdminLayout from "../../components/admin/AdminLayout";
-import ReservationDrawer from "../../components/admin/ReservationDrawer";
-import CreateReservationDrawer from "../../components/admin/CreateReservationDrawer";
-import SuccessNotification from "../../components/admin/SuccessNotification";
+import PagoDrawer from "../../components/admin/PagoDrawer";
 import { supabase } from "../../lib/supabase";
 import { useAuth } from "../../contexts/AuthContext";
 import {
   CalendarIcon,
   ChevronLeftIcon,
   ChevronRightIcon,
-  EllipsisHorizontalIcon,
   MapPinIcon,
 } from "@heroicons/react/20/solid";
-import { Menu, MenuButton, MenuItem, MenuItems } from "@headlessui/react";
 
 interface Cancha {
   id: number;
@@ -23,6 +19,17 @@ interface Cancha {
   precio?: string;
 }
 
+interface Pago {
+  id: number;
+  reserva_id: number;
+  monto_sinpe: number;
+  monto_efectivo: number;
+  nota: string | null;
+  completo: boolean;
+  creado_por: string;
+  created_at?: string;
+}
+
 interface Reserva {
   id: number;
   hora_inicio: string;
@@ -30,12 +37,11 @@ interface Reserva {
   nombre_reserva: string;
   celular_reserva: string;
   correo_reserva: string;
-  sinpe_reserva: string | null;
-  confirmada: boolean | null;
-  confirmada_por: string | null;
   precio: number;
   arbitro: boolean;
   cancha: Cancha;
+  pagos?: Pago[];
+  pagoStatus?: "no_registrado" | "incompleto" | "completo";
 }
 
 const MONTHS_SPANISH = [
@@ -55,7 +61,7 @@ const MONTHS_SPANISH = [
 
 const DAYS_SHORT = ["L", "M", "X", "J", "V", "S", "D"];
 
-export default function Dashboard() {
+export default function Pagos() {
   const { user } = useAuth();
   const [currentMonth, setCurrentMonth] = useState(new Date());
   const [selectedDate, setSelectedDate] = useState<Date | null>(new Date());
@@ -65,15 +71,13 @@ export default function Dashboard() {
   const [loadingReservas, setLoadingReservas] = useState(false);
   const [selectedCanchas, setSelectedCanchas] = useState<number[]>([]);
   const [selectedLocations, setSelectedLocations] = useState<number[]>([]);
+  const [selectedPagoStatus, setSelectedPagoStatus] = useState<
+    ("no_pagadas" | "incompletos" | "completos")[]
+  >([]);
 
   // Drawer state
   const [drawerOpen, setDrawerOpen] = useState(false);
-  const [drawerMode, setDrawerMode] = useState<"edit" | "cancel">("edit");
   const [selectedReserva, setSelectedReserva] = useState<Reserva | null>(null);
-
-  // Create drawer state
-  const [createDrawerOpen, setCreateDrawerOpen] = useState(false);
-  const [showSuccessNotification, setShowSuccessNotification] = useState(false);
 
   // Fetch canchas for filters
   useEffect(() => {
@@ -96,7 +100,7 @@ export default function Dashboard() {
     fetchCanchas();
   }, []);
 
-  // Fetch reservations function (can be called to refresh)
+  // Fetch reservations with pagos
   const fetchReservas = async () => {
     if (!selectedDate) return;
 
@@ -116,9 +120,6 @@ export default function Dashboard() {
             nombre_reserva,
             celular_reserva,
             correo_reserva,
-            sinpe_reserva,
-            confirmada,
-            confirmada_por,
             precio,
             arbitro,
             cancha:cancha_id (
@@ -138,23 +139,74 @@ export default function Dashboard() {
         query = query.in("cancha_id", selectedCanchas);
       }
 
-      const { data, error } = await query;
+      const { data: reservasData, error: reservasError } = await query;
 
-      if (error) throw error;
-
-      let filteredReservas: Reserva[] = (data || []).map((r: any) => ({
-        ...r,
-        cancha: Array.isArray(r.cancha) ? r.cancha[0] : r.cancha,
-      }));
+      if (reservasError) throw reservasError;
 
       // Filter by location if selected
+      let filteredReservas: any[] = reservasData || [];
       if (selectedLocations.length > 0) {
         filteredReservas = filteredReservas.filter(
-          (r) => r.cancha && selectedLocations.includes(r.cancha.local)
+          (r: any) => r.cancha && selectedLocations.includes(r.cancha.local)
         );
       }
 
-      setReservas(filteredReservas);
+      // Fetch pagos for all reservas
+      const reservaIds = filteredReservas.map((r: any) => r.id);
+      const { data: pagosData, error: pagosError } = await supabase
+        .from("pagos")
+        .select("*")
+        .in("reserva_id", reservaIds);
+
+      if (pagosError) throw pagosError;
+
+      // Group pagos by reserva_id
+      const pagosByReserva: Record<number, Pago[]> = {};
+      (pagosData || []).forEach((pago: Pago) => {
+        if (!pagosByReserva[pago.reserva_id]) {
+          pagosByReserva[pago.reserva_id] = [];
+        }
+        pagosByReserva[pago.reserva_id].push(pago);
+      });
+
+      // Combine reservas with pagos and determine status
+      const reservasConPagos: Reserva[] = filteredReservas.map((r: any) => {
+        const pagos = pagosByReserva[r.id] || [];
+        let pagoStatus: "no_registrado" | "incompleto" | "completo" =
+          "no_registrado";
+
+        if (pagos.length > 0) {
+          const hasCompleto = pagos.some((p: Pago) => p.completo === true);
+          pagoStatus = hasCompleto ? "completo" : "incompleto";
+        }
+
+        return {
+          ...r,
+          cancha: Array.isArray(r.cancha) ? r.cancha[0] : r.cancha,
+          pagos,
+          pagoStatus,
+        };
+      });
+
+      // Apply payment status filter
+      let finalReservas = reservasConPagos;
+      if (selectedPagoStatus.length > 0) {
+        finalReservas = reservasConPagos.filter((r) => {
+          const statusMap: Record<
+            "no_pagadas" | "incompletos" | "completos",
+            "no_registrado" | "incompleto" | "completo"
+          > = {
+            no_pagadas: "no_registrado",
+            incompletos: "incompleto",
+            completos: "completo",
+          };
+          return selectedPagoStatus.some(
+            (filterStatus) => r.pagoStatus === statusMap[filterStatus]
+          );
+        });
+      }
+
+      setReservas(finalReservas);
     } catch (error) {
       console.error("Error fetching reservas:", error);
     } finally {
@@ -165,7 +217,7 @@ export default function Dashboard() {
   // Fetch reservations for selected date
   useEffect(() => {
     fetchReservas();
-  }, [selectedDate, selectedCanchas, selectedLocations]);
+  }, [selectedDate, selectedCanchas, selectedLocations, selectedPagoStatus]);
 
   const formatLocalDate = (d: Date): string => {
     const year = d.getFullYear();
@@ -287,228 +339,110 @@ export default function Dashboard() {
     );
   };
 
-  // Fetch full reservation details
-  const fetchReservaDetails = async (reservaId: number) => {
-    try {
+  const togglePagoStatusFilter = (
+    status: "no_pagadas" | "incompletos" | "completos"
+  ) => {
+    setSelectedPagoStatus((prev) =>
+      prev.includes(status)
+        ? prev.filter((s) => s !== status)
+        : [...prev, status]
+    );
+  };
+
+  const handleVerPagos = (reserva: Reserva) => {
+    setSelectedReserva(reserva);
+    setDrawerOpen(true);
+  };
+
+  const handlePagoCreated = async () => {
+    await fetchReservas();
+    if (selectedReserva) {
+      // Refresh selected reserva data
       const { data, error } = await supabase
         .from("reservas")
         .select(
           `
-          *,
-          cancha:cancha_id (
             id,
-            nombre,
-            img,
-            local,
-            cantidad,
-            precio
-          )
-        `
-        )
-        .eq("id", reservaId)
-        .single();
-
-      if (error) throw error;
-
-      const reserva: Reserva = {
-        ...data,
-        cancha: Array.isArray(data.cancha) ? data.cancha[0] : data.cancha,
-      };
-
-      setSelectedReserva(reserva);
-      setDrawerOpen(true);
-    } catch (error) {
-      console.error("Error fetching reserva details:", error);
-    }
-  };
-
-  const handleConfirmarSinpe = async (reservaId: number) => {
-    setDrawerMode("edit");
-    await fetchReservaDetails(reservaId);
-  };
-
-  const handleVerReservacion = async (reservaId: number) => {
-    setDrawerMode("edit");
-    await fetchReservaDetails(reservaId);
-  };
-
-  const handleCancelarReservacion = async (reservaId: number) => {
-    setDrawerMode("cancel");
-    await fetchReservaDetails(reservaId);
-  };
-
-  const handleUpdateReserva = async (updates: {
-    hora_inicio: string;
-    hora_fin: string;
-    nombre_reserva: string;
-    correo_reserva: string;
-    celular_reserva: string;
-    precio: number;
-    cancha_id?: number;
-  }) => {
-    if (!selectedReserva) return;
-
-    try {
-      const updateData: any = {
-        hora_inicio: updates.hora_inicio,
-        hora_fin: updates.hora_fin,
-        nombre_reserva: updates.nombre_reserva,
-        correo_reserva: updates.correo_reserva,
-        celular_reserva: updates.celular_reserva,
-        precio: updates.precio,
-      };
-
-      if (updates.cancha_id) {
-        updateData.cancha_id = updates.cancha_id;
-      }
-
-      // Perform the update
-      const { data: updateResult, error: updateError } = await supabase
-        .from("reservas")
-        .update(updateData)
-        .eq("id", selectedReserva.id)
-        .select("id")
-        .single();
-
-      if (updateError) {
-        throw updateError;
-      }
-
-      if (!updateResult) {
-        throw new Error(
-          "Update returned no data - RLS policy may be blocking the update"
-        );
-      }
-
-      // Verify the update worked by fetching the updated row
-      const { data: verifyData, error: verifyError } = await supabase
-        .from("reservas")
-        .select(
-          "id, nombre_reserva, celular_reserva, correo_reserva, precio, hora_inicio, hora_fin"
+            hora_inicio,
+            hora_fin,
+            nombre_reserva,
+            celular_reserva,
+            correo_reserva,
+            precio,
+            arbitro,
+            cancha:cancha_id (
+              id,
+              nombre,
+              img,
+              local
+            )
+          `
         )
         .eq("id", selectedReserva.id)
         .single();
 
-      if (verifyError) {
-        throw verifyError;
-      }
+      if (!error && data) {
+        const { data: pagosData } = await supabase
+          .from("pagos")
+          .select("*")
+          .eq("reserva_id", selectedReserva.id);
 
-      // Check if values actually changed
-      if (
-        verifyData.nombre_reserva !== updates.nombre_reserva ||
-        verifyData.celular_reserva !== updates.celular_reserva ||
-        verifyData.correo_reserva !== updates.correo_reserva ||
-        verifyData.precio !== updates.precio
-      ) {
-        throw new Error(
-          "Update failed: RLS policy may be blocking the update. Please check your Supabase RLS policies."
-        );
-      }
+        const pagos = pagosData || [];
+        let pagoStatus: "no_registrado" | "incompleto" | "completo" =
+          "no_registrado";
 
-      // Refresh the selected reservation data in the drawer
-      await fetchReservaDetails(selectedReserva.id);
-    } catch (error) {
-      console.error("Error updating reserva:", error);
-      throw error;
-    }
-  };
-
-  const handleConfirmSinpe = async (
-    reservaId: number,
-    _hasComprobante: boolean
-  ) => {
-    if (!user) {
-      console.error("No user found when trying to confirm SINPE");
-      return;
-    }
-
-    try {
-      // Build update data with confirmada and confirmada_por (using email)
-      const updateData: any = {
-        confirmada: true,
-        confirmada_por: user.email || user.id,
-      };
-
-      console.log("Confirming SINPE with admin email:", user.email);
-
-      const { data, error } = await supabase
-        .from("reservas")
-        .update(updateData)
-        .eq("id", reservaId)
-        .select("id, confirmada, confirmada_por")
-        .single();
-
-      if (error) {
-        console.error("Error updating reservation:", error);
-
-        // If error is about confirmada_por column not existing, try without it
-        if (
-          error.message?.includes("confirmada_por") ||
-          error.code === "42703"
-        ) {
-          console.warn(
-            "confirmada_por column may not exist, retrying without it"
-          );
-          const { error: retryError } = await supabase
-            .from("reservas")
-            .update({ confirmada: true })
-            .eq("id", reservaId);
-
-          if (retryError) throw retryError;
-        } else {
-          throw error;
+        if (pagos.length > 0) {
+          const hasCompleto = pagos.some((p: Pago) => p.completo === true);
+          pagoStatus = hasCompleto ? "completo" : "incompleto";
         }
-      } else {
-        console.log("SINPE confirmation successful:", data);
+
+        setSelectedReserva({
+          ...data,
+          cancha: Array.isArray(data.cancha) ? data.cancha[0] : data.cancha,
+          pagos,
+          pagoStatus,
+        });
       }
-
-      // Refresh reservation details
-      await fetchReservaDetails(reservaId);
-    } catch (error) {
-      console.error("Error confirming SINPE:", error);
-      throw error;
     }
   };
 
-  const handleDeleteReserva = async (reservaId: number) => {
-    try {
-      const { error } = await supabase
-        .from("reservas")
-        .delete()
-        .eq("id", reservaId);
+  // Calculate daily totals
+  const calculateDailyTotals = () => {
+    if (!selectedDate)
+      return { totalReservas: 0, totalPagos: 0, diferencia: 0 };
 
-      if (error) throw error;
-    } catch (error) {
-      console.error("Error deleting reserva:", error);
-      throw error;
-    }
-  };
+    const totalReservas = reservas.reduce((sum, r) => sum + r.precio, 0);
+    const totalPagos = reservas.reduce((sum, r) => {
+      const pagosTotal = (r.pagos || []).reduce(
+        (pSum, p) => pSum + p.monto_sinpe + p.monto_efectivo,
+        0
+      );
+      return sum + pagosTotal;
+    }, 0);
 
-  const handleCrearReservacion = () => {
-    setCreateDrawerOpen(true);
-  };
-
-  const handleReservationCreated = async (reservaId: number) => {
-    await fetchReservas();
-    setShowSuccessNotification(true);
-    // Open drawer for the newly created reservation
-    await fetchReservaDetails(reservaId);
+    return {
+      totalReservas,
+      totalPagos,
+      diferencia: totalReservas - totalPagos,
+    };
   };
 
   const days = getDaysInMonth(currentMonth);
   const monthName = MONTHS_SPANISH[currentMonth.getMonth()];
   const year = currentMonth.getFullYear();
 
-  // Get canchas for filter badges - ensure cancha id 6 is included
+  // Get canchas for filter badges
   const cancha6 = canchas.find((c) => c.id === 6);
   const otherCanchas = canchas.filter((c) => c.id !== 6).slice(0, 5);
   const filterCanchas = cancha6
     ? [...otherCanchas, cancha6]
     : canchas.slice(0, 5);
 
+  const totals = calculateDailyTotals();
+
   if (loading) {
     return (
-      <AdminLayout title="Reservaciones">
+      <AdminLayout title="Pagos">
         <div className="flex items-center justify-center h-screen">
           <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary"></div>
         </div>
@@ -517,11 +451,8 @@ export default function Dashboard() {
   }
 
   return (
-    <AdminLayout title="Reservaciones">
+    <AdminLayout title="Pagos">
       <div className="min-h-screen">
-        {/* <h2 className="text-base font-semibold text-gray-900 mb-6">
-          Reserva del día
-        </h2> */}
         <div className="lg:grid lg:grid-cols-12 lg:gap-x-16">
           {/* Calendar */}
           <div className="mt-10 text-center lg:col-start-8 lg:col-end-13 lg:row-start-1 lg:mt-9 xl:col-start-9">
@@ -594,13 +525,43 @@ export default function Dashboard() {
                 );
               })}
             </div>
-            <button
-              type="button"
-              onClick={handleCrearReservacion}
-              className="mt-8 w-full rounded-md bg-primary px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-primary/90 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
-            >
-              Crear reservación
-            </button>
+
+            {/* Daily Totals */}
+            {selectedDate && (
+              <div className="mt-6 rounded-lg bg-white border border-gray-200 p-4 shadow-sm">
+                <h3 className="text-sm font-semibold text-gray-900 mb-3">
+                  Totales del día
+                </h3>
+                <div className="space-y-2 text-sm">
+                  <div className="flex justify-between">
+                    <span className="text-gray-600">Total Reservas:</span>
+                    <span className="font-medium text-gray-900">
+                      ₡ {totals.totalReservas.toLocaleString()}
+                    </span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-gray-600">Total Pagos:</span>
+                    <span className="font-medium text-gray-900">
+                      ₡ {totals.totalPagos.toLocaleString()}
+                    </span>
+                  </div>
+                  <div className="border-t border-gray-200 pt-2 flex justify-between">
+                    <span className="text-gray-900 font-semibold">
+                      Diferencia:
+                    </span>
+                    <span
+                      className={`font-bold ${
+                        totals.diferencia >= 0
+                          ? "text-green-600"
+                          : "text-red-600"
+                      }`}
+                    >
+                      ₡ {totals.diferencia.toLocaleString()}
+                    </span>
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
 
           {/* Reservations List */}
@@ -642,6 +603,37 @@ export default function Dashboard() {
                   {cancha.nombre}
                 </button>
               ))}
+              {/* Payment status filters */}
+              <button
+                onClick={() => togglePagoStatusFilter("no_pagadas")}
+                className={`rounded-md px-3 py-1 border border-gray-300 text-xs font-medium transition-colors ${
+                  selectedPagoStatus.includes("no_pagadas")
+                    ? "bg-gray-600 text-white"
+                    : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+                }`}
+              >
+                No pagadas
+              </button>
+              <button
+                onClick={() => togglePagoStatusFilter("incompletos")}
+                className={`rounded-md px-3 py-1 border border-yellow-300 text-xs font-medium transition-colors ${
+                  selectedPagoStatus.includes("incompletos")
+                    ? "bg-yellow-500 text-white"
+                    : "bg-yellow-50 text-yellow-700 hover:bg-yellow-100"
+                }`}
+              >
+                Pagos incompletos
+              </button>
+              <button
+                onClick={() => togglePagoStatusFilter("completos")}
+                className={`rounded-md px-3 py-1 border border-green-300 text-xs font-medium transition-colors ${
+                  selectedPagoStatus.includes("completos")
+                    ? "bg-green-500 text-white"
+                    : "bg-green-50 text-green-700 hover:bg-green-100"
+                }`}
+              >
+                Pagos completos
+              </button>
             </div>
 
             {/* Reservations List */}
@@ -658,17 +650,30 @@ export default function Dashboard() {
             ) : (
               <ol className="divide-y divide-gray-100 text-sm/6">
                 {reservas.map((reserva) => {
-                  const isSabana = reserva.cancha.local === 1;
-                  const sinpePendiente =
-                    isSabana &&
-                    reserva.sinpe_reserva === null &&
-                    !reserva.confirmada;
-                  const sinpeFaltaConfirmar =
-                    isSabana &&
-                    reserva.sinpe_reserva !== null &&
-                    !reserva.confirmada;
-                  const sinpeConfirmado =
-                    isSabana && reserva.confirmada === true;
+                  const getPagoBadge = () => {
+                    if (reserva.pagoStatus === "completo") {
+                      return (
+                        <span className="inline-flex items-center gap-1.5 rounded-lg bg-green-50 border border-green-200 px-3 py-1.5 text-xs font-semibold text-green-800 shadow-sm">
+                          <span className="size-1.5 rounded-full bg-green-500"></span>
+                          Pago registrado
+                        </span>
+                      );
+                    } else if (reserva.pagoStatus === "incompleto") {
+                      return (
+                        <span className="inline-flex items-center gap-1.5 rounded-lg bg-yellow-50 border border-yellow-200 px-3 py-1.5 text-xs font-semibold text-yellow-800 shadow-sm">
+                          <span className="size-1.5 rounded-full bg-yellow-500"></span>
+                          Pago no completo
+                        </span>
+                      );
+                    } else {
+                      return (
+                        <span className="inline-flex items-center gap-1.5 rounded-lg bg-gray-50 border border-gray-200 px-3 py-1.5 text-xs font-semibold text-gray-800 shadow-sm">
+                          <span className="size-1.5 rounded-full bg-gray-500"></span>
+                          Pago no registrado
+                        </span>
+                      );
+                    }
+                  };
 
                   return (
                     <li
@@ -712,82 +717,28 @@ export default function Dashboard() {
                               {getLocalName(reserva.cancha.local)}
                             </dd>
                           </div>
+                          <div className="mt-2 flex items-start gap-x-3 xl:mt-0 xl:ml-3.5 xl:border-l xl:border-gray-400/50 xl:pl-3.5">
+                            <dt className="mt-0.5">
+                              <span className="sr-only">Precio</span>
+                            </dt>
+                            <dd className="font-semibold text-gray-900">
+                              ₡ {reserva.precio.toLocaleString()}
+                            </dd>
+                          </div>
                         </dl>
-                        {/* SINPE Status */}
-                        {isSabana && (
-                          <div className="mt-2">
-                            {sinpePendiente ? (
-                              <span className="inline-flex items-center gap-1.5 rounded-lg bg-yellow-50 border border-yellow-200 px-3 py-1.5 text-xs font-semibold text-yellow-800 shadow-sm">
-                                <span className="size-1.5 rounded-full bg-yellow-500"></span>
-                                SINPE Pendiente
-                              </span>
-                            ) : sinpeFaltaConfirmar ? (
-                              <button
-                                onClick={() => handleConfirmarSinpe(reserva.id)}
-                                className="inline-flex items-center gap-1.5 rounded-lg bg-primary px-3 py-1.5 text-xs font-semibold text-white shadow-sm hover:bg-primary/90 transition-colors"
-                              >
-                                Falta Confirmar Sinpe
-                              </button>
-                            ) : sinpeConfirmado ? (
-                              <span className="inline-flex items-center gap-1.5 rounded-lg bg-primary/10 border border-primary/20 px-3 py-1.5 text-xs font-semibold text-primary shadow-sm">
-                                <span className="size-1.5 rounded-full bg-primary"></span>
-                                SINPE Confirmado
-                              </span>
-                            ) : null}
-                          </div>
-                        )}
+                        {/* Payment Status */}
+                        <div className="mt-2">{getPagoBadge()}</div>
                       </div>
-                      <Menu
-                        as="div"
-                        className="absolute top-6 right-0 xl:relative xl:top-auto xl:right-auto xl:self-center"
-                      >
-                        <MenuButton className="relative flex items-center rounded-full text-gray-500 hover:text-gray-600">
-                          <span className="absolute -inset-2" />
-                          <span className="sr-only">Abrir opciones</span>
-                          <EllipsisHorizontalIcon
-                            aria-hidden="true"
-                            className="size-5"
-                          />
-                        </MenuButton>
-
-                        <MenuItems
-                          transition
-                          className="absolute right-0 z-10 mt-2 w-36 origin-top-right rounded-md bg-white shadow-lg outline-1 outline-black/5 transition data-closed:scale-95 data-closed:transform data-closed:opacity-0 data-enter:duration-100 data-enter:ease-out data-leave:duration-75 data-leave:ease-in"
+                      <div className="flex items-center">
+                        <button
+                          onClick={() => handleVerPagos(reserva)}
+                          className="rounded-md bg-primary px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-primary/90 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
                         >
-                          <div className="py-1">
-                            {sinpeFaltaConfirmar && (
-                              <MenuItem>
-                                <button
-                                  onClick={() =>
-                                    handleConfirmarSinpe(reserva.id)
-                                  }
-                                  className="block w-full text-left px-4 py-2 text-sm text-gray-700 data-focus:bg-gray-100 data-focus:text-gray-900 data-focus:outline-hidden"
-                                >
-                                  Confirmar SINPE
-                                </button>
-                              </MenuItem>
-                            )}
-                            <MenuItem>
-                              <button
-                                onClick={() => handleVerReservacion(reserva.id)}
-                                className="block w-full text-left px-4 py-2 text-sm text-gray-700 data-focus:bg-gray-100 data-focus:text-gray-900 data-focus:outline-hidden"
-                              >
-                                Ver reservación
-                              </button>
-                            </MenuItem>
-                            <MenuItem>
-                              <button
-                                onClick={() =>
-                                  handleCancelarReservacion(reserva.id)
-                                }
-                                className="block w-full text-left px-4 py-2 text-sm text-gray-700 data-focus:bg-gray-100 data-focus:text-gray-900 data-focus:outline-hidden"
-                              >
-                                Cancelar reservación
-                              </button>
-                            </MenuItem>
-                          </div>
-                        </MenuItems>
-                      </Menu>
+                          {reserva.pagos && reserva.pagos.length > 0
+                            ? "Ver pagos"
+                            : "Registrar pago"}
+                        </button>
+                      </div>
                     </li>
                   );
                 })}
@@ -797,33 +748,13 @@ export default function Dashboard() {
         </div>
       </div>
 
-      {/* Reservation Drawer */}
-      <ReservationDrawer
+      {/* Pago Drawer */}
+      <PagoDrawer
         open={drawerOpen}
         onClose={() => setDrawerOpen(false)}
         reserva={selectedReserva}
-        mode={drawerMode}
-        onUpdate={handleUpdateReserva}
-        onDelete={handleDeleteReserva}
-        onConfirmSinpe={handleConfirmSinpe}
-        onRefresh={fetchReservas}
+        onPagoCreated={handlePagoCreated}
         user={user}
-      />
-
-      {/* Create Reservation Drawer */}
-      <CreateReservationDrawer
-        open={createDrawerOpen}
-        onClose={() => setCreateDrawerOpen(false)}
-        defaultCanchaId={selectedCanchas[0] || 1}
-        onSuccess={handleReservationCreated}
-      />
-
-      {/* Success Notification */}
-      <SuccessNotification
-        show={showSuccessNotification}
-        onClose={() => setShowSuccessNotification(false)}
-        message="Reserva creada"
-        description="La reservación se ha creado exitosamente."
       />
     </AdminLayout>
   );

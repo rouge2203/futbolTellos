@@ -22,6 +22,7 @@ const navigation = [
     path: "/admin/reservas-2",
   },
   { name: "Retos", href: "/admin/retos", path: "/admin/retos" },
+  { name: "Pagos", href: "/admin/pagos", path: "/admin/pagos" },
   { name: "Canchas", href: "/admin/canchas", path: "/admin/canchas" },
   {
     name: "Horarios",

@@ -408,13 +408,13 @@ export default function CreateReservationDrawer({
 
       <div className="fixed inset-0 overflow-hidden">
         <div className="absolute inset-0 overflow-hidden">
-          <div className="pointer-events-none fixed inset-y-0 right-0 flex max-w-full pl-10 sm:pl-16">
+          <div className="pointer-events-none fixed inset-y-0 right-0 flex max-w-full pl-0 sm:pl-10 lg:pl-16">
             <DialogPanel
               transition
-              className="pointer-events-auto w-screen max-w-md transform transition duration-500 ease-in-out data-closed:translate-x-full sm:duration-700"
+              className="pointer-events-auto w-full sm:w-screen sm:max-w-2xl transform transition duration-500 ease-in-out data-closed:translate-x-full sm:duration-700"
             >
-              <div className="relative flex h-full flex-col divide-y divide-white/10 bg-bg shadow-xl">
-                <div className="h-0 flex-1 overflow-y-auto">
+              <div className="relative flex h-full flex-col divide-y divide-gray-200 bg-white shadow-xl">
+                <div className="h-0 flex-1 overflow-y-auto overflow-x-hidden">
                   <div className="bg-primary px-4 py-6 sm:px-6">
                     <div className="flex items-center justify-between">
                       <DialogTitle className="text-base font-semibold text-white">
@@ -436,8 +436,8 @@ export default function CreateReservationDrawer({
                     </div>
                   </div>
 
-                  <div className="flex flex-1 flex-col justify-between">
-                    <div className="divide-y divide-white/10 px-4 sm:px-6">
+                  <div className="flex flex-1 flex-col justify-between overflow-x-hidden">
+                    <div className="divide-y divide-gray-200 px-4 sm:px-6 overflow-x-hidden">
                       {loading ? (
                         <div className="flex items-center justify-center py-12">
                           <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-primary"></div>
@@ -448,7 +448,7 @@ export default function CreateReservationDrawer({
                             <>
                               {/* Cancha Selection */}
                               <div>
-                                <label className="block text-sm/6 font-medium text-white mb-2">
+                                <label className="block text-sm/6 font-medium text-gray-900 mb-2">
                                   Cancha
                                 </label>
                                 <select
@@ -467,13 +467,13 @@ export default function CreateReservationDrawer({
                                       }
                                     }
                                   }}
-                                  className="block w-full rounded-md bg-white/5 px-3 py-1.5 text-base text-white outline-1 -outline-offset-1 outline-white/10 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-primary sm:text-sm/6"
+                                  className="block w-full rounded-md bg-white border border-gray-300 px-3 py-1.5 text-base text-gray-900 outline-1 -outline-offset-1 outline-gray-300 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-primary sm:text-sm/6"
                                 >
                                   {canchas.map((cancha) => (
                                     <option
                                       key={cancha.id}
                                       value={cancha.id}
-                                      className="bg-bg text-white"
+                                      className="bg-white text-gray-900"
                                     >
                                       {cancha.nombre}
                                     </option>
@@ -485,11 +485,11 @@ export default function CreateReservationDrawer({
                               {selectedCancha && (
                                 <>
                                   <div>
-                                    <h3 className="text-sm font-medium text-white flex items-center gap-2 mb-3">
-                                      <FaRegCalendarCheck className="text-secondary" />
+                                    <h3 className="text-sm font-medium text-gray-900 flex items-center gap-2 mb-3">
+                                      <FaRegCalendarCheck className="text-primary" />
                                       Seleccione una fecha
                                     </h3>
-                                    <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-hide">
+                                    <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-hide -mr-2 sm:mr-0">
                                       {dates.map((date, index) => {
                                         const isSelected =
                                           date.toDateString() ===
@@ -506,7 +506,7 @@ export default function CreateReservationDrawer({
                                             className={`shrink-0 w-16 py-3 rounded-xl border transition-all flex flex-col items-center ${
                                               isSelected
                                                 ? "bg-primary border-primary text-white"
-                                                : "bg-transparent border-primary border-dashed text-white hover:bg-primary/20"
+                                                : "bg-white border-primary border-dashed text-gray-900 hover:bg-primary/10"
                                             }`}
                                           >
                                             <span className="text-4xl tracking-tighter font-semibold">
@@ -526,9 +526,9 @@ export default function CreateReservationDrawer({
                                   {/* Player Selection (Special Cancha) */}
                                   {isSpecialCancha && (
                                     <div>
-                                      <h3 className="text-white font-medium mb-3 flex items-center gap-0.5">
-                                        <TbRun className="text-secondary" />
-                                        <TbPlayFootball className="text-secondary -ml-1" />
+                                      <h3 className="text-gray-900 font-medium mb-3 flex items-center gap-0.5">
+                                        <TbRun className="text-primary" />
+                                        <TbPlayFootball className="text-primary -ml-1" />
                                         Seleccione cantidad de jugadores
                                       </h3>
                                       <div className="flex gap-2">
@@ -542,7 +542,7 @@ export default function CreateReservationDrawer({
                                             className={`flex-1 py-3 rounded-lg border transition-all font-bold ${
                                               selectedPlayers === players
                                                 ? "bg-primary border-primary text-white"
-                                                : "bg-transparent border-primary border-dashed text-white"
+                                                : "bg-white border-primary border-dashed text-gray-900 hover:bg-primary/10"
                                             }`}
                                           >
                                             FUT {players}
@@ -554,11 +554,11 @@ export default function CreateReservationDrawer({
 
                                   {/* Hour Selection */}
                                   <div>
-                                    <h3 className="text-sm font-medium text-white flex gap-2 items-center mb-3">
-                                      <FaRegClock className="text-secondary" />
+                                    <h3 className="text-sm font-medium text-gray-900 flex gap-2 items-center mb-3">
+                                      <FaRegClock className="text-primary" />
                                       Seleccione una hora
                                       {loadingReservas && (
-                                        <span className="text-white/50 text-xs ml-2">
+                                        <span className="text-gray-500 text-xs ml-2">
                                           (cargando...)
                                         </span>
                                       )}
@@ -580,10 +580,10 @@ export default function CreateReservationDrawer({
                                             disabled={isReserved}
                                             className={`py-3 text-base tracking-tight rounded-lg border transition-all font-medium ${
                                               isReserved
-                                                ? "bg-gray-800 border-gray-600 text-gray-500 cursor-not-allowed line-through"
+                                                ? "bg-gray-100 border-gray-300 text-gray-400 cursor-not-allowed line-through"
                                                 : isSelected
                                                 ? "bg-primary border-primary text-white"
-                                                : "bg-transparent border-primary border-dashed text-white hover:bg-primary/20"
+                                                : "bg-white border-primary border-dashed text-gray-900 hover:bg-primary/10"
                                             }`}
                                           >
                                             {hour}:00
@@ -594,7 +594,7 @@ export default function CreateReservationDrawer({
                                     {availableHours.every((h) =>
                                       reservedHours.includes(h)
                                     ) && (
-                                      <p className="text-white/60 text-sm text-center mt-4">
+                                      <p className="text-gray-500 text-sm text-center mt-4">
                                         No hay horarios disponibles para esta
                                         fecha
                                       </p>
@@ -614,7 +614,7 @@ export default function CreateReservationDrawer({
                                             onChange={(e) =>
                                               setArbitro(e.target.checked)
                                             }
-                                            className="col-start-1 row-start-1 appearance-none rounded-sm border border-white/10 bg-white/5 checked:border-primary checked:bg-primary focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+                                            className="col-start-1 row-start-1 appearance-none rounded-sm border border-gray-300 bg-white checked:border-primary checked:bg-primary focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
                                           />
                                           <svg
                                             fill="none"
@@ -634,12 +634,12 @@ export default function CreateReservationDrawer({
                                       <div className="text-base">
                                         <label
                                           htmlFor="arbitro-create"
-                                          className="font-medium text-white flex items-center gap-2"
+                                          className="font-medium text-gray-900 flex items-center gap-2"
                                         >
-                                          <GiWhistle className="text-secondary text-lg" />
+                                          <GiWhistle className="text-primary text-lg" />
                                           Contratar árbitro
                                         </label>
-                                        <p className="text-gray-400 text-sm">
+                                        <p className="text-gray-600 text-sm">
                                           + ₡5,000 al precio total
                                         </p>
                                       </div>
@@ -648,12 +648,12 @@ export default function CreateReservationDrawer({
 
                                   {/* Price Display */}
                                   {selectedHour && (
-                                    <div className="bg-white/5 rounded-xl p-4">
+                                    <div className="bg-gray-50 rounded-xl p-4 border border-gray-200">
                                       <div className="flex items-center justify-between">
-                                        <span className="text-white/80 text-sm">
+                                        <span className="text-gray-600 text-sm">
                                           Precio total
                                         </span>
-                                        <span className="text-white font-bold text-lg">
+                                        <span className="text-gray-900 font-bold text-lg">
                                           ₡ {getPrice().toLocaleString()}
                                         </span>
                                       </div>
@@ -683,15 +683,15 @@ export default function CreateReservationDrawer({
                                   </div>
 
                                   {/* Reservation Details */}
-                                  <div className="bg-white/5 rounded-xl p-4 space-y-3">
+                                  <div className="bg-gray-50 rounded-xl p-4 space-y-3 border border-gray-200">
                                     <div className="flex items-center justify-between">
                                       <div className="flex items-center gap-2">
-                                        <FaRegCalendarCheck className="text-secondary" />
-                                        <span className="text-white/80 text-sm">
+                                        <FaRegCalendarCheck className="text-primary" />
+                                        <span className="text-gray-600 text-sm">
                                           Fecha y hora
                                         </span>
                                       </div>
-                                      <span className="text-white font-medium">
+                                      <span className="text-gray-900 font-medium">
                                         {selectedDate.getDate()} de{" "}
                                         {
                                           [
@@ -712,12 +712,12 @@ export default function CreateReservationDrawer({
                                         - {selectedHour}:00
                                       </span>
                                     </div>
-                                    <div className="border-t border-white/10" />
+                                    <div className="border-t border-gray-200" />
                                     <div className="flex items-center justify-between">
-                                      <span className="text-white/80 text-sm">
+                                      <span className="text-gray-600 text-sm">
                                         Precio total
                                       </span>
-                                      <span className="text-white font-bold text-lg">
+                                      <span className="text-gray-900 font-bold text-lg">
                                         ₡ {getPrice().toLocaleString()}
                                       </span>
                                     </div>
@@ -725,12 +725,12 @@ export default function CreateReservationDrawer({
 
                                   {/* SINPE Warning (Sabana only) */}
                                   {selectedCancha.local === 1 && (
-                                    <div className="bg-yellow-500/10 border border-yellow-500/30 rounded-xl px-4 py-4">
+                                    <div className="bg-yellow-50 border border-yellow-200 rounded-xl px-4 py-4">
                                       <div className="flex items-start gap-3">
-                                        <IoWarning className="text-yellow-500 text-xl shrink-0 mt-0.5" />
-                                        <p className="text-white/90 text-sm">
+                                        <IoWarning className="text-yellow-600 text-xl shrink-0 mt-0.5" />
+                                        <p className="text-gray-900 text-sm">
                                           Tiene{" "}
-                                          <strong className="text-yellow-500">
+                                          <strong className="text-yellow-600">
                                             2 horas
                                           </strong>{" "}
                                           para realizar el SINPE y subir el
@@ -743,18 +743,18 @@ export default function CreateReservationDrawer({
                                   {/* SINPE Acknowledgment (Sabana only) */}
                                   {selectedCancha.local === 1 && (
                                     <div
-                                      className={`flex items-center justify-between bg-white/5 rounded-xl p-4 ${
+                                      className={`flex items-center justify-between bg-gray-50 rounded-xl p-4 border border-gray-200 ${
                                         sinpeAcknowledged
                                           ? "animate-none"
                                           : "animate-pulse"
                                       }`}
                                     >
                                       <span className="flex grow flex-col">
-                                        <label className="text-sm/6 font-medium text-white">
+                                        <label className="text-sm/6 font-medium text-gray-900">
                                           Confirmo que realizaré el SINPE
                                         </label>
                                       </span>
-                                      <div className="group relative inline-flex w-11 shrink-0 rounded-full bg-white/5 p-0.5 inset-ring inset-ring-white/10 outline-offset-2 outline-primary transition-colors duration-200 ease-in-out has-checked:bg-primary ml-4">
+                                      <div className="group relative inline-flex w-11 shrink-0 rounded-full bg-gray-200 p-0.5 ring-1 ring-gray-300 outline-offset-2 outline-primary transition-colors duration-200 ease-in-out has-checked:bg-primary ml-4">
                                         <span className="size-5 rounded-full bg-white shadow-xs ring-1 ring-gray-900/5 transition-transform duration-200 ease-in-out group-has-checked:translate-x-5" />
                                         <input
                                           id="sinpe-toggle-create"
@@ -774,7 +774,7 @@ export default function CreateReservationDrawer({
 
                                   {/* Contact Form */}
                                   <div className="space-y-4">
-                                    <h3 className="text-white font-medium">
+                                    <h3 className="text-gray-900 font-medium">
                                       Datos de contacto
                                     </h3>
 
@@ -782,7 +782,7 @@ export default function CreateReservationDrawer({
                                     <div>
                                       <label
                                         htmlFor="nombre-create"
-                                        className="block text-sm/6 font-medium text-white"
+                                        className="block text-sm/6 font-medium text-gray-900"
                                       >
                                         Nombre completo *
                                       </label>
@@ -796,7 +796,7 @@ export default function CreateReservationDrawer({
                                           onChange={(e) =>
                                             setNombre(e.target.value)
                                           }
-                                          className="block w-full rounded-md bg-white/5 px-3 py-1.5 text-base text-white outline-1 -outline-offset-1 outline-white/10 placeholder:text-gray-500 focus:outline-2 focus:-outline-offset-2 focus:outline-primary sm:text-sm/6"
+                                          className="block w-full rounded-md bg-white border border-gray-300 px-3 py-1.5 text-base text-gray-900 outline-1 -outline-offset-1 outline-gray-300 placeholder:text-gray-500 focus:outline-2 focus:-outline-offset-2 focus:outline-primary sm:text-sm/6"
                                         />
                                       </div>
                                     </div>
@@ -805,7 +805,7 @@ export default function CreateReservationDrawer({
                                     <div>
                                       <label
                                         htmlFor="celular-create"
-                                        className="block text-sm/6 font-medium text-white"
+                                        className="block text-sm/6 font-medium text-gray-900"
                                       >
                                         Celular (opcional)
                                       </label>
@@ -819,7 +819,7 @@ export default function CreateReservationDrawer({
                                           onChange={(e) =>
                                             setCelular(e.target.value)
                                           }
-                                          className="block w-full rounded-md bg-white/5 px-3 py-1.5 text-base text-white outline-1 -outline-offset-1 outline-white/10 placeholder:text-gray-500 focus:outline-2 focus:-outline-offset-2 focus:outline-primary sm:text-sm/6"
+                                          className="block w-full rounded-md bg-white border border-gray-300 px-3 py-1.5 text-base text-gray-900 outline-1 -outline-offset-1 outline-gray-300 placeholder:text-gray-500 focus:outline-2 focus:-outline-offset-2 focus:outline-primary sm:text-sm/6"
                                         />
                                       </div>
                                     </div>
@@ -828,7 +828,7 @@ export default function CreateReservationDrawer({
                                     <div>
                                       <label
                                         htmlFor="correo-create"
-                                        className="block text-sm/6 font-medium text-white"
+                                        className="block text-sm/6 font-medium text-gray-900"
                                       >
                                         Correo electrónico (opcional)
                                       </label>
@@ -842,7 +842,7 @@ export default function CreateReservationDrawer({
                                           onChange={(e) =>
                                             setCorreo(e.target.value)
                                           }
-                                          className="block w-full rounded-md bg-white/5 px-3 py-1.5 text-base text-white outline-1 -outline-offset-1 outline-white/10 placeholder:text-gray-500 focus:outline-2 focus:-outline-offset-2 focus:outline-primary sm:text-sm/6"
+                                          className="block w-full rounded-md bg-white border border-gray-300 px-3 py-1.5 text-base text-gray-900 outline-1 -outline-offset-1 outline-gray-300 placeholder:text-gray-500 focus:outline-2 focus:-outline-offset-2 focus:outline-primary sm:text-sm/6"
                                         />
                                       </div>
                                     </div>
@@ -859,13 +859,13 @@ export default function CreateReservationDrawer({
 
                 {/* Footer Buttons */}
                 {!loading && (
-                  <div className="flex shrink-0 justify-end gap-3 px-4 py-4">
+                  <div className="flex shrink-0 justify-end gap-3 px-4 sm:px-6 py-4">
                     {step === 1 ? (
                       <>
                         <button
                           type="button"
                           onClick={onClose}
-                          className="rounded-md bg-white/5 px-3 py-2 text-sm font-semibold text-white shadow-xs inset-ring inset-ring-white/10 hover:bg-white/10"
+                          className="rounded-md bg-white px-3 py-2 text-sm font-semibold text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 hover:bg-gray-50"
                         >
                           Cancelar
                         </button>
@@ -883,7 +883,7 @@ export default function CreateReservationDrawer({
                         <button
                           type="button"
                           onClick={handleBackStep}
-                          className="rounded-md bg-white/5 px-3 py-2 text-sm font-semibold text-white shadow-xs inset-ring inset-ring-white/10 hover:bg-white/10"
+                          className="rounded-md bg-white px-3 py-2 text-sm font-semibold text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 hover:bg-gray-50"
                         >
                           Atrás
                         </button>

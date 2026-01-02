@@ -144,29 +144,39 @@ export default function Configuracion() {
                 <label className="block text-sm font-medium text-gray-700 mb-1">
                   Hora de Apertura
                 </label>
-                <input
-                  type="time"
-                  value={config?.apertura_sabana?.slice(0, 5) || ""}
-                  onChange={(e) =>
-                    handleChange("apertura_sabana", e.target.value + ":00")
-                  }
-                  disabled={!isEditing}
-                  className="block w-full rounded-md bg-gray-50 border border-gray-300 px-3 py-2 text-gray-900 shadow-sm focus:border-primary focus:outline-none focus:ring-primary disabled:bg-gray-100 disabled:text-gray-500 disabled:cursor-not-allowed sm:text-sm"
-                />
+                {isEditing ? (
+                  <input
+                    type="time"
+                    value={config?.apertura_sabana?.slice(0, 5) || ""}
+                    onChange={(e) =>
+                      handleChange("apertura_sabana", e.target.value + ":00")
+                    }
+                    className="block w-full rounded-md bg-white border border-gray-300 px-3 py-2 text-gray-900 shadow-sm focus:border-primary focus:outline-none focus:ring-primary sm:text-sm"
+                  />
+                ) : (
+                  <div className="block w-full rounded-md bg-gray-50 border border-gray-300 px-3 py-2 text-gray-900 sm:text-sm">
+                    {config?.apertura_sabana?.slice(0, 5) || "No configurado"}
+                  </div>
+                )}
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
                   Hora de Cierre
                 </label>
-                <input
-                  type="time"
-                  value={config?.cierre_sabana?.slice(0, 5) || ""}
-                  onChange={(e) =>
-                    handleChange("cierre_sabana", e.target.value + ":00")
-                  }
-                  disabled={!isEditing}
-                  className="block w-full rounded-md bg-gray-50 border border-gray-300 px-3 py-2 text-gray-900 shadow-sm focus:border-primary focus:outline-none focus:ring-primary disabled:bg-gray-100 disabled:text-gray-500 disabled:cursor-not-allowed sm:text-sm"
-                />
+                {isEditing ? (
+                  <input
+                    type="time"
+                    value={config?.cierre_sabana?.slice(0, 5) || ""}
+                    onChange={(e) =>
+                      handleChange("cierre_sabana", e.target.value + ":00")
+                    }
+                    className="block w-full rounded-md bg-white border border-gray-300 px-3 py-2 text-gray-900 shadow-sm focus:border-primary focus:outline-none focus:ring-primary sm:text-sm"
+                  />
+                ) : (
+                  <div className="block w-full rounded-md bg-gray-50 border border-gray-300 px-3 py-2 text-gray-900 sm:text-sm">
+                    {config?.cierre_sabana?.slice(0, 5) || "No configurado"}
+                  </div>
+                )}
               </div>
             </div>
           </div>
@@ -179,29 +189,39 @@ export default function Configuracion() {
                 <label className="block text-sm font-medium text-gray-700 mb-1">
                   Hora de Apertura
                 </label>
-                <input
-                  type="time"
-                  value={config?.apertura_guada?.slice(0, 5) || ""}
-                  onChange={(e) =>
-                    handleChange("apertura_guada", e.target.value + ":00")
-                  }
-                  disabled={!isEditing}
-                  className="block w-full rounded-md bg-gray-50 border border-gray-300 px-3 py-2 text-gray-900 shadow-sm focus:border-primary focus:outline-none focus:ring-primary disabled:bg-gray-100 disabled:text-gray-500 disabled:cursor-not-allowed sm:text-sm"
-                />
+                {isEditing ? (
+                  <input
+                    type="time"
+                    value={config?.apertura_guada?.slice(0, 5) || ""}
+                    onChange={(e) =>
+                      handleChange("apertura_guada", e.target.value + ":00")
+                    }
+                    className="block w-full rounded-md bg-white border border-gray-300 px-3 py-2 text-gray-900 shadow-sm focus:border-primary focus:outline-none focus:ring-primary sm:text-sm"
+                  />
+                ) : (
+                  <div className="block w-full rounded-md bg-gray-50 border border-gray-300 px-3 py-2 text-gray-900 sm:text-sm">
+                    {config?.apertura_guada?.slice(0, 5) || "No configurado"}
+                  </div>
+                )}
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
                   Hora de Cierre
                 </label>
-                <input
-                  type="time"
-                  value={config?.cierre_guada?.slice(0, 5) || ""}
-                  onChange={(e) =>
-                    handleChange("cierre_guada", e.target.value + ":00")
-                  }
-                  disabled={!isEditing}
-                  className="block w-full rounded-md bg-gray-50 border border-gray-300 px-3 py-2 text-gray-900 shadow-sm focus:border-primary focus:outline-none focus:ring-primary disabled:bg-gray-100 disabled:text-gray-500 disabled:cursor-not-allowed sm:text-sm"
-                />
+                {isEditing ? (
+                  <input
+                    type="time"
+                    value={config?.cierre_guada?.slice(0, 5) || ""}
+                    onChange={(e) =>
+                      handleChange("cierre_guada", e.target.value + ":00")
+                    }
+                    className="block w-full rounded-md bg-white border border-gray-300 px-3 py-2 text-gray-900 shadow-sm focus:border-primary focus:outline-none focus:ring-primary sm:text-sm"
+                  />
+                ) : (
+                  <div className="block w-full rounded-md bg-gray-50 border border-gray-300 px-3 py-2 text-gray-900 sm:text-sm">
+                    {config?.cierre_guada?.slice(0, 5) || "No configurado"}
+                  </div>
+                )}
               </div>
             </div>
           </div>

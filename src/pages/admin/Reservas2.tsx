@@ -183,14 +183,32 @@ export default function Reservas2() {
     fetchReservas();
   }, [selectedDate, selectedCanchaId]);
 
-  // Calculate grid row position from time (48 rows = 30 min intervals)
-  // Row 1 is header, rows 2-49 are time slots
+  // Calculate earliest hour needed (7 AM or earlier if reservations exist before 7 AM)
+  const getEarliestHour = (): number => {
+    if (reservas.length === 0) return 7;
+    const earliestHour = Math.min(
+      ...reservas.map((r) => {
+        const date = parseDateFromTimestamp(r.hora_inicio);
+        return date.getHours();
+      })
+    );
+    return Math.min(earliestHour, 7);
+  };
+
+  const earliestHour = getEarliestHour();
+  const totalHours = 24 - earliestHour; // Hours from earliestHour to 24 (midnight)
+  const totalRows = totalHours * 2; // 30-minute intervals
+
+  // Calculate grid row position from time
+  // Row 1 is header, rows 2+ are time slots starting from earliestHour
   const getGridRowFromTime = (timestamp: string): number => {
     const date = parseDateFromTimestamp(timestamp);
     const hours = date.getHours();
     const minutes = date.getMinutes();
-    // Each hour = 2 rows (30 min intervals), add 1 for header row
-    return hours * 2 + (minutes >= 30 ? 1 : 0) + 1;
+    // Calculate row relative to earliestHour, each hour = 2 rows (30 min intervals)
+    // Add 2 to account for header row (row 1) and first time slot starting at row 2
+    const hourOffset = hours - earliestHour;
+    return hourOffset * 2 + (minutes >= 30 ? 1 : 0) + 2;
   };
 
   // Calculate grid row span (duration)
@@ -438,10 +456,11 @@ export default function Reservas2() {
   const dateDisplay = formatDateDisplay(selectedDate);
   const calendarDays = getDaysInMonth(currentMonth);
 
-  // Generate time slots (48 rows for 30-minute intervals)
-  const timeSlots = Array.from({ length: 48 }, (_, i) => {
-    const hour = Math.floor(i / 2);
-    const minute = i % 2 === 0 ? 0 : 30;
+  // Generate time slots starting from earliestHour (30-minute intervals)
+  const timeSlots = Array.from({ length: totalRows }, (_, i) => {
+    const slotIndex = earliestHour * 2 + i; // Start from earliestHour
+    const hour = Math.floor(slotIndex / 2);
+    const minute = slotIndex % 2 === 0 ? 0 : 30;
     const period = hour < 12 ? "AM" : "PM";
     const displayHour = hour === 0 ? 12 : hour > 12 ? hour - 12 : hour;
     return {
@@ -612,6 +631,51 @@ export default function Reservas2() {
             </div>
           </div>
         </header>
+        {/* Mobile Cancha Display */}
+        <div className="md:hidden border-b border-gray-200 bg-white px-4 py-3">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-xs text-gray-500">Cancha seleccionada</p>
+              <p className="text-sm font-semibold text-gray-900">
+                {selectedCancha?.nombre || "Seleccionar Cancha"}
+              </p>
+            </div>
+            <Menu as="div" className="relative">
+              <MenuButton
+                type="button"
+                className="flex items-center gap-x-1.5 rounded-md bg-white px-3 py-1.5 text-sm font-semibold text-gray-900 shadow-xs ring-1 ring-inset ring-gray-300 hover:bg-gray-50"
+              >
+                Cambiar
+                <ChevronDownIcon
+                  aria-hidden="true"
+                  className="-mr-1 size-4 text-gray-400"
+                />
+              </MenuButton>
+
+              <MenuItems
+                transition
+                className="absolute right-0 z-10 mt-2 w-48 origin-top-right overflow-hidden rounded-md bg-white shadow-lg ring-1 ring-black/5 transition data-closed:scale-95 data-closed:transform data-closed:opacity-0 data-enter:duration-100 data-enter:ease-out data-leave:duration-75 data-leave:ease-in"
+              >
+                <div className="py-1">
+                  {canchas.map((cancha) => (
+                    <MenuItem key={cancha.id}>
+                      <button
+                        onClick={() => setSelectedCanchaId(cancha.id)}
+                        className={`block w-full text-left px-4 py-2 text-sm text-gray-700 data-focus:bg-gray-100 data-focus:text-gray-900 data-focus:outline-hidden ${
+                          selectedCanchaId === cancha.id
+                            ? "bg-gray-100 font-semibold"
+                            : ""
+                        }`}
+                      >
+                        {cancha.nombre}
+                      </button>
+                    </MenuItem>
+                  ))}
+                </div>
+              </MenuItems>
+            </Menu>
+          </div>
+        </div>
         <div className="isolate flex flex-auto overflow-hidden bg-white rounded-lg sm:px-1">
           <div className="flex flex-auto flex-col overflow-auto">
             <div className="sticky top-0 z-10 grid flex-none grid-cols-7 bg-white text-xs text-gray-500 shadow-sm ring-1 ring-black/5 md:hidden">
@@ -651,7 +715,7 @@ export default function Reservas2() {
                 {/* Horizontal lines */}
                 <div
                   style={{
-                    gridTemplateRows: "repeat(48, minmax(3.5rem, 1fr))",
+                    gridTemplateRows: `repeat(${totalRows}, minmax(3.5rem, 1fr))`,
                   }}
                   className="col-start-1 col-end-2 row-start-1 grid divide-y divide-gray-100"
                 >
@@ -670,7 +734,7 @@ export default function Reservas2() {
                 {/* Events */}
                 <ol
                   style={{
-                    gridTemplateRows: "1.75rem repeat(48, minmax(0, 1fr)) auto",
+                    gridTemplateRows: `1.75rem repeat(${totalRows}, minmax(0, 1fr)) auto`,
                   }}
                   className="col-start-1 col-end-2 row-start-1 grid grid-cols-1"
                 >
