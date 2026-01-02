@@ -94,6 +94,7 @@ function CrearReto() {
   const [equipo1Nombre, setEquipo1Nombre] = useState("");
   const [equipo1Encargado, setEquipo1Encargado] = useState("");
   const [equipo1Celular, setEquipo1Celular] = useState("");
+  const [equipo1Correo, setEquipo1Correo] = useState("");
 
   // Dialog state
   const [confirmDialogOpen, setConfirmDialogOpen] = useState(false);
@@ -408,6 +409,7 @@ function CrearReto() {
         equipo1_nombre: equipo1Nombre.trim() || null,
         equipo1_encargado: equipo1Encargado.trim(),
         equipo1_celular: equipo1Celular.trim(),
+        equipo1_correo: equipo1Correo.trim() || null,
         equipo2_nombre: null,
         equipo2_encargado: null,
         equipo2_celular: null,
@@ -610,7 +612,7 @@ function CrearReto() {
                       setSelectedDate(date);
                       setSelectedHour(null);
                     }}
-                    className={`flex-shrink-0 w-16 py-3 rounded-xl border transition-all flex flex-col items-center ${
+                    className={`shrink-0 w-16 py-3 rounded-xl border transition-all flex flex-col items-center ${
                       isSelected
                         ? "bg-primary border-primary text-white"
                         : "bg-transparent border-primary border-dashed text-white hover:bg-primary/20"
@@ -784,6 +786,25 @@ function CrearReto() {
                   />
                 </div>
               </div>
+              <div>
+                <label
+                  htmlFor="equipo1-correo"
+                  className="block text-sm/6 font-medium text-white/80"
+                >
+                  Correo electrónico *
+                </label>
+                <div className="mt-2">
+                  <input
+                    id="equipo1-correo"
+                    name="equipo1-correo"
+                    type="email"
+                    placeholder="correo@ejemplo.com"
+                    value={equipo1Correo}
+                    onChange={(e) => setEquipo1Correo(e.target.value)}
+                    className="block w-full rounded-md bg-white/5 px-3 py-1.5 text-base text-white outline-1 -outline-offset-1 outline-white/10 placeholder:text-gray-500 focus:outline-2 focus:-outline-offset-2 focus:outline-primary sm:text-sm/6"
+                  />
+                </div>
+              </div>
             </div>
           </div>
 
@@ -917,6 +938,11 @@ function CrearReto() {
                     <p className="text-white/80 text-sm">
                       Celular: {equipo1Celular}
                     </p>
+                    {equipo1Correo.trim() && (
+                      <p className="text-white/80 text-sm">
+                        Correo: {equipo1Correo}
+                      </p>
+                    )}
                   </div>
 
                   {/* Disclaimer */}

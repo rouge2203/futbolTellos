@@ -30,6 +30,7 @@ interface Reto {
   equipo1_nombre: string | null;
   equipo1_encargado: string;
   equipo1_celular: string;
+  equipo1_correo: string | null;
   equipo2_nombre: string | null;
   equipo2_encargado: string;
   equipo2_celular: string;
