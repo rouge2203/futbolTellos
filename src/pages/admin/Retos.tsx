@@ -215,7 +215,9 @@ export default function Retos() {
         <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-6 space-y-6">
           {/* Tabs */}
           <div className="flex items-center justify-between border-b border-gray-200 pb-4">
-            <h3 className="text-lg font-semibold text-gray-900">Retos</h3>
+            <h3 className="text-lg font-semibold text-gray-900">
+              Lista de Retos
+            </h3>
             <nav className="-mb-px flex space-x-8" aria-label="Tabs">
               <button
                 onClick={() => setActiveTab("open")}
@@ -241,7 +243,7 @@ export default function Retos() {
           </div>
 
           {/* Table */}
-          <div className="overflow-x-auto">
+          <div className="overflow-x-auto rounded-lg  border border-gray-200 shadow-lg">
             <table className="min-w-full divide-y divide-gray-200">
               <thead className="bg-gray-50">
                 <tr>
@@ -377,14 +379,14 @@ export default function Retos() {
                           {activeTab === "open" ? (
                             <button
                               onClick={() => handleAsignarRival(reto)}
-                              className="text-primary hover:text-primary/80"
+                              className="text-white bg-primary hover:bg-primary/80 rounded-lg px-4 py-2"
                             >
                               Asignar rival
                             </button>
                           ) : (
                             <button
                               onClick={() => handleVerReto(reto)}
-                              className="text-primary hover:text-primary/80"
+                              className="text-white bg-primary hover:bg-primary/80 rounded-lg px-4 py-2"
                             >
                               Ver reto
                             </button>
