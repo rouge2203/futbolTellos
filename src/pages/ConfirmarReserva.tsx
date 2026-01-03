@@ -75,10 +75,10 @@ function ConfirmarReserva() {
   const loadingMessages = [
     "Cargando",
     "Danos un segundo",
-    "Ya casi",
-    "Vamo' al fútbol",
+    "Creando reservación",
     "Casi listo",
-    ":)",
+    "Vamo' al fútbol",
+    "⚽🏃",
   ];
   const [currentLoadingMessageIndex, setCurrentLoadingMessageIndex] =
     useState(0);
@@ -139,13 +139,14 @@ function ConfirmarReserva() {
 
   const date = new Date(selectedDate);
 
-  // Use local arbitro state, initialized from navigation state
-  const effectiveArbitro = arbitroLocal || arbitroFromState;
+  // Use local arbitro state, initialized from navigation state (only for Guadalupe)
+  const effectiveArbitro =
+    state?.cancha.local === 2 ? arbitroLocal || arbitroFromState : false;
 
   // Get base price (cancha only, without arbitro added here)
   const getBasePrice = (): number => {
-    // If arbitro was already included in precio from CanchaDetails, subtract it
-    if (arbitroFromState) {
+    // If arbitro was already included in precio from CanchaDetails, subtract it (only for Guadalupe)
+    if (state?.cancha.local === 2 && arbitroFromState) {
       return precio - ARBITRO_COST;
     }
     return precio;
@@ -153,10 +154,13 @@ function ConfirmarReserva() {
 
   // Calculate final price with potential arbitro addition
   const getFinalPrice = (): number => {
-    // If arbitro was already included in precio from CanchaDetails, don't add again
-    // But if user adds it here, we need to add it
-    if (arbitroLocal && !arbitroFromState) {
-      return precio + ARBITRO_COST;
+    // Only add arbitro cost for Guadalupe (local == 2)
+    if (state?.cancha.local === 2) {
+      // If arbitro was already included in precio from CanchaDetails, don't add again
+      // But if user adds it here, we need to add it
+      if (arbitroLocal && !arbitroFromState) {
+        return precio + ARBITRO_COST;
+      }
     }
     return precio;
   };
@@ -412,8 +416,8 @@ function ConfirmarReserva() {
               ₡ {getBasePrice().toLocaleString()}
             </span>
           </div>
-          {/* Arbitro (if selected) */}
-          {effectiveArbitro && (
+          {/* Arbitro (if selected) - Only show for Guadalupe */}
+          {state?.cancha.local === 2 && effectiveArbitro && (
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <GiWhistle className="text-secondary text-sm" />
@@ -435,8 +439,8 @@ function ConfirmarReserva() {
         </div>
       </div>
 
-      {/* Arbitro checkbox (if not already selected) */}
-      {!arbitroFromState && (
+      {/* Arbitro checkbox (if not already selected) - Only for Guadalupe (local == 2) */}
+      {state?.cancha.local === 2 && !arbitroFromState && (
         <div className="px-4 mb-6">
           <div className="flex gap-3">
             <div className="flex h-6 shrink-0 items-center">

@@ -67,7 +67,15 @@ export default function Canchas() {
           })
         );
 
-        setCanchas(canchasWithStats);
+        // Sort canchas: Sabana first, then Guadalupe, then by id ascending
+        const sortedCanchas = canchasWithStats.sort((a, b) => {
+          if (a.local !== b.local) {
+            return a.local - b.local;
+          }
+          return a.id - b.id;
+        });
+
+        setCanchas(sortedCanchas);
       } catch (error) {
         console.error("Error fetching canchas:", error);
       } finally {

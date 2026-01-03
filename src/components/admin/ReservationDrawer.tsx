@@ -819,12 +819,13 @@ export default function ReservationDrawer({
                                     </span>
                                   </div>
                                 )}
-                                {reserva.arbitro && (
-                                  <div className="flex items-center gap-2 text-sm text-gray-600">
-                                    <GiWhistle className="text-primary" />
-                                    <span>Árbitro incluido</span>
-                                  </div>
-                                )}
+                                {reserva.cancha.local === 2 &&
+                                  reserva.arbitro && (
+                                    <div className="flex items-center gap-2 text-sm text-gray-600">
+                                      <GiWhistle className="text-primary" />
+                                      <span>Árbitro incluido</span>
+                                    </div>
+                                  )}
                               </div>
                             ) : (
                               <div className="space-y-2">
@@ -849,12 +850,13 @@ export default function ReservationDrawer({
                                     </span>
                                   </div>
                                 )}
-                                {reserva.arbitro && (
-                                  <div className="flex items-center gap-2 text-sm text-gray-600">
-                                    <GiWhistle className="text-primary" />
-                                    <span>Árbitro incluido</span>
-                                  </div>
-                                )}
+                                {reserva.cancha.local === 2 &&
+                                  reserva.arbitro && (
+                                    <div className="flex items-center gap-2 text-sm text-gray-600">
+                                      <GiWhistle className="text-primary" />
+                                      <span>Árbitro incluido</span>
+                                    </div>
+                                  )}
                               </div>
                             )}
                           </div>

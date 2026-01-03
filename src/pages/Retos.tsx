@@ -64,10 +64,12 @@ const parsePrecio = (precioStr: string | undefined): number => {
 // Calculate price per team
 const calculatePricePerTeam = (
   canchaPrecio: number,
-  arbitro: boolean
+  arbitro: boolean,
+  local: string
 ): number => {
   const basePrice = canchaPrecio / 2;
-  const arbitroCost = arbitro ? 2500 : 0;
+  // Arbitro cost only for Guadalupe (local == "Guadalupe")
+  const arbitroCost = local === "Guadalupe" && arbitro ? 2500 : 0;
   return basePrice + arbitroCost;
 };
 
@@ -96,7 +98,7 @@ function Retos() {
   const [dialogOpen, setDialogOpen] = useState(false);
 
   // WhatsApp business number (can be configured)
-  const WHATSAPP_NUMBER = "50688888888";
+  const WHATSAPP_NUMBER = "50686167000";
 
   useEffect(() => {
     fetchRetos();
@@ -249,8 +251,12 @@ function Retos() {
                 : 0;
               const pricePerTeam =
                 canchaPrecio > 0
-                  ? calculatePricePerTeam(canchaPrecio, reto.arbitro)
-                  : reto.arbitro
+                  ? calculatePricePerTeam(
+                      canchaPrecio,
+                      reto.arbitro,
+                      reto.local
+                    )
+                  : reto.local === "Guadalupe" && reto.arbitro
                   ? 2500
                   : 0;
 
@@ -364,7 +370,7 @@ function Retos() {
                         {date} - {time}
                       </span>
                     </div>
-                    {reto.arbitro && (
+                    {reto.local === "Guadalupe" && reto.arbitro && (
                       <div className="flex items-center justify-center gap-2 text-white/80 text-sm">
                         <GiWhistle className="text-secondary text-sm" />
                         <span>Con árbitro</span>
@@ -473,19 +479,20 @@ function Retos() {
                           {formatDateTime(selectedReto.hora_inicio).time}
                         </span>
                       </div>
-                      {selectedReto.arbitro && (
-                        <div className="flex items-center justify-between">
-                          <div className="flex items-center gap-2">
-                            <GiWhistle className="text-secondary text-sm" />
-                            <span className="text-white/80 text-sm">
-                              Árbitro
+                      {selectedReto.local === "Guadalupe" &&
+                        selectedReto.arbitro && (
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-2">
+                              <GiWhistle className="text-secondary text-sm" />
+                              <span className="text-white/80 text-sm">
+                                Árbitro
+                              </span>
+                            </div>
+                            <span className="text-white font-medium">
+                              Incluido
                             </span>
                           </div>
-                          <span className="text-white font-medium">
-                            Incluido
-                          </span>
-                        </div>
-                      )}
+                        )}
                       {selectedReto.cancha && (
                         <div className="flex items-center justify-between">
                           <span className="text-white/80 text-sm">Cancha</span>
@@ -504,9 +511,11 @@ function Retos() {
                             {selectedReto.cancha
                               ? calculatePricePerTeam(
                                   parsePrecio(selectedReto.cancha.precio),
-                                  selectedReto.arbitro
+                                  selectedReto.arbitro,
+                                  selectedReto.local
                                 ).toLocaleString()
-                              : selectedReto.arbitro
+                              : selectedReto.local === "Guadalupe" &&
+                                selectedReto.arbitro
                               ? "2,500"
                               : "N/A"}
                           </span>

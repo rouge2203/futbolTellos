@@ -240,8 +240,9 @@ function ReservaDetalles() {
       if (precio === 40000) return 7;
       if (precio === 45000) return 8;
       if (precio === 50000) return 9;
-      // If arbitro is included, subtract 5000 first
-      const basePrice = arbitro ? precio - 5000 : precio;
+      // If arbitro is included, subtract 5000 first (only for Guadalupe)
+      const basePrice =
+        reserva.cancha?.local === 2 && arbitro ? precio - 5000 : precio;
       if (basePrice === 40000) return 7;
       if (basePrice === 45000) return 8;
       if (basePrice === 50000) return 9;
@@ -422,7 +423,7 @@ function ReservaDetalles() {
                 {getPlayerCount() * 2} jugadores
               </p>
             </div>
-            {arbitro && (
+            {reserva.cancha?.local === 2 && arbitro && (
               <>
                 <div className="flex items-center gap-2 -mt-1">
                   <GiWhistle className="text-secondary" />
@@ -634,7 +635,7 @@ function ReservaDetalles() {
                   disabled={!selectedFile || uploading}
                   className={`w-full mt-4 py-3 rounded-lg font-medium flex items-center justify-center gap-2 transition-colors ${
                     selectedFile && !uploading
-                      ? "bg-primary text-white"
+                      ? "bg-primary text-white border border-dotted animate-pulse"
                       : "bg-gray-700 text-gray-400 cursor-not-allowed"
                   }`}
                 >
@@ -719,7 +720,7 @@ function ReservaDetalles() {
           ¿Desea cancelar esta reserva?
         </h3>
         <a
-          href="https://wa.me/50688888888?text=Hola,%20quisiera%20cancelar%20mi%20reserva%del%20:%20"
+          href="https://wa.me/50686167000?text=Hola,%20quisiera%20cancelar%20mi%20reserva%del%20:%20"
           target="_blank"
           rel="noopener noreferrer"
           className="w-full py-3 text-white text-base rounded-lg font-medium flex items-center justify-center gap-2 bg-white/5 hover:bg-white/10  transition-colors"

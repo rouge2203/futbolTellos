@@ -98,15 +98,26 @@ function Index() {
     setFilter(getFilterFromParams());
   }, [searchParams]);
 
-  // Filter canchas based on selected filter
+  // Filter canchas based on selected filter, ordered by Sabana first, then Guadalupe, then by id ascending
   const filteredCanchas =
     filter === null
-      ? canchas
-      : canchas.filter((cancha) => cancha.local === filter);
+      ? [...canchas].sort((a, b) => {
+          // First sort by local: 1 (Sabana) first, then 2 (Guadalupe)
+          if (a.local !== b.local) {
+            return a.local - b.local;
+          }
+          // Then sort by id ascending within each location
+          return a.id - b.id;
+        })
+      : canchas.filter((cancha) => cancha.local === filter).sort((a, b) => a.id - b.id);
 
-  // Separate canchas by location for desktop view
-  const sabanaCanchas = canchas.filter((cancha) => cancha.local === 1);
-  const guadalupeCanchas = canchas.filter((cancha) => cancha.local === 2);
+  // Separate canchas by location for desktop view, sorted by id ascending
+  const sabanaCanchas = canchas
+    .filter((cancha) => cancha.local === 1)
+    .sort((a, b) => a.id - b.id);
+  const guadalupeCanchas = canchas
+    .filter((cancha) => cancha.local === 2)
+    .sort((a, b) => a.id - b.id);
 
   const getLocalName = (local: number): string => {
     if (local === 1) return "Sabana";

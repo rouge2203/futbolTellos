@@ -78,6 +78,11 @@ function CanchaDetails() {
           setSelectedPlayers(7);
         }
 
+        // Reset arbitro if cancha is Sabana (local == 1)
+        if (canchaData.local === 1) {
+          setArbitro(false);
+        }
+
         // Fetch configuracion
         const { data: configData, error: configError } = await supabase
           .from("configuracion")
@@ -282,9 +287,10 @@ function CanchaDetails() {
     return parsePrecio(cancha.precio);
   };
 
-  // Get total price including arbitro
+  // Get total price including arbitro (only for Guadalupe)
   const getPrice = (): number => {
-    return getBasePrice() + (arbitro ? ARBITRO_COST : 0);
+    const arbitroCost = cancha?.local === 2 && arbitro ? ARBITRO_COST : 0;
+    return getBasePrice() + arbitroCost;
   };
 
   // Get number of players per team
@@ -298,14 +304,14 @@ function CanchaDetails() {
   };
 
   // Get price per person (total players = playerCount * 2 teams)
-  const getPricePerPerson = (): number => {
-    const price = getPrice();
-    const playerCount = getPlayerCount();
-    if (playerCount > 0) {
-      return Math.ceil(price / (playerCount * 2));
-    }
-    return 0;
-  };
+  // const getPricePerPerson = (): number => {
+  //   const price = getPrice();
+  //   const playerCount = getPlayerCount();
+  //   if (playerCount > 0) {
+  //     return Math.ceil(price / (playerCount * 2));
+  //   }
+  //   return 0;
+  // };
 
   // Format selected date and time
   const getFormattedDateTime = (): string => {
@@ -325,8 +331,8 @@ function CanchaDetails() {
         selectedHour,
         selectedPlayers,
         precio: getPrice(),
-        precioPorPersona: getPricePerPerson(),
-        arbitro,
+        // precioPorPersona: getPricePerPerson(),
+        arbitro: cancha.local === 2 ? arbitro : false,
       },
     });
   };
@@ -497,46 +503,48 @@ function CanchaDetails() {
         )}
       </div>
 
-      {/* Arbitro checkbox */}
-      <div className="px-4 mb-6">
-        <div className="flex gap-3">
-          <div className="flex h-6 shrink-0 items-center">
-            <div className="group grid size-4 grid-cols-1">
-              <input
-                id="arbitro"
-                name="arbitro"
-                type="checkbox"
-                checked={arbitro}
-                onChange={(e) => setArbitro(e.target.checked)}
-                className="col-start-1 row-start-1 appearance-none rounded-sm border border-white/10 bg-white/5 checked:border-primary checked:bg-primary focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary disabled:border-white/5 disabled:bg-white/10 disabled:checked:bg-white/10 forced-colors:appearance-auto"
-              />
-              <svg
-                fill="none"
-                viewBox="0 0 14 14"
-                className="pointer-events-none col-start-1 row-start-1 size-3.5 self-center justify-self-center stroke-white group-has-disabled:stroke-white/25"
-              >
-                <path
-                  d="M3 8L6 11L11 3.5"
-                  strokeWidth={2}
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  className="opacity-0 group-has-checked:opacity-100"
+      {/* Arbitro checkbox - Only for Guadalupe (local == 2) */}
+      {cancha.local === 2 && (
+        <div className="px-4 mb-6">
+          <div className="flex gap-3">
+            <div className="flex h-6 shrink-0 items-center">
+              <div className="group grid size-4 grid-cols-1">
+                <input
+                  id="arbitro"
+                  name="arbitro"
+                  type="checkbox"
+                  checked={arbitro}
+                  onChange={(e) => setArbitro(e.target.checked)}
+                  className="col-start-1 row-start-1 appearance-none rounded-sm border border-white/10 bg-white/5 checked:border-primary checked:bg-primary focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary disabled:border-white/5 disabled:bg-white/10 disabled:checked:bg-white/10 forced-colors:appearance-auto"
                 />
-              </svg>
+                <svg
+                  fill="none"
+                  viewBox="0 0 14 14"
+                  className="pointer-events-none col-start-1 row-start-1 size-3.5 self-center justify-self-center stroke-white group-has-disabled:stroke-white/25"
+                >
+                  <path
+                    d="M3 8L6 11L11 3.5"
+                    strokeWidth={2}
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    className="opacity-0 group-has-checked:opacity-100"
+                  />
+                </svg>
+              </div>
+            </div>
+            <div className="text-base">
+              <label
+                htmlFor="arbitro"
+                className="font-medium text-white flex items-center gap-2"
+              >
+                <GiWhistle className="text-secondary text-lg" />
+                Contratar árbitro
+              </label>
+              <p className="text-gray-400 text-sm">+ ₡5,000 al precio total</p>
             </div>
           </div>
-          <div className="text-base">
-            <label
-              htmlFor="arbitro"
-              className="font-medium text-white flex items-center gap-2"
-            >
-              <GiWhistle className="text-secondary text-lg" />
-              Contratar árbitro
-            </label>
-            <p className="text-gray-400 text-sm">+ ₡5,000 al precio total</p>
-          </div>
         </div>
-      </div>
+      )}
 
       {/* Note */}
       <div className="px-4 mb-6">
@@ -556,12 +564,12 @@ function CanchaDetails() {
               ₡ {getPrice().toLocaleString()}
             </p>
           </div>
-          <div className="text-right">
+          {/* <div className="text-right">
             <p className="text-white/60 text-xs">Precio por persona</p>
             <p className="text-white text-sm font-medium">
               ₡ {getPricePerPerson().toLocaleString()}
             </p>
-          </div>
+          </div> */}
         </div>
         <div className="flex items-center gap-3">
           <div className="flex-1 text-white/80 text-base">

@@ -10,7 +10,6 @@ import { supabase } from "../../lib/supabase";
 import { FaRegCalendarCheck, FaRegClock } from "react-icons/fa";
 import { TbPlayFootball, TbRun } from "react-icons/tb";
 import { GiWhistle } from "react-icons/gi";
-import { IoWarning } from "react-icons/io5";
 
 interface Cancha {
   id: number;
@@ -64,7 +63,6 @@ export default function CreateReservationDrawer({
   const [nombre, setNombre] = useState("");
   const [celular, setCelular] = useState("");
   const [correo, setCorreo] = useState("");
-  const [sinpeAcknowledged, setSinpeAcknowledged] = useState(false);
 
   // Generate dates for today + 10 days
   const dates = Array.from({ length: 11 }, (_, i) => {
@@ -122,7 +120,6 @@ export default function CreateReservationDrawer({
       setNombre("");
       setCelular("");
       setCorreo("");
-      setSinpeAcknowledged(false);
     }
   }, [open]);
 
@@ -276,7 +273,9 @@ export default function CreateReservationDrawer({
   };
 
   const getPrice = (): number => {
-    return getBasePrice() + (arbitro ? ARBITRO_COST : 0);
+    const arbitroCost =
+      selectedCancha?.local === 2 && arbitro ? ARBITRO_COST : 0;
+    return getBasePrice() + arbitroCost;
   };
 
   const getPlayerCount = (): number => {
@@ -299,11 +298,6 @@ export default function CreateReservationDrawer({
   const handleConfirmar = async () => {
     if (submitting || !selectedCancha || !selectedHour || !nombre.trim())
       return;
-
-    // For Sabana, require SINPE acknowledgment
-    if (selectedCancha.local === 1 && !sinpeAcknowledged) {
-      return;
-    }
 
     setSubmitting(true);
 
@@ -394,10 +388,7 @@ export default function CreateReservationDrawer({
   const availableHours = getAvailableHours();
   const canProceedToStep2 =
     selectedCancha && selectedHour !== null && !loadingReservas;
-  const canSubmit =
-    nombre.trim() &&
-    (selectedCancha?.local === 2 || sinpeAcknowledged) &&
-    !submitting;
+  const canSubmit = nombre.trim() && !submitting;
 
   return (
     <Dialog open={open} onClose={onClose} className="relative z-50">
@@ -464,6 +455,10 @@ export default function CreateReservationDrawer({
                                         setSelectedPlayers(7);
                                       } else {
                                         setSelectedPlayers(null);
+                                      }
+                                      // Reset arbitro if switching to Sabana (local == 1)
+                                      if (cancha.local === 1) {
+                                        setArbitro(false);
                                       }
                                     }
                                   }}
@@ -601,50 +596,52 @@ export default function CreateReservationDrawer({
                                     )}
                                   </div>
 
-                                  {/* Arbitro Checkbox */}
-                                  <div>
-                                    <div className="flex gap-3">
-                                      <div className="flex h-6 shrink-0 items-center">
-                                        <div className="group grid size-4 grid-cols-1">
-                                          <input
-                                            id="arbitro-create"
-                                            name="arbitro-create"
-                                            type="checkbox"
-                                            checked={arbitro}
-                                            onChange={(e) =>
-                                              setArbitro(e.target.checked)
-                                            }
-                                            className="col-start-1 row-start-1 appearance-none rounded-sm border border-gray-300 bg-white checked:border-primary checked:bg-primary focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
-                                          />
-                                          <svg
-                                            fill="none"
-                                            viewBox="0 0 14 14"
-                                            className="pointer-events-none col-start-1 row-start-1 size-3.5 self-center justify-self-center stroke-white"
-                                          >
-                                            <path
-                                              d="M3 8L6 11L11 3.5"
-                                              strokeWidth={2}
-                                              strokeLinecap="round"
-                                              strokeLinejoin="round"
-                                              className="opacity-0 group-has-checked:opacity-100"
+                                  {/* Arbitro Checkbox - Only for Guadalupe (local == 2) */}
+                                  {selectedCancha?.local === 2 && (
+                                    <div>
+                                      <div className="flex gap-3">
+                                        <div className="flex h-6 shrink-0 items-center">
+                                          <div className="group grid size-4 grid-cols-1">
+                                            <input
+                                              id="arbitro-create"
+                                              name="arbitro-create"
+                                              type="checkbox"
+                                              checked={arbitro}
+                                              onChange={(e) =>
+                                                setArbitro(e.target.checked)
+                                              }
+                                              className="col-start-1 row-start-1 appearance-none rounded-sm border border-gray-300 bg-white checked:border-primary checked:bg-primary focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
                                             />
-                                          </svg>
+                                            <svg
+                                              fill="none"
+                                              viewBox="0 0 14 14"
+                                              className="pointer-events-none col-start-1 row-start-1 size-3.5 self-center justify-self-center stroke-white"
+                                            >
+                                              <path
+                                                d="M3 8L6 11L11 3.5"
+                                                strokeWidth={2}
+                                                strokeLinecap="round"
+                                                strokeLinejoin="round"
+                                                className="opacity-0 group-has-checked:opacity-100"
+                                              />
+                                            </svg>
+                                          </div>
+                                        </div>
+                                        <div className="text-base">
+                                          <label
+                                            htmlFor="arbitro-create"
+                                            className="font-medium text-gray-900 flex items-center gap-2"
+                                          >
+                                            <GiWhistle className="text-primary text-lg" />
+                                            Contratar árbitro
+                                          </label>
+                                          <p className="text-gray-600 text-sm">
+                                            + ₡5,000 al precio total
+                                          </p>
                                         </div>
                                       </div>
-                                      <div className="text-base">
-                                        <label
-                                          htmlFor="arbitro-create"
-                                          className="font-medium text-gray-900 flex items-center gap-2"
-                                        >
-                                          <GiWhistle className="text-primary text-lg" />
-                                          Contratar árbitro
-                                        </label>
-                                        <p className="text-gray-600 text-sm">
-                                          + ₡5,000 al precio total
-                                        </p>
-                                      </div>
                                     </div>
-                                  </div>
+                                  )}
 
                                   {/* Price Display */}
                                   {selectedHour && (
@@ -722,55 +719,6 @@ export default function CreateReservationDrawer({
                                       </span>
                                     </div>
                                   </div>
-
-                                  {/* SINPE Warning (Sabana only) */}
-                                  {selectedCancha.local === 1 && (
-                                    <div className="bg-yellow-50 border border-yellow-200 rounded-xl px-4 py-4">
-                                      <div className="flex items-start gap-3">
-                                        <IoWarning className="text-yellow-600 text-xl shrink-0 mt-0.5" />
-                                        <p className="text-gray-900 text-sm">
-                                          Tiene{" "}
-                                          <strong className="text-yellow-600">
-                                            2 horas
-                                          </strong>{" "}
-                                          para realizar el SINPE y subir el
-                                          comprobante.
-                                        </p>
-                                      </div>
-                                    </div>
-                                  )}
-
-                                  {/* SINPE Acknowledgment (Sabana only) */}
-                                  {selectedCancha.local === 1 && (
-                                    <div
-                                      className={`flex items-center justify-between bg-gray-50 rounded-xl p-4 border border-gray-200 ${
-                                        sinpeAcknowledged
-                                          ? "animate-none"
-                                          : "animate-pulse"
-                                      }`}
-                                    >
-                                      <span className="flex grow flex-col">
-                                        <label className="text-sm/6 font-medium text-gray-900">
-                                          Confirmo que realizaré el SINPE
-                                        </label>
-                                      </span>
-                                      <div className="group relative inline-flex w-11 shrink-0 rounded-full bg-gray-200 p-0.5 ring-1 ring-gray-300 outline-offset-2 outline-primary transition-colors duration-200 ease-in-out has-checked:bg-primary ml-4">
-                                        <span className="size-5 rounded-full bg-white shadow-xs ring-1 ring-gray-900/5 transition-transform duration-200 ease-in-out group-has-checked:translate-x-5" />
-                                        <input
-                                          id="sinpe-toggle-create"
-                                          name="sinpe-toggle-create"
-                                          type="checkbox"
-                                          checked={sinpeAcknowledged}
-                                          onChange={(e) =>
-                                            setSinpeAcknowledged(
-                                              e.target.checked
-                                            )
-                                          }
-                                          className="absolute inset-0 size-full appearance-none focus:outline-hidden"
-                                        />
-                                      </div>
-                                    </div>
-                                  )}
 
                                   {/* Contact Form */}
                                   <div className="space-y-4">

@@ -124,7 +124,15 @@ function CrearReto() {
         if (canchasResult.error) throw canchasResult.error;
         if (configResult.error) throw configResult.error;
 
-        setCanchas(canchasResult.data || []);
+        // Sort canchas: Sabana first, then Guadalupe, then by id ascending
+        const sortedCanchas = (canchasResult.data || []).sort((a, b) => {
+          if (a.local !== b.local) {
+            return a.local - b.local;
+          }
+          return a.id - b.id;
+        });
+
+        setCanchas(sortedCanchas);
         setConfiguracion(configResult.data);
       } catch (err) {
         setError(err instanceof Error ? err.message : "Failed to fetch data");
@@ -319,7 +327,8 @@ function CrearReto() {
 
     // Price per team is 50% of total
     const pricePerTeam = basePrice / 2;
-    const arbitroCost = arbitro ? 2500 : 0;
+    // Arbitro cost only for Guadalupe (local == 2)
+    const arbitroCost = selectedCancha?.local === 2 && arbitro ? 2500 : 0;
     return pricePerTeam + arbitroCost;
   };
 
@@ -405,7 +414,7 @@ function CrearReto() {
         hora_fin: formatLocalTimestamp(horaFin),
         local: localStr,
         fut: selectedFut,
-        arbitro: arbitro,
+        arbitro: selectedCancha?.local === 2 ? arbitro : false,
         equipo1_nombre: equipo1Nombre.trim() || null,
         equipo1_encargado: equipo1Encargado.trim(),
         equipo1_celular: equipo1Celular.trim(),
@@ -485,7 +494,13 @@ function CrearReto() {
             {canchas.map((cancha) => (
               <div
                 key={cancha.id}
-                onClick={() => setSelectedCancha(cancha)}
+                onClick={() => {
+                  setSelectedCancha(cancha);
+                  // Reset arbitro if switching to Sabana (local == 1)
+                  if (cancha.local === 1) {
+                    setArbitro(false);
+                  }
+                }}
                 className="bg-gray-700/10 border-2 border-double border-primary shadow-primary rounded-2xl overflow-hidden shadow-md cursor-pointer hover:opacity-90 transition-opacity"
               >
                 {/* Image */}
@@ -670,46 +685,48 @@ function CrearReto() {
             )}
           </div>
 
-          {/* Arbitro checkbox */}
-          <div className="px-4 mb-6">
-            <div className="flex gap-3">
-              <div className="flex h-6 shrink-0 items-center">
-                <div className="group grid size-4 grid-cols-1">
-                  <input
-                    id="arbitro"
-                    name="arbitro"
-                    type="checkbox"
-                    checked={arbitro}
-                    onChange={(e) => setArbitro(e.target.checked)}
-                    className="col-start-1 row-start-1 appearance-none rounded-sm border border-white/10 bg-white/5 checked:border-primary checked:bg-primary focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary disabled:border-white/5 disabled:bg-white/10 disabled:checked:bg-white/10 forced-colors:appearance-auto"
-                  />
-                  <svg
-                    fill="none"
-                    viewBox="0 0 14 14"
-                    className="pointer-events-none col-start-1 row-start-1 size-3.5 self-center justify-self-center stroke-white group-has-disabled:stroke-white/25"
-                  >
-                    <path
-                      d="M3 8L6 11L11 3.5"
-                      strokeWidth={2}
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      className="opacity-0 group-has-checked:opacity-100"
+          {/* Arbitro checkbox - Only for Guadalupe (local == 2) */}
+          {selectedCancha?.local === 2 && (
+            <div className="px-4 mb-6">
+              <div className="flex gap-3">
+                <div className="flex h-6 shrink-0 items-center">
+                  <div className="group grid size-4 grid-cols-1">
+                    <input
+                      id="arbitro"
+                      name="arbitro"
+                      type="checkbox"
+                      checked={arbitro}
+                      onChange={(e) => setArbitro(e.target.checked)}
+                      className="col-start-1 row-start-1 appearance-none rounded-sm border border-white/10 bg-white/5 checked:border-primary checked:bg-primary focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary disabled:border-white/5 disabled:bg-white/10 disabled:checked:bg-white/10 forced-colors:appearance-auto"
                     />
-                  </svg>
+                    <svg
+                      fill="none"
+                      viewBox="0 0 14 14"
+                      className="pointer-events-none col-start-1 row-start-1 size-3.5 self-center justify-self-center stroke-white group-has-disabled:stroke-white/25"
+                    >
+                      <path
+                        d="M3 8L6 11L11 3.5"
+                        strokeWidth={2}
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        className="opacity-0 group-has-checked:opacity-100"
+                      />
+                    </svg>
+                  </div>
+                </div>
+                <div className="text-base">
+                  <label
+                    htmlFor="arbitro"
+                    className="font-medium text-white flex items-center gap-2"
+                  >
+                    <GiWhistle className="text-secondary text-lg" />
+                    Contratar árbitro
+                  </label>
+                  <p className="text-gray-400 text-sm">+ ₡2,500 por equipo</p>
                 </div>
               </div>
-              <div className="text-base">
-                <label
-                  htmlFor="arbitro"
-                  className="font-medium text-white flex items-center gap-2"
-                >
-                  <GiWhistle className="text-secondary text-lg" />
-                  Contratar árbitro
-                </label>
-                <p className="text-gray-400 text-sm">+ ₡2,500 por equipo</p>
-              </div>
             </div>
-          </div>
+          )}
 
           {/* Price Display */}
           <div className="px-4 mb-6">
@@ -899,7 +916,7 @@ function CrearReto() {
                         {selectedFut}
                       </span>
                     </div>
-                    {arbitro && (
+                    {selectedCancha?.local === 2 && arbitro && (
                       <div className="flex items-center justify-between">
                         <div className="flex items-center gap-2">
                           <GiWhistle className="text-secondary text-sm" />

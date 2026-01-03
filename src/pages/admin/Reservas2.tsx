@@ -83,7 +83,14 @@ export default function Reservas2() {
           .order("id");
 
         if (error) throw error;
-        setCanchas(data || []);
+        // Sort canchas: Sabana first, then Guadalupe, then by id ascending
+        const sortedCanchas = (data || []).sort((a, b) => {
+          if (a.local !== b.local) {
+            return a.local - b.local;
+          }
+          return a.id - b.id;
+        });
+        setCanchas(sortedCanchas);
       } catch (error) {
         console.error("Error fetching canchas:", error);
       } finally {

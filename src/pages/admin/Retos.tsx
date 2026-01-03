@@ -62,10 +62,12 @@ const parsePrecio = (precioStr: string | undefined): number => {
 // Calculate price per team
 const calculatePricePerTeam = (
   canchaPrecio: number,
-  arbitro: boolean
+  arbitro: boolean,
+  local: string
 ): number => {
   const basePrice = canchaPrecio / 2;
-  const arbitroCost = arbitro ? 2500 : 0;
+  // Arbitro cost only for Guadalupe (local == "Guadalupe")
+  const arbitroCost = local === "Guadalupe" && arbitro ? 2500 : 0;
   return basePrice + arbitroCost;
 };
 
@@ -316,8 +318,8 @@ export default function Retos() {
                       : 0;
                     const pricePerTeam =
                       canchaPrecio > 0
-                        ? calculatePricePerTeam(canchaPrecio, reto.arbitro)
-                        : reto.arbitro
+                        ? calculatePricePerTeam(canchaPrecio, reto.arbitro, reto.local)
+                        : reto.local === "Guadalupe" && reto.arbitro
                         ? 2500
                         : 0;
 
@@ -363,7 +365,7 @@ export default function Retos() {
                           </div>
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                          {reto.arbitro ? (
+                          {reto.local === "Guadalupe" && reto.arbitro ? (
                             <div className="flex items-center gap-1">
                               <GiWhistle className="text-primary" />
                               Sí

@@ -8,6 +8,8 @@ import {
   ChevronLeftIcon,
   ChevronRightIcon,
   MapPinIcon,
+  DocumentTextIcon,
+  BanknotesIcon,
 } from "@heroicons/react/20/solid";
 
 interface Cancha {
@@ -89,7 +91,14 @@ export default function Pagos() {
           .order("id");
 
         if (error) throw error;
-        setCanchas(data || []);
+        // Sort canchas: Sabana first, then Guadalupe, then by id ascending
+        const sortedCanchas = (data || []).sort((a, b) => {
+          if (a.local !== b.local) {
+            return a.local - b.local;
+          }
+          return a.id - b.id;
+        });
+        setCanchas(sortedCanchas);
       } catch (error) {
         console.error("Error fetching canchas:", error);
       } finally {
@@ -208,7 +217,7 @@ export default function Pagos() {
 
       setReservas(finalReservas);
     } catch (error) {
-      console.error("Error fetching reservas:", error);
+      console.error("Error fetching reservaciones:", error);
     } finally {
       setLoadingReservas(false);
     }
@@ -409,20 +418,32 @@ export default function Pagos() {
   // Calculate daily totals
   const calculateDailyTotals = () => {
     if (!selectedDate)
-      return { totalReservas: 0, totalPagos: 0, diferencia: 0 };
+      return {
+        totalReservas: 0,
+        totalPagos: 0,
+        totalSinpe: 0,
+        totalEfectivo: 0,
+        diferencia: 0,
+      };
 
     const totalReservas = reservas.reduce((sum, r) => sum + r.precio, 0);
-    const totalPagos = reservas.reduce((sum, r) => {
-      const pagosTotal = (r.pagos || []).reduce(
-        (pSum, p) => pSum + p.monto_sinpe + p.monto_efectivo,
-        0
-      );
-      return sum + pagosTotal;
-    }, 0);
+    let totalPagos = 0;
+    let totalSinpe = 0;
+    let totalEfectivo = 0;
+
+    reservas.forEach((r) => {
+      (r.pagos || []).forEach((p) => {
+        totalPagos += p.monto_sinpe + p.monto_efectivo;
+        totalSinpe += p.monto_sinpe;
+        totalEfectivo += p.monto_efectivo;
+      });
+    });
 
     return {
       totalReservas,
       totalPagos,
+      totalSinpe,
+      totalEfectivo,
       diferencia: totalReservas - totalPagos,
     };
   };
@@ -431,12 +452,14 @@ export default function Pagos() {
   const monthName = MONTHS_SPANISH[currentMonth.getMonth()];
   const year = currentMonth.getFullYear();
 
-  // Get canchas for filter badges
-  const cancha6 = canchas.find((c) => c.id === 6);
-  const otherCanchas = canchas.filter((c) => c.id !== 6).slice(0, 5);
-  const filterCanchas = cancha6
-    ? [...otherCanchas, cancha6]
-    : canchas.slice(0, 5);
+  // Get canchas for filter badges - sorted by location then id
+  const sabanaCanchas = canchas
+    .filter((c) => c.local === 1)
+    .sort((a, b) => a.id - b.id);
+  const guadalupeCanchas = canchas
+    .filter((c) => c.local === 2)
+    .sort((a, b) => a.id - b.id);
+  const filterCanchas = [...sabanaCanchas, ...guadalupeCanchas];
 
   const totals = calculateDailyTotals();
 
@@ -534,15 +557,34 @@ export default function Pagos() {
                 </h3>
                 <div className="space-y-2 text-sm">
                   <div className="flex justify-between">
-                    <span className="text-gray-600">Total Reservas:</span>
+                    <span className="text-gray-600">Total reservaciones:</span>
                     <span className="font-medium text-gray-900">
                       ₡ {totals.totalReservas.toLocaleString()}
                     </span>
                   </div>
+
                   <div className="flex justify-between">
                     <span className="text-gray-600">Total Pagos:</span>
                     <span className="font-medium text-gray-900">
                       ₡ {totals.totalPagos.toLocaleString()}
+                    </span>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span className="text-gray-600 flex text-xs items-center gap-1.5">
+                      <DocumentTextIcon className="size-3 text-gray-500" />
+                      SINPE:
+                    </span>
+                    <span className="font-medium text-gray-900 text-xs">
+                      ₡ {totals.totalSinpe.toLocaleString()}
+                    </span>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span className="text-gray-600 flex text-xs items-center gap-1.5">
+                      <BanknotesIcon className="size-3 text-gray-500" />
+                      Efectivo:
+                    </span>
+                    <span className="font-medium text-xs text-gray-900">
+                      ₡ {totals.totalEfectivo.toLocaleString()}
                     </span>
                   </div>
                   <div className="border-t border-gray-200 pt-2 flex justify-between">
@@ -571,38 +613,45 @@ export default function Pagos() {
               {/* Location filters */}
               <button
                 onClick={() => toggleLocationFilter(1)}
-                className={`rounded-md px-3 py-1 border border-gray-300 text-xs font-medium transition-colors ${
+                className={`rounded-md px-3 py-1 text-xs font-medium transition-colors ${
                   selectedLocations.includes(1)
                     ? "bg-primary text-white"
-                    : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+                    : "bg-green-50/80 text-gray-700 hover:bg-green-100/80"
                 }`}
               >
                 Sabana
               </button>
               <button
                 onClick={() => toggleLocationFilter(2)}
-                className={`rounded-md px-3 py-1 border border-gray-300 text-xs font-medium transition-colors ${
+                className={`rounded-md px-3 py-1 text-xs font-medium transition-colors ${
                   selectedLocations.includes(2)
-                    ? "bg-primary text-white"
-                    : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+                    ? "bg-blue-700 text-white"
+                    : "bg-blue-50/80 text-gray-700 hover:bg-blue-100/80"
                 }`}
               >
                 Guadalupe
               </button>
               {/* Cancha filters */}
-              {filterCanchas.map((cancha) => (
-                <button
-                  key={cancha.id}
-                  onClick={() => toggleCanchaFilter(cancha.id)}
-                  className={`rounded-md px-3 border border-gray-300 py-1 text-xs font-medium transition-colors ${
-                    selectedCanchas.includes(cancha.id)
-                      ? "bg-primary text-white"
-                      : "bg-gray-100 text-gray-700 hover:bg-gray-200"
-                  }`}
-                >
-                  {cancha.nombre}
-                </button>
-              ))}
+              {filterCanchas.map((cancha) => {
+                const isSabana = cancha.local === 1;
+                return (
+                  <button
+                    key={cancha.id}
+                    onClick={() => toggleCanchaFilter(cancha.id)}
+                    className={`rounded-md px-3 py-1 text-xs font-medium transition-colors ${
+                      selectedCanchas.includes(cancha.id)
+                        ? isSabana
+                          ? "bg-primary text-white"
+                          : "bg-blue-700 text-white"
+                        : isSabana
+                        ? "bg-green-50/80 text-gray-700 hover:bg-green-100/80"
+                        : "bg-blue-50/80 text-gray-700 hover:bg-blue-100/80"
+                    }`}
+                  >
+                    {cancha.nombre}
+                  </button>
+                );
+              })}
               {/* Payment status filters */}
               <button
                 onClick={() => togglePagoStatusFilter("no_pagadas")}
@@ -644,8 +693,8 @@ export default function Pagos() {
             ) : reservas.length === 0 ? (
               <div className="text-center py-12 text-gray-500">
                 {selectedDate
-                  ? "No hay reservas para esta fecha"
-                  : "Selecciona una fecha para ver las reservas"}
+                  ? "No hay reservaciones para esta fecha"
+                  : "Selecciona una fecha para ver las reservaciones"}
               </div>
             ) : (
               <ol className="divide-y divide-gray-100 text-sm/6">

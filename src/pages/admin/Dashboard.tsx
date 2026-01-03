@@ -85,7 +85,14 @@ export default function Dashboard() {
           .order("id");
 
         if (error) throw error;
-        setCanchas(data || []);
+        // Sort canchas: Sabana first, then Guadalupe, then by id ascending
+        const sortedCanchas = (data || []).sort((a, b) => {
+          if (a.local !== b.local) {
+            return a.local - b.local;
+          }
+          return a.id - b.id;
+        });
+        setCanchas(sortedCanchas);
       } catch (error) {
         console.error("Error fetching canchas:", error);
       } finally {
@@ -499,12 +506,14 @@ export default function Dashboard() {
   const monthName = MONTHS_SPANISH[currentMonth.getMonth()];
   const year = currentMonth.getFullYear();
 
-  // Get canchas for filter badges - ensure cancha id 6 is included
-  const cancha6 = canchas.find((c) => c.id === 6);
-  const otherCanchas = canchas.filter((c) => c.id !== 6).slice(0, 5);
-  const filterCanchas = cancha6
-    ? [...otherCanchas, cancha6]
-    : canchas.slice(0, 5);
+  // Get canchas for filter badges - sorted by location then id
+  const sabanaCanchas = canchas
+    .filter((c) => c.local === 1)
+    .sort((a, b) => a.id - b.id);
+  const guadalupeCanchas = canchas
+    .filter((c) => c.local === 2)
+    .sort((a, b) => a.id - b.id);
+  const filterCanchas = [...sabanaCanchas, ...guadalupeCanchas];
 
   if (loading) {
     return (
@@ -610,38 +619,45 @@ export default function Dashboard() {
               {/* Location filters */}
               <button
                 onClick={() => toggleLocationFilter(1)}
-                className={`rounded-md px-3 py-1 border border-gray-300 text-xs font-medium transition-colors ${
+                className={`rounded-md px-3 py-1 text-xs font-medium transition-colors ${
                   selectedLocations.includes(1)
                     ? "bg-primary text-white"
-                    : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+                    : "bg-green-50/80 text-gray-700 hover:bg-green-100/80"
                 }`}
               >
                 Sabana
               </button>
               <button
                 onClick={() => toggleLocationFilter(2)}
-                className={`rounded-md px-3 py-1 border border-gray-300 text-xs font-medium transition-colors ${
+                className={`rounded-md px-3 py-1 text-xs font-medium transition-colors ${
                   selectedLocations.includes(2)
-                    ? "bg-primary text-white"
-                    : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+                    ? "bg-blue-700 text-white"
+                    : "bg-blue-50/80 text-gray-700 hover:bg-blue-100/80"
                 }`}
               >
                 Guadalupe
               </button>
               {/* Cancha filters */}
-              {filterCanchas.map((cancha) => (
-                <button
-                  key={cancha.id}
-                  onClick={() => toggleCanchaFilter(cancha.id)}
-                  className={`rounded-md px-3 border border-gray-300 py-1 text-xs font-medium transition-colors ${
-                    selectedCanchas.includes(cancha.id)
-                      ? "bg-primary text-white"
-                      : "bg-gray-100 text-gray-700 hover:bg-gray-200"
-                  }`}
-                >
-                  {cancha.nombre}
-                </button>
-              ))}
+              {filterCanchas.map((cancha) => {
+                const isSabana = cancha.local === 1;
+                return (
+                  <button
+                    key={cancha.id}
+                    onClick={() => toggleCanchaFilter(cancha.id)}
+                    className={`rounded-md px-3 py-1 text-xs font-medium transition-colors ${
+                      selectedCanchas.includes(cancha.id)
+                        ? isSabana
+                          ? "bg-primary text-white"
+                          : "bg-blue-700 text-white"
+                        : isSabana
+                        ? "bg-green-50/80 text-gray-700 hover:bg-green-100/80"
+                        : "bg-blue-50/80 text-gray-700 hover:bg-blue-100/80"
+                    }`}
+                  >
+                    {cancha.nombre}
+                  </button>
+                );
+              })}
             </div>
 
             {/* Reservations List */}

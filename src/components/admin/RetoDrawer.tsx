@@ -9,7 +9,11 @@ import {
   DialogBackdrop,
 } from "@headlessui/react";
 import { XMarkIcon } from "@heroicons/react/24/outline";
-import { PencilSquareIcon, ChevronDownIcon } from "@heroicons/react/20/solid";
+import {
+  PencilSquareIcon,
+  ChevronDownIcon,
+  ArrowPathIcon,
+} from "@heroicons/react/20/solid";
 import { FaRegCalendarCheck, FaRegClock } from "react-icons/fa";
 import { TbPlayFootball, TbRun } from "react-icons/tb";
 import { GiWhistle } from "react-icons/gi";
@@ -153,7 +157,9 @@ export default function RetoDrawer({
     if (reto) {
       setEditCanchaId(reto.cancha_id);
       setEditFut(reto.fut);
-      setEditArbitro(reto.arbitro);
+      // Only set arbitro if cancha is Guadalupe (local == 2)
+      const retoCancha = canchas.find((c) => c.id === reto.cancha_id);
+      setEditArbitro(retoCancha?.local === 2 ? reto.arbitro : false);
       setEquipo2Nombre(reto.equipo2_nombre || "");
       setEquipo2Encargado(reto.equipo2_encargado || "");
       setEquipo2Celular(reto.equipo2_celular || "");
@@ -196,8 +202,9 @@ export default function RetoDrawer({
       basePrice = parseInt(precioStr.replace(/\./g, ""), 10) || 0;
     }
 
-    // Add arbitro cost (5000 total)
-    const totalPrice = basePrice + (editArbitro ? 5000 : 0);
+    // Add arbitro cost (5000 total) - Only for Guadalupe (local == 2)
+    const arbitroCost = currentCancha.local === 2 && editArbitro ? 5000 : 0;
+    const totalPrice = basePrice + arbitroCost;
     return totalPrice;
   };
 
@@ -371,22 +378,63 @@ export default function RetoDrawer({
         return `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`;
       };
 
+      const horaInicioStr = formatLocalTimestamp(horaInicio);
+      const horaFinStr = formatLocalTimestamp(horaFin);
+
+      // Check if reservation already exists at this hora_inicio
+      let canchaIds: number[];
+      if (editCanchaId === 6) {
+        canchaIds = [6, ...LINKED_CANCHAS];
+      } else if (LINKED_CANCHAS.includes(editCanchaId!)) {
+        canchaIds = [editCanchaId!, 6];
+      } else {
+        canchaIds = [editCanchaId!];
+      }
+
+      const dateStr = formatLocalDate(editDate);
+      const startOfDay = `${dateStr} 00:00:00`;
+      const endOfDay = `${dateStr} 23:59:59`;
+
+      // Check for existing reservations at this hora_inicio
+      const { data: existingReservas, error: checkError } = await supabase
+        .from("reservas")
+        .select("id, hora_inicio")
+        .in("cancha_id", canchaIds)
+        .gte("hora_inicio", startOfDay)
+        .lte("hora_inicio", endOfDay);
+
+      if (checkError) throw checkError;
+
+      // Check if any existing reservation has the same hora_inicio
+      const hasConflict = (existingReservas || []).some((r) => {
+        const existingHour = parseHourFromTimestamp(r.hora_inicio);
+        return existingHour === editHour;
+      });
+
+      if (hasConflict) {
+        throw new Error(
+          "Ya existe una reservación para esta hora y cancha. Por favor seleccione otra hora."
+        );
+      }
+
       // Calculate total price
       const totalPrice = calculateTotalPrice();
+
+      // Get current cancha for arbitro check
+      const currentCancha = canchas.find((c) => c.id === editCanchaId!);
 
       // Create reserva
       const { data: reservaData, error: reservaError } = await supabase
         .from("reservas")
         .insert({
-          hora_inicio: formatLocalTimestamp(horaInicio),
-          hora_fin: formatLocalTimestamp(horaFin),
-          nombre_reserva:
-            reto.equipo1_nombre || reto.equipo1_encargado || "Reto",
+          hora_inicio: horaInicioStr,
+          hora_fin: horaFinStr,
+          nombre_reserva: reto.equipo1_encargado || "Reto",
           celular_reserva: reto.equipo1_celular,
           correo_reserva: null,
           cancha_id: editCanchaId!,
           precio: totalPrice,
-          arbitro: editArbitro,
+          arbitro: currentCancha?.local === 2 ? editArbitro : false,
         })
         .select()
         .single();
@@ -399,10 +447,10 @@ export default function RetoDrawer({
         .update({
           reserva_id: reservaData.id,
           cancha_id: editCanchaId!,
-          hora_inicio: formatLocalTimestamp(horaInicio),
-          hora_fin: formatLocalTimestamp(horaFin),
+          hora_inicio: horaInicioStr,
+          hora_fin: horaFinStr,
           fut: editFut!,
-          arbitro: editArbitro,
+          arbitro: currentCancha?.local === 2 ? editArbitro : false,
           equipo2_nombre: equipo2Nombre.trim() || null,
           equipo2_encargado: equipo2Encargado.trim(),
           equipo2_celular: equipo2Celular.trim(),
@@ -415,8 +463,6 @@ export default function RetoDrawer({
       const djangoApiUrl = import.meta.env.VITE_DJANGO_API_URL || "";
       if (djangoApiUrl) {
         const reservaUrl = `${window.location.origin}/reserva/${reservaData.id}`;
-        const horaInicioStr = formatLocalTimestamp(horaInicio);
-        const horaFinStr = formatLocalTimestamp(horaFin);
         const currentCancha = canchas.find((c) => c.id === editCanchaId!);
 
         // Calculate player count
@@ -439,12 +485,11 @@ export default function RetoDrawer({
               cancha_id: editCanchaId!,
               cancha_nombre: currentCancha?.nombre || "",
               cancha_local: currentCancha?.local || 0,
-              nombre_reserva:
-                reto.equipo1_nombre || reto.equipo1_encargado || "Reto",
+              nombre_reserva: reto.equipo1_encargado || "Reto",
               celular_reserva: reto.equipo1_celular,
               correo_reserva: reto.equipo1_correo,
               precio: totalPrice,
-              arbitro: editArbitro,
+              arbitro: currentCancha?.local === 2 ? editArbitro : false,
               jugadores: jugadores,
               reserva_url: reservaUrl,
             };
@@ -500,7 +545,11 @@ export default function RetoDrawer({
       await onReservaCreated();
     } catch (error) {
       console.error("Error creating reserva:", error);
-      alert("Error al crear la reservación. Por favor intente de nuevo.");
+      const errorMessage =
+        error instanceof Error
+          ? error.message
+          : "Error al crear la reservación. Por favor intente de nuevo.";
+      alert(errorMessage);
     } finally {
       setCreating(false);
     }
@@ -532,6 +581,10 @@ export default function RetoDrawer({
         if (!isNaN(cantidad)) {
           setEditFut(cantidad);
         }
+      }
+      // Reset arbitro if switching to Sabana (local == 1)
+      if (selectedCancha.local === 1) {
+        setEditArbitro(false);
       }
     }
   };
@@ -919,7 +972,7 @@ export default function RetoDrawer({
                                     htmlFor="equipo2-nombre"
                                     className="block text-sm/6 font-medium text-gray-900"
                                   >
-                                    Nombre (opcional)
+                                    Nombre de equipo (opcional)
                                   </label>
                                   <div className="mt-2">
                                     <input
@@ -1062,38 +1115,40 @@ export default function RetoDrawer({
                             )}
                           </div>
 
-                          {/* Árbitro */}
-                          <div>
-                            <div className="flex items-center justify-between">
-                              <h3 className="text-sm/6 font-medium text-gray-900">
-                                Árbitro
-                              </h3>
-                              {mode === "assign" ? (
-                                <label className="relative inline-flex items-center cursor-pointer">
-                                  <input
-                                    type="checkbox"
-                                    checked={editArbitro}
-                                    onChange={(e) =>
-                                      setEditArbitro(e.target.checked)
-                                    }
-                                    className="sr-only peer"
-                                  />
-                                  <div className="w-11 h-6 bg-gray-300 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-primary/20 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary"></div>
-                                </label>
-                              ) : (
-                                <div className="flex items-center gap-2 text-sm text-gray-900">
-                                  {reto.arbitro ? (
-                                    <>
-                                      <GiWhistle className="text-primary" />
-                                      Sí
-                                    </>
-                                  ) : (
-                                    <span>No</span>
-                                  )}
-                                </div>
-                              )}
+                          {/* Árbitro - Only for Guadalupe (local == 2) */}
+                          {currentCancha?.local === 2 && (
+                            <div>
+                              <div className="flex items-center justify-between">
+                                <h3 className="text-sm/6 font-medium text-gray-900">
+                                  Árbitro
+                                </h3>
+                                {mode === "assign" ? (
+                                  <label className="relative inline-flex items-center cursor-pointer">
+                                    <input
+                                      type="checkbox"
+                                      checked={editArbitro}
+                                      onChange={(e) =>
+                                        setEditArbitro(e.target.checked)
+                                      }
+                                      className="sr-only peer"
+                                    />
+                                    <div className="w-11 h-6 bg-gray-300 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-primary/20 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary"></div>
+                                  </label>
+                                ) : (
+                                  <div className="flex items-center gap-2 text-sm text-gray-900">
+                                    {reto.arbitro ? (
+                                      <>
+                                        <GiWhistle className="text-primary" />
+                                        Sí
+                                      </>
+                                    ) : (
+                                      <span>No</span>
+                                    )}
+                                  </div>
+                                )}
+                              </div>
                             </div>
-                          </div>
+                          )}
 
                           {/* Price Information */}
                           <div>
@@ -1132,7 +1187,7 @@ export default function RetoDrawer({
                                   })()}
                                 </span>
                               </div>
-                              {editArbitro && (
+                              {currentCancha?.local === 2 && editArbitro && (
                                 <div className="flex justify-between text-sm">
                                   <span className="text-gray-600 flex items-center gap-1">
                                     <GiWhistle className="text-primary" />
@@ -1207,9 +1262,16 @@ export default function RetoDrawer({
                             !editCanchaId ||
                             !editFut
                           }
-                          className="ml-4 inline-flex justify-center rounded-md bg-primary px-3 py-2 text-sm font-semibold text-white shadow-xs hover:bg-primary/90 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary disabled:bg-gray-700 disabled:cursor-not-allowed"
+                          className="ml-4 inline-flex items-center justify-center gap-2 rounded-md bg-primary px-3 py-2 text-sm font-semibold text-white shadow-xs hover:bg-primary/90 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary disabled:bg-gray-700 disabled:cursor-not-allowed"
                         >
-                          {creating ? "Creando..." : "Crear Reservación"}
+                          {creating ? (
+                            <>
+                              <ArrowPathIcon className="size-4 animate-spin" />
+                              Creando...
+                            </>
+                          ) : (
+                            "Crear Reservación"
+                          )}
                         </button>
                       </>
                     ) : (
