@@ -619,20 +619,20 @@ export default function Dashboard() {
               {/* Location filters */}
               <button
                 onClick={() => toggleLocationFilter(1)}
-                className={`rounded-md px-3 py-1 text-xs font-medium transition-colors ${
+                className={`rounded-md px-3 py-1 text-xs font-semibold transition-colors ${
                   selectedLocations.includes(1)
                     ? "bg-primary text-white"
-                    : "bg-green-50/80 text-gray-700 hover:bg-green-100/80"
+                    : "bg-gray-200  text-primary hover:bg-gray-300"
                 }`}
               >
                 Sabana
               </button>
               <button
                 onClick={() => toggleLocationFilter(2)}
-                className={`rounded-md px-3 py-1 text-xs font-medium transition-colors ${
+                className={`rounded-md px-3 py-1 text-xs font-semibold transition-colors ${
                   selectedLocations.includes(2)
-                    ? "bg-blue-700 text-white"
-                    : "bg-blue-50/80 text-gray-700 hover:bg-blue-100/80"
+                    ? "bg-blue-800 text-white"
+                    : "bg-gray-200   text-blue-800 hover:bg-gray-300"
                 }`}
               >
                 Guadalupe
@@ -644,14 +644,14 @@ export default function Dashboard() {
                   <button
                     key={cancha.id}
                     onClick={() => toggleCanchaFilter(cancha.id)}
-                    className={`rounded-md px-3 py-1 text-xs font-medium transition-colors ${
+                    className={`rounded-md px-3 py-1 text-xs font-semibold transition-colors ${
                       selectedCanchas.includes(cancha.id)
                         ? isSabana
                           ? "bg-primary text-white"
-                          : "bg-blue-700 text-white"
+                          : "bg-blue-800 text-white"
                         : isSabana
-                        ? "bg-green-50/80 text-gray-700 hover:bg-green-100/80"
-                        : "bg-blue-50/80 text-gray-700 hover:bg-blue-100/80"
+                        ? "bg-gray-200 text-primary hover:bg-gray-300"
+                        : "bg-gray-200 text-blue-800 hover:bg-gray-300"
                     }`}
                   >
                     {cancha.nombre}
