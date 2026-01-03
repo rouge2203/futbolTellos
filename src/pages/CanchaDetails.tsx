@@ -293,15 +293,15 @@ function CanchaDetails() {
     return getBasePrice() + arbitroCost;
   };
 
-  // Get number of players per team
-  const getPlayerCount = (): number => {
-    if (!cancha) return 0;
-    if (isSpecialCancha && selectedPlayers) {
-      return selectedPlayers;
-    }
-    // Parse cantidad (e.g., "5" -> 5, "7" -> 7)
-    return parseInt(cancha.cantidad?.toString() || "0", 10);
-  };
+  // // Get number of players per team
+  // const getPlayerCount = (): number => {
+  //   if (!cancha) return 0;
+  //   if (isSpecialCancha && selectedPlayers) {
+  //     return selectedPlayers;
+  //   }
+  //   // Parse cantidad (e.g., "5" -> 5, "7" -> 7)
+  //   return parseInt(cancha.cantidad?.toString() || "0", 10);
+  // };
 
   // Get price per person (total players = playerCount * 2 teams)
   // const getPricePerPerson = (): number => {
