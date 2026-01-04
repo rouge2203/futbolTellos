@@ -357,9 +357,28 @@ function ReservaDetalles() {
     }
   };
 
-  // Placeholder URLs for maps
-  const googleMapsUrl = "#"; // TODO: Add actual coordinates
-  const wazeUrl = "#"; // TODO: Add actual coordinates
+  // Map URLs based on cancha ID
+  const getMapUrls = () => {
+    if (cancha.id === 2) {
+      return {
+        googleMaps:
+          "https://www.google.com/maps?q=Futbol+5+Tello+Sabana,+de+la+contraloría+300+Sur+y+100+Este.&ftid=0x8fa0e352bb6895a9:0x85e8c7a0217c4564&entry=gps&shh=CAE&lucs=,94297695,94275415,94284478,94231188,94280568,47071704,94218641,94282134,94286869&g_ep=CAISEjI1LjQ5LjkuODM4ODk5MTgzMBgAINeCAypRLDk0Mjk3Njk1LDk0Mjc1NDE1LDk0Mjg0NDc4LDk0MjMxMTg4LDk0MjgwNTY4LDQ3MDcxNzA0LDk0MjE4NjQxLDk0MjgyMTM0LDk0Mjg2ODY5QgJDUg%3D%3D&skid=98bd5023-d70a-4268-b178-2a067f1ca761&g_st=iw",
+        waze: "https://waze.com/ul/hd1u0qpxby",
+      };
+    } else if (cancha.id === 4) {
+      return {
+        googleMaps: "https://maps.app.goo.gl/nTFb1SYYHt7GrgN26?g_st=iw",
+        waze: "https://waze.com/ul/hd1u0qprxf",
+      };
+    } else {
+      return {
+        googleMaps: "https://maps.app.goo.gl/dnBDJHy7uTQJdRTH9?g_st=iw",
+        waze: "https://waze.com/ul/hd1u285t5w",
+      };
+    }
+  };
+
+  const { googleMaps: googleMapsUrl, waze: wazeUrl } = getMapUrls();
 
   return (
     <div className="min-h-screen bg-bg pb-8 px-0 py-0 sm:px-6 lg:px-8">
