@@ -154,11 +154,6 @@ export default function PagoDrawer({
     const sinpe = parseFloat(montoSinpe) || 0;
     const efectivo = parseFloat(montoEfectivo) || 0;
 
-    if (sinpe < 0 || efectivo < 0) {
-      alert("Los montos no pueden ser negativos");
-      return;
-    }
-
     if (sinpe === 0 && efectivo === 0) {
       alert("Debe ingresar al menos un monto");
       return;
@@ -363,7 +358,6 @@ export default function PagoDrawer({
                                     </label>
                                     <input
                                       type="number"
-                                      min="0"
                                       step="0.01"
                                       value={montoSinpe}
                                       onChange={(e) => setMontoSinpe(e.target.value)}
@@ -377,7 +371,6 @@ export default function PagoDrawer({
                                     </label>
                                     <input
                                       type="number"
-                                      min="0"
                                       step="0.01"
                                       value={montoEfectivo}
                                       onChange={(e) =>

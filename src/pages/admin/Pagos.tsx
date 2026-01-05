@@ -589,13 +589,13 @@ export default function Pagos() {
                   </div>
                   <div className="border-t border-gray-200 pt-2 flex justify-between">
                     <span className="text-gray-900 font-semibold">
-                      Diferencia:
+                      Faltante:
                     </span>
                     <span
                       className={`font-bold ${
-                        totals.diferencia >= 0
-                          ? "text-green-600"
-                          : "text-red-600"
+                        totals.diferencia > 0
+                          ? "text-red-600"
+                          : "text-green-600"
                       }`}
                     >
                       ₡ {totals.diferencia.toLocaleString()}

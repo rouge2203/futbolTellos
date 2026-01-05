@@ -142,8 +142,16 @@ export default function ReservationDrawer({
         if (configResult.error) throw configResult.error;
         if (canchasResult.error) throw canchasResult.error;
 
+        // Sort canchas: Sabana (local == 1) first, then Guadalupe (local == 2), then by id
+        const sortedCanchas = (canchasResult.data || []).sort((a, b) => {
+          if (a.local !== b.local) {
+            return a.local - b.local;
+          }
+          return a.id - b.id;
+        });
+
         setConfiguracion(configResult.data);
-        setCanchas(canchasResult.data || []);
+        setCanchas(sortedCanchas);
       } catch (error) {
         console.error("Error fetching data:", error);
       }
@@ -400,6 +408,14 @@ export default function ReservationDrawer({
 
   if (!reserva) return null;
 
+  // Sort canchas: Sabana (local == 1) first, then Guadalupe (local == 2), then by id
+  const sortedCanchas = [...canchas].sort((a, b) => {
+    if (a.local !== b.local) {
+      return a.local - b.local;
+    }
+    return a.id - b.id;
+  });
+
   const currentCancha =
     canchas.find((c) => c.id === (editCanchaId || reserva.cancha.id)) ||
     reserva.cancha;
@@ -497,7 +513,7 @@ export default function ReservationDrawer({
                                   }
                                   className="col-start-1 row-start-1 w-full appearance-none rounded-md bg-white border border-gray-300 py-1.5 pr-8 pl-3 text-base text-gray-900 outline-1 -outline-offset-1 outline-gray-300 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-primary sm:text-sm/6"
                                 >
-                                  {canchas.map((cancha) => (
+                                  {sortedCanchas.map((cancha) => (
                                     <option
                                       key={cancha.id}
                                       value={cancha.id}

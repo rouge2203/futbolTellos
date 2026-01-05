@@ -15,6 +15,8 @@ import { FaRegCalendarCheck } from "react-icons/fa";
 import { FaUsers } from "react-icons/fa6";
 import { FaRegClock } from "react-icons/fa";
 import { GiWhistle } from "react-icons/gi";
+import { LiaMoneyBillWaveSolid } from "react-icons/lia";
+import { TbSoccerField } from "react-icons/tb";
 
 interface Cancha {
   id: number;
@@ -124,15 +126,12 @@ function CrearReto() {
         if (canchasResult.error) throw canchasResult.error;
         if (configResult.error) throw configResult.error;
 
-        // Sort canchas: Sabana first, then Guadalupe, then by id ascending
-        const sortedCanchas = (canchasResult.data || []).sort((a, b) => {
-          if (a.local !== b.local) {
-            return a.local - b.local;
-          }
-          return a.id - b.id;
-        });
+        // Filter to only Guadalupe canchas (local == 2), then sort by id
+        const guadalupeCanchas = (canchasResult.data || [])
+          .filter((cancha) => cancha.local === 2)
+          .sort((a, b) => a.id - b.id);
 
-        setCanchas(sortedCanchas);
+        setCanchas(guadalupeCanchas);
         setConfiguracion(configResult.data);
       } catch (err) {
         setError(err instanceof Error ? err.message : "Failed to fetch data");
@@ -488,9 +487,13 @@ function CrearReto() {
 
       {/* Cancha Selection */}
       {!selectedCancha ? (
-        <div className="px-4 py-6">
-          <h3 className="text-white font-medium mb-3">Seleccione una cancha</h3>
-          <div className="w-full grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div className="px-4 py-6 lg:px-0">
+          <h3 className="text-white font-medium mb-3 lg:hidden">
+            Seleccione una cancha
+          </h3>
+
+          {/* Mobile/Tablet: Keep original style */}
+          <div className="lg:hidden w-full grid grid-cols-1 md:grid-cols-2 gap-4">
             {canchas.map((cancha) => (
               <div
                 key={cancha.id}
@@ -554,6 +557,90 @@ function CrearReto() {
                 </div>
               </div>
             ))}
+          </div>
+
+          {/* Desktop: Match Index.tsx style */}
+          <div className="hidden lg:block">
+            <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+              <div className="grid grid-cols-1 gap-x-6 gap-y-10 sm:grid-cols-2 lg:grid-cols-2 xl:grid-cols-3 xl:gap-x-8">
+                {canchas.map((cancha) => (
+                  <div
+                    key={cancha.id}
+                    onClick={() => {
+                      setSelectedCancha(cancha);
+                      // Reset arbitro if switching to Sabana (local == 1)
+                      if (cancha.local === 1) {
+                        setArbitro(false);
+                      }
+                    }}
+                    className="group relative bg-white rounded-4xl shadow-lg shadow-gray-500/75 hover:shadow-gray-500/50 transition-all duration-300 cursor-pointer"
+                  >
+                    <div className="p-4">
+                      <div className="aspect-square w-full overflow-hidden bg-gray-100 rounded-4xl relative">
+                        {cancha.img ? (
+                          <>
+                            <img
+                              src={cancha.img}
+                              alt={cancha.nombre}
+                              className="h-full w-full object-cover object-center rounded-4xl group-hover:scale-105 transition-transform duration-500"
+                            />
+                            {/* Badges inside image */}
+                            <div className="absolute top-3 left-3 flex flex-col gap-2">
+                              {/* Location badge */}
+                              <div className="bg-white/90 backdrop-blur-sm rounded-full px-3 py-1.5 flex items-center gap-1 shadow-md">
+                                <MdLocationOn className="h-4 w-4 text-primary" />
+                                <span className="text-xs font-semibold text-gray-900">
+                                  {getLocalName(cancha.local)}
+                                </span>
+                              </div>
+                              {/* Price badge */}
+                              {cancha.precio && (
+                                <div className="bg-white/90 backdrop-blur-sm rounded-full px-3 py-1.5 flex items-center gap-1 shadow-md">
+                                  <LiaMoneyBillWaveSolid className="h-4 w-4 text-primary" />
+                                  <span className="text-xs font-semibold text-gray-900">
+                                    ₡ {formatPrecio(cancha.precio)}
+                                  </span>
+                                </div>
+                              )}
+                            </div>
+                          </>
+                        ) : (
+                          <div className="h-full w-full bg-gradient-to-br from-gray-200 to-gray-300 flex items-center justify-center rounded-xl">
+                            <TbSoccerField className="h-16 w-16 text-gray-400" />
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                    <div className="px-5 pb-5 flex flex-col">
+                      <h3 className="text-xl font-bold text-gray-900 mb-1">
+                        {cancha.nombre}
+                      </h3>
+                      <p className="text-sm text-gray-500 tracking-tight">
+                        {getLocalName(cancha.local)}
+                      </p>
+                      <p className="text-sm text-gray-600 tracking-tight line-clamp-2 mb-4">
+                        {cancha.id === 6
+                          ? "Cancha de fútbol 7-8-9 vs 7-8-9"
+                          : `Cancha de fútbol ${cancha.cantidad} vs ${cancha.cantidad}`}
+                      </p>
+                      <div className="flex items-center justify-between mt-auto">
+                        {cancha.precio && (
+                          <div className="bg-gray-100 rounded-full px-4 py-1.5">
+                            <span className="text-sm font-semibold text-gray-900">
+                              ₡ {formatPrecio(cancha.precio)}
+                            </span>
+                          </div>
+                        )}
+                        <div className="bg-gray-900 hover:bg-gray-800 rounded-full px-5 py-2 text-sm font-medium text-white transition-colors flex items-center gap-2">
+                          <span>Seleccionar</span>
+                          <FaRegCalendarCheck className="h-4 w-4 text-secondary" />
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
           </div>
         </div>
       ) : (

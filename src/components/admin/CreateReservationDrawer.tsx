@@ -84,11 +84,19 @@ export default function CreateReservationDrawer({
         if (canchasResult.error) throw canchasResult.error;
         if (configResult.error) throw configResult.error;
 
-        setCanchas(canchasResult.data || []);
+        // Sort canchas: Sabana (local == 1) first, then Guadalupe (local == 2), then by id
+        const sortedCanchas = (canchasResult.data || []).sort((a, b) => {
+          if (a.local !== b.local) {
+            return a.local - b.local;
+          }
+          return a.id - b.id;
+        });
+
+        setCanchas(sortedCanchas);
         setConfiguracion(configResult.data);
 
         // Set default cancha
-        const defaultCancha = canchasResult.data?.find(
+        const defaultCancha = sortedCanchas.find(
           (c) => c.id === defaultCanchaId
         );
         if (defaultCancha) {
