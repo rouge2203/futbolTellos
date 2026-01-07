@@ -10,13 +10,12 @@ import {
 import { CheckIcon } from "@heroicons/react/24/outline";
 import { IoArrowBack } from "react-icons/io5";
 import { MdLocationOn } from "react-icons/md";
-import { TbPlayFootball, TbRun } from "react-icons/tb";
+import { TbPlayFootball, TbRun, TbSoccerField } from "react-icons/tb";
 import { FaRegCalendarCheck } from "react-icons/fa";
 import { FaUsers } from "react-icons/fa6";
 import { FaRegClock } from "react-icons/fa";
 import { GiWhistle } from "react-icons/gi";
 import { LiaMoneyBillWaveSolid } from "react-icons/lia";
-import { TbSoccerField } from "react-icons/tb";
 
 interface Cancha {
   id: number;
@@ -1013,7 +1012,10 @@ function CrearReto() {
                       </div>
                     )}
                     <div className="flex items-center justify-between">
-                      <span className="text-white/80 text-sm">Cancha</span>
+                      <div className="flex items-center gap-2">
+                        <TbSoccerField className="text-secondary text-sm" />
+                        <span className="text-white/80 text-sm">Cancha</span>
+                      </div>
                       <span className="text-white font-medium">
                         {selectedCancha.nombre}
                       </span>
@@ -1052,7 +1054,7 @@ function CrearReto() {
                   {/* Disclaimer */}
                   <div className="bg-primary/10 border border-primary/30 rounded-xl px-4 py-4">
                     <p className="text-white/90 text-sm text-center">
-                      <strong className="text-primary">Importante:</strong>{" "}
+                      <strong className="text-secondary">Importante:</strong>{" "}
                       Futbol Tello intentará conseguirte un reto. Una vez
                       encontrado un oponente, te contactaremos vía WhatsApp al
                       número proporcionado.

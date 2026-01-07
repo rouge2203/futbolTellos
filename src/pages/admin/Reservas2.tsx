@@ -463,6 +463,15 @@ export default function Reservas2() {
   const dateDisplay = formatDateDisplay(selectedDate);
   const calendarDays = getDaysInMonth(currentMonth);
 
+  // Get canchas for filter badges - sorted by location then id
+  const sabanaCanchas = canchas
+    .filter((c) => c.local === 1)
+    .sort((a, b) => a.id - b.id);
+  const guadalupeCanchas = canchas
+    .filter((c) => c.local === 2)
+    .sort((a, b) => a.id - b.id);
+  const filterCanchas = [...sabanaCanchas, ...guadalupeCanchas];
+
   // Generate time slots starting from earliestHour (30-minute intervals)
   const timeSlots = Array.from({ length: totalRows }, (_, i) => {
     const slotIndex = earliestHour * 2 + i; // Start from earliestHour
@@ -638,6 +647,32 @@ export default function Reservas2() {
             </div>
           </div>
         </header>
+        {/* Cancha Badge Selection */}
+        <div className="border-b border-gray-200 bg-white px-4 py-4">
+          <div className="mb-6 flex flex-wrap gap-2">
+            {filterCanchas.map((cancha) => {
+              const isSabana = cancha.local === 1;
+              const isSelected = selectedCanchaId === cancha.id;
+              return (
+                <button
+                  key={cancha.id}
+                  onClick={() => setSelectedCanchaId(cancha.id)}
+                  className={`rounded-md px-3 py-2 text-xs font-semibold transition-colors ${
+                    isSelected
+                      ? isSabana
+                        ? "bg-green-800 text-white"
+                        : "bg-blue-800 text-white"
+                      : isSabana
+                      ? "bg-gray-200 text-green-800 hover:bg-gray-300"
+                      : "bg-gray-200 text-blue-800 hover:bg-gray-300"
+                  }`}
+                >
+                  {cancha.nombre}
+                </button>
+              );
+            })}
+          </div>
+        </div>
         {/* Mobile Cancha Display */}
         <div className="md:hidden border-b border-gray-200 bg-white px-4 py-3">
           <div className="flex items-center justify-between">

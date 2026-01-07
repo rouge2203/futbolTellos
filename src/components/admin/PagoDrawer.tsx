@@ -136,10 +136,7 @@ export default function PagoDrawer({
   };
 
   const calculateTotalPaid = (): number => {
-    return pagos.reduce(
-      (sum, p) => sum + p.monto_sinpe + p.monto_efectivo,
-      0
-    );
+    return pagos.reduce((sum, p) => sum + p.monto_sinpe + p.monto_efectivo, 0);
   };
 
   const calculatePercentage = (): number => {
@@ -249,13 +246,17 @@ export default function PagoDrawer({
                             </h3>
                             <div className="space-y-2 text-xs sm:text-sm">
                               <div className="flex justify-between items-start gap-2">
-                                <span className="text-gray-600 shrink-0">Cancha:</span>
+                                <span className="text-gray-600 shrink-0">
+                                  Cancha:
+                                </span>
                                 <span className="text-gray-900 font-medium text-right">
                                   {reserva.cancha.nombre}
                                 </span>
                               </div>
                               <div className="flex justify-between items-start gap-2">
-                                <span className="text-gray-600 shrink-0">Fecha/Hora:</span>
+                                <span className="text-gray-600 shrink-0">
+                                  Fecha/Hora:
+                                </span>
                                 <span className="text-gray-900 font-medium text-right text-xs">
                                   {new Date(reserva.hora_inicio).toLocaleString(
                                     "es-CR",
@@ -270,7 +271,9 @@ export default function PagoDrawer({
                                 </span>
                               </div>
                               <div className="flex justify-between items-start gap-2">
-                                <span className="text-gray-600 shrink-0">Cliente:</span>
+                                <span className="text-gray-600 shrink-0">
+                                  Cliente:
+                                </span>
                                 <span className="text-gray-900 font-medium text-right">
                                   {reserva.nombre_reserva}
                                 </span>
@@ -293,13 +296,17 @@ export default function PagoDrawer({
                             </h3>
                             <div className="space-y-2 text-xs sm:text-sm">
                               <div className="flex justify-between items-start gap-2">
-                                <span className="text-gray-600 shrink-0">Total Pagado:</span>
+                                <span className="text-gray-600 shrink-0">
+                                  Total Pagado:
+                                </span>
                                 <span className="text-gray-900 font-medium text-right">
                                   ₡ {totalPaid.toLocaleString()}
                                 </span>
                               </div>
                               <div className="flex justify-between items-start gap-2">
-                                <span className="text-gray-600 shrink-0">Porcentaje:</span>
+                                <span className="text-gray-600 shrink-0">
+                                  Porcentaje:
+                                </span>
                                 <span className="text-gray-900 font-medium text-right">
                                   {percentage}%
                                 </span>
@@ -307,21 +314,23 @@ export default function PagoDrawer({
                               <div className="border-t border-gray-200 pt-2">
                                 {isComplete ? (
                                   <div className="flex items-center justify-between gap-2">
-                                    <span className="text-green-400 font-semibold text-xs sm:text-sm">
+                                    <span className="text-green-600 font-semibold text-xs sm:text-sm">
                                       Pago Completo
                                     </span>
-                                    <span className="inline-flex items-center rounded-full bg-green-500/10 px-2 py-0.5 text-xs font-medium text-green-400 shrink-0">
+                                    <span className="inline-flex items-center rounded-full bg-green-50 px-2 py-0.5 text-xs font-extrabold text-green-600 shrink-0">
                                       ✓
                                     </span>
                                   </div>
                                 ) : (
                                   <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1 sm:gap-2">
-                                    <span className="text-yellow-400 font-semibold text-xs sm:text-sm">
+                                    <span className="text-yellow-600 font-semibold text-xs sm:text-sm">
                                       Pago Incompleto
                                     </span>
-                                    <span className="text-yellow-400 text-xs">
+                                    <span className="text-yellow-600  font-bold text-sm">
                                       Faltan ₡{" "}
-                                      {(reserva.precio - totalPaid).toLocaleString()}
+                                      {(
+                                        reserva.precio - totalPaid
+                                      ).toLocaleString()}
                                     </span>
                                   </div>
                                 )}
@@ -360,7 +369,9 @@ export default function PagoDrawer({
                                       type="number"
                                       step="0.01"
                                       value={montoSinpe}
-                                      onChange={(e) => setMontoSinpe(e.target.value)}
+                                      onChange={(e) =>
+                                        setMontoSinpe(e.target.value)
+                                      }
                                       placeholder="0"
                                       className="block w-full rounded-md bg-white border border-gray-300 px-3 py-1.5 text-sm text-gray-900 outline-1 -outline-offset-1 outline-gray-300 placeholder:text-gray-400 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-primary"
                                     />
@@ -411,7 +422,9 @@ export default function PagoDrawer({
                                       disabled={creating}
                                       className="flex-1 rounded-md bg-primary px-3 py-2 text-xs font-semibold text-white shadow-xs hover:bg-primary/90 disabled:bg-gray-700 disabled:cursor-not-allowed"
                                     >
-                                      {creating ? "Registrando..." : "Registrar"}
+                                      {creating
+                                        ? "Registrando..."
+                                        : "Registrar"}
                                     </button>
                                   </div>
                                 </div>
@@ -449,11 +462,13 @@ export default function PagoDrawer({
                                   </thead>
                                   <tbody className="divide-y divide-gray-200">
                                     {pagos.map((pago) => {
-                                      const total = pago.monto_sinpe + pago.monto_efectivo;
+                                      const total =
+                                        pago.monto_sinpe + pago.monto_efectivo;
                                       return (
                                         <tr key={pago.id}>
                                           <td className="px-2 py-1.5 text-xs text-gray-900">
-                                            ₡ {pago.monto_sinpe.toLocaleString()}
+                                            ₡{" "}
+                                            {pago.monto_sinpe.toLocaleString()}
                                           </td>
                                           <td className="px-2 py-1.5 text-xs text-gray-900">
                                             ₡{" "}
@@ -467,11 +482,11 @@ export default function PagoDrawer({
                                           </td>
                                           <td className="px-2 py-1.5">
                                             {pago.completo ? (
-                                              <span className="inline-flex items-center rounded-full bg-green-500/10 px-1.5 py-0.5 text-xs font-medium text-green-400">
+                                              <span className="inline-flex items-center rounded-full bg-green-50 px-1.5 py-0.5 text-xs font-extrabold text-green-600">
                                                 ✓
                                               </span>
                                             ) : (
-                                              <span className="inline-flex items-center rounded-full bg-yellow-500/10 px-1.5 py-0.5 text-xs font-medium text-yellow-400">
+                                              <span className="inline-flex items-center text-yellow-600 rounded-full bg-yellow-50 px-1.5 py-0.5 text-xs font-extrabold">
                                                 !
                                               </span>
                                             )}
@@ -511,4 +526,3 @@ export default function PagoDrawer({
     </Dialog>
   );
 }
-

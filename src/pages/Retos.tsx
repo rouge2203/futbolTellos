@@ -9,7 +9,7 @@ import {
 } from "@headlessui/react";
 import { FaWhatsapp } from "react-icons/fa";
 import { MdLocationOn } from "react-icons/md";
-import { TbPlayFootball, TbRun } from "react-icons/tb";
+import { TbPlayFootball, TbRun, TbSoccerField } from "react-icons/tb";
 import { GiWhistle } from "react-icons/gi";
 import { FaRegCalendarCheck } from "react-icons/fa";
 import { FaRegClock } from "react-icons/fa";
@@ -495,7 +495,12 @@ function Retos() {
                         )}
                       {selectedReto.cancha && (
                         <div className="flex items-center justify-between">
-                          <span className="text-white/80 text-sm">Cancha</span>
+                          <div className="flex items-center gap-2">
+                            <TbSoccerField className="text-secondary text-sm" />
+                            <span className="text-white/80 text-sm">
+                              Cancha
+                            </span>
+                          </div>
                           <span className="text-white font-medium">
                             {selectedReto.cancha.nombre}
                           </span>

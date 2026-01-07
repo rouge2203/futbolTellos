@@ -613,17 +613,17 @@ export default function Pagos() {
               {/* Location filters */}
               <button
                 onClick={() => toggleLocationFilter(1)}
-                className={`rounded-md px-3 py-1 text-xs font-semibold transition-colors ${
+                className={`rounded-md px-3 py-2 text-xs font-medium transition-colors ${
                   selectedLocations.includes(1)
-                    ? "bg-primary text-white"
-                    : "bg-gray-200 text-primary hover:bg-gray-300"
+                    ? "bg-green-800 text-white"
+                    : "bg-gray-200 text-green-800 hover:bg-gray-300"
                 }`}
               >
                 Sabana
               </button>
               <button
                 onClick={() => toggleLocationFilter(2)}
-                className={`rounded-md px-3 py-1 text-xs font-semibold transition-colors ${
+                className={`rounded-md px-3 py-2 text-xs font-medium transition-colors ${
                   selectedLocations.includes(2)
                     ? "bg-blue-800 text-white"
                     : "bg-gray-200 text-blue-800 hover:bg-gray-300"
@@ -638,13 +638,13 @@ export default function Pagos() {
                   <button
                     key={cancha.id}
                     onClick={() => toggleCanchaFilter(cancha.id)}
-                    className={`rounded-md px-3 py-1 text-xs font-semibold transition-colors ${
+                    className={`rounded-md px-3 py-2 text-xs font-medium transition-colors ${
                       selectedCanchas.includes(cancha.id)
                         ? isSabana
-                          ? "bg-primary text-white"
+                          ? "bg-green-800 text-white"
                           : "bg-blue-800 text-white"
                         : isSabana
-                        ? "bg-gray-200 text-primary hover:bg-gray-300"
+                        ? "bg-gray-200 text-green-800 hover:bg-gray-300"
                         : "bg-gray-200 text-blue-800 hover:bg-gray-300"
                     }`}
                   >
@@ -655,17 +655,17 @@ export default function Pagos() {
               {/* Payment status filters */}
               <button
                 onClick={() => togglePagoStatusFilter("no_pagadas")}
-                className={`rounded-md px-3 py-1 border border-gray-300 text-xs font-medium transition-colors ${
+                className={`rounded-md px-3 py-2 border border-red-200 text-xs font-medium transition-colors ${
                   selectedPagoStatus.includes("no_pagadas")
-                    ? "bg-gray-600 text-white"
-                    : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+                    ? "bg-red-400 text-white"
+                    : "bg-red-50 text-red-700 hover:bg-red-100"
                 }`}
               >
-                No pagadas
+                Sin pago registrado
               </button>
               <button
                 onClick={() => togglePagoStatusFilter("incompletos")}
-                className={`rounded-md px-3 py-1 border border-yellow-300 text-xs font-medium transition-colors ${
+                className={`rounded-md px-3 py-2 border border-yellow-200  text-xs font-medium transition-colors ${
                   selectedPagoStatus.includes("incompletos")
                     ? "bg-yellow-500 text-white"
                     : "bg-yellow-50 text-yellow-700 hover:bg-yellow-100"
@@ -675,10 +675,10 @@ export default function Pagos() {
               </button>
               <button
                 onClick={() => togglePagoStatusFilter("completos")}
-                className={`rounded-md px-3 py-1 border border-green-300 text-xs font-medium transition-colors ${
+                className={`rounded-md px-3 py-2 border border-green-200 text-green-600 text-xs font-medium transition-colors ${
                   selectedPagoStatus.includes("completos")
-                    ? "bg-green-500 text-white"
-                    : "bg-green-50 text-green-700 hover:bg-green-100"
+                    ? "bg-green-600 text-white"
+                    : "bg-green-50 text-primary hover:bg-green-100"
                 }`}
               >
                 Pagos completos
@@ -711,13 +711,13 @@ export default function Pagos() {
                       return (
                         <span className="inline-flex items-center gap-1.5 rounded-lg bg-yellow-50 border border-yellow-200 px-3 py-1.5 text-xs font-semibold text-yellow-800 shadow-sm">
                           <span className="size-1.5 rounded-full bg-yellow-500"></span>
-                          Pago no completo
+                          Pago incompleto
                         </span>
                       );
                     } else {
                       return (
-                        <span className="inline-flex items-center gap-1.5 rounded-lg bg-gray-50 border border-gray-200 px-3 py-1.5 text-xs font-semibold text-gray-800 shadow-sm">
-                          <span className="size-1.5 rounded-full bg-gray-500"></span>
+                        <span className="inline-flex items-center gap-1.5 rounded-lg bg-red-50 border border-red-200 px-3 py-1.5 text-xs font-semibold text-red-800 shadow-sm">
+                          <span className="size-1.5 rounded-full bg-red-500"></span>
                           Pago no registrado
                         </span>
                       );

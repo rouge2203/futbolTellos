@@ -7,6 +7,7 @@ import { useAuth } from "../../contexts/AuthContext";
 import { MdLocationOn } from "react-icons/md";
 import { TbPlayFootball, TbRun } from "react-icons/tb";
 import { GiWhistle } from "react-icons/gi";
+import { TbTrash } from "react-icons/tb";
 
 interface Cancha {
   id: number;
@@ -318,7 +319,11 @@ export default function Retos() {
                       : 0;
                     const pricePerTeam =
                       canchaPrecio > 0
-                        ? calculatePricePerTeam(canchaPrecio, reto.arbitro, reto.local)
+                        ? calculatePricePerTeam(
+                            canchaPrecio,
+                            reto.arbitro,
+                            reto.local
+                          )
                         : reto.local === "Guadalupe" && reto.arbitro
                         ? 2500
                         : 0;
@@ -377,14 +382,22 @@ export default function Retos() {
                         <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
                           ₡ {pricePerTeam.toLocaleString()}
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                        <td className="pr-2 py-4 whitespace-nowrap text-right text-sm font-medium">
                           {activeTab === "open" ? (
-                            <button
-                              onClick={() => handleAsignarRival(reto)}
-                              className="text-white bg-primary hover:bg-primary/80 rounded-lg px-4 py-2"
-                            >
-                              Asignar rival
-                            </button>
+                            <div className="flex items-center gap-2">
+                              <button
+                                onClick={() => handleAsignarRival(reto)}
+                                className="text-white bg-primary hover:bg-primary/80 rounded-lg px-4 py-2"
+                              >
+                                Asignar rival
+                              </button>
+                              <button
+                                onClick={() => handleAsignarRival(reto)}
+                                className="text-primary bg-gray-100 hover:bg-gray-200 rounded-lg p-2"
+                              >
+                                <TbTrash className="size-5" />
+                              </button>
+                            </div>
                           ) : (
                             <button
                               onClick={() => handleVerReto(reto)}

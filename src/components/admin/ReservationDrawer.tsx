@@ -892,8 +892,8 @@ export default function ReservationDrawer({
                                   />
                                   {reserva.confirmada && (
                                     <div className="bg-green-500/10 border border-green-500/30 rounded-lg p-3">
-                                      <div className="flex items-center gap-2 text-green-400">
-                                        <FaCheck className="text-green-500" />
+                                      <div className="flex items-center gap-2 text-primary">
+                                        <FaCheck className="text-primary" />
                                         <span className="text-sm font-medium">
                                           Confirmada por:{" "}
                                           {reserva.confirmada_por || "Admin"}
@@ -915,9 +915,9 @@ export default function ReservationDrawer({
                                 <div className="space-y-3">
                                   {reserva.confirmada ? (
                                     <div className="bg-green-500/10 border border-green-500/30 rounded-lg p-3">
-                                      <div className="flex items-center gap-2 text-green-400">
-                                        <FaCheck className="text-green-500" />
-                                        <span className="text-sm font-medium">
+                                      <div className="flex items-center gap-2 text-primary">
+                                        <FaCheck className="text-primary" />
+                                        <span className="text-sm font-medium text-primary">
                                           Confirmada por:{" "}
                                           {reserva.confirmada_por || "Admin"}{" "}
                                           (No hay comprobante)
@@ -953,11 +953,11 @@ export default function ReservationDrawer({
                               href={`${window.location.origin}/reserva/${reserva.id}`}
                               target="_blank"
                               rel="noopener noreferrer"
-                              className="group inline-flex items-center font-medium text-primary hover:text-secondary/80"
+                              className="group inline-flex items-center font-medium text-primary hover:text-primary/80"
                             >
                               <LinkIcon
                                 aria-hidden="true"
-                                className="size-5 text-primary group-hover:text-secondary/80"
+                                className="size-5 text-primary group-hover:text-primary/80"
                               />
                               <span className="ml-2">
                                 Ir a vista del cliente
