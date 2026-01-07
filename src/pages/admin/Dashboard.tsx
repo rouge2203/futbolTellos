@@ -11,7 +11,10 @@ import {
   ChevronRightIcon,
   EllipsisHorizontalIcon,
   MapPinIcon,
+  ClipboardDocumentIcon,
+  CheckIcon,
 } from "@heroicons/react/20/solid";
+import { FaWhatsapp } from "react-icons/fa";
 import { Menu, MenuButton, MenuItem, MenuItems } from "@headlessui/react";
 
 interface Cancha {
@@ -21,6 +24,13 @@ interface Cancha {
   local: number;
   cantidad?: string;
   precio?: string;
+}
+
+interface Configuracion {
+  apertura_guada: string;
+  apertura_sabana: string;
+  cierre_sabana: string;
+  cierre_guada: string;
 }
 
 interface Reserva {
@@ -75,32 +85,40 @@ export default function Dashboard() {
   const [createDrawerOpen, setCreateDrawerOpen] = useState(false);
   const [showSuccessNotification, setShowSuccessNotification] = useState(false);
 
-  // Fetch canchas for filters
-  useEffect(() => {
-    const fetchCanchas = async () => {
-      try {
-        const { data, error } = await supabase
-          .from("canchas")
-          .select("id, nombre, img, local")
-          .order("id");
+  // Configuracion and WhatsApp message state
+  const [configuracion, setConfiguracion] = useState<Configuracion | null>(null);
+  const [allReservasForDate, setAllReservasForDate] = useState<{ cancha_id: number; hora_inicio: string }[]>([]);
+  const [messageCopied, setMessageCopied] = useState(false);
 
-        if (error) throw error;
+  // Fetch canchas and configuracion
+  useEffect(() => {
+    const fetchInitialData = async () => {
+      try {
+        const [canchasResult, configResult] = await Promise.all([
+          supabase.from("canchas").select("id, nombre, img, local, cantidad, precio").order("id"),
+          supabase.from("configuracion").select("*").limit(1).single(),
+        ]);
+
+        if (canchasResult.error) throw canchasResult.error;
+        if (configResult.error) throw configResult.error;
+
         // Sort canchas: Sabana first, then Guadalupe, then by id ascending
-        const sortedCanchas = (data || []).sort((a, b) => {
+        const sortedCanchas = (canchasResult.data || []).sort((a, b) => {
           if (a.local !== b.local) {
             return a.local - b.local;
           }
           return a.id - b.id;
         });
         setCanchas(sortedCanchas);
+        setConfiguracion(configResult.data);
       } catch (error) {
-        console.error("Error fetching canchas:", error);
+        console.error("Error fetching initial data:", error);
       } finally {
         setLoading(false);
       }
     };
 
-    fetchCanchas();
+    fetchInitialData();
   }, []);
 
   // Fetch reservations function (can be called to refresh)
@@ -173,6 +191,32 @@ export default function Dashboard() {
   useEffect(() => {
     fetchReservas();
   }, [selectedDate, selectedCanchas, selectedLocations]);
+
+  // Fetch ALL reservations for selected date (for WhatsApp message)
+  useEffect(() => {
+    const fetchAllReservasForDate = async () => {
+      if (!selectedDate) return;
+
+      try {
+        const dateStr = formatLocalDate(selectedDate);
+        const startOfDay = `${dateStr} 00:00:00`;
+        const endOfDay = `${dateStr} 23:59:59`;
+
+        const { data, error } = await supabase
+          .from("reservas")
+          .select("cancha_id, hora_inicio")
+          .gte("hora_inicio", startOfDay)
+          .lte("hora_inicio", endOfDay);
+
+        if (error) throw error;
+        setAllReservasForDate(data || []);
+      } catch (error) {
+        console.error("Error fetching all reservas for date:", error);
+      }
+    };
+
+    fetchAllReservasForDate();
+  }, [selectedDate]);
 
   const formatLocalDate = (d: Date): string => {
     const year = d.getFullYear();
@@ -504,6 +548,128 @@ export default function Dashboard() {
     await fetchReservaDetails(reservaId);
   };
 
+  // Helper functions for WhatsApp message generation
+  const parseTimeToHour = (timeStr: string): number => {
+    return parseInt(timeStr.split(":")[0], 10);
+  };
+
+  const parseHourFromTimestamp = (timestamp: string): number => {
+    const timeMatch = timestamp.match(/(\d{2}):(\d{2}):(\d{2})/);
+    if (timeMatch) {
+      return parseInt(timeMatch[1], 10);
+    }
+    return new Date(timestamp).getHours();
+  };
+
+  const formatHourAmPm = (hour: number): string => {
+    const ampm = hour >= 12 ? "PM" : "AM";
+    const hour12 = hour % 12 || 12;
+    return `${hour12}:00 ${ampm}`;
+  };
+
+  const getAvailableHoursForCancha = (cancha: Cancha): number[] => {
+    if (!configuracion) return [];
+
+    const aperturaStr = cancha.local === 1 ? configuracion.apertura_sabana : configuracion.apertura_guada;
+    const cierreStr = cancha.local === 1 ? configuracion.cierre_sabana : configuracion.cierre_guada;
+
+    const apertura = parseTimeToHour(aperturaStr);
+    let cierre = parseTimeToHour(cierreStr);
+
+    if (cierre <= apertura) {
+      cierre = cierre + 24;
+    }
+
+    const allHours: number[] = [];
+    for (let h = apertura; h < cierre; h++) {
+      const displayHour = h < 24 ? h : h - 24;
+      allHours.push(displayHour);
+    }
+
+    // Get reserved hours for this cancha
+    const reservedHours = allReservasForDate
+      .filter((r) => r.cancha_id === cancha.id)
+      .map((r) => parseHourFromTimestamp(r.hora_inicio));
+
+    // Filter out reserved hours
+    return allHours.filter((hour) => !reservedHours.includes(hour));
+  };
+
+  const generateWhatsAppMessage = (): string => {
+    if (!selectedDate || canchas.length === 0) return "";
+
+    const dateStr = selectedDate.toLocaleDateString("es-CR", {
+      weekday: "long",
+      day: "numeric",
+      month: "long",
+    });
+
+    let message = `⚽ *FUTBOL TELLO - Horarios Disponibles*\n`;
+    message += `📅 ${dateStr}\n\n`;
+
+    // Group by location
+    const sabanaCanchas = canchas.filter((c) => c.local === 1);
+    const guadalupeCanchas = canchas.filter((c) => c.local === 2);
+
+    if (sabanaCanchas.length > 0) {
+      message += `📍 *SABANA*\n`;
+      message += `─────────────────\n`;
+      sabanaCanchas.forEach((cancha) => {
+        const availableHours = getAvailableHoursForCancha(cancha);
+        const fut = cancha.cantidad || "5";
+        const precio = cancha.precio ? `₡${cancha.precio}` : "";
+        
+        message += `\n🏟️ *${cancha.nombre}*\n`;
+        message += `   FUT ${fut} | ${precio}\n`;
+        
+        if (availableHours.length > 0) {
+          const hoursStr = availableHours.map((h) => formatHourAmPm(h)).join(", ");
+          message += `   ✅ ${hoursStr}\n`;
+        } else {
+          message += `   ❌ Sin disponibilidad\n`;
+        }
+      });
+      message += `\n`;
+    }
+
+    if (guadalupeCanchas.length > 0) {
+      message += `📍 *GUADALUPE*\n`;
+      message += `─────────────────\n`;
+      guadalupeCanchas.forEach((cancha) => {
+        const availableHours = getAvailableHoursForCancha(cancha);
+        const fut = cancha.cantidad || "5";
+        const precio = cancha.precio ? `₡${cancha.precio}` : "";
+        
+        message += `\n🏟️ *${cancha.nombre}*\n`;
+        message += `   FUT ${fut} | ${precio}\n`;
+        
+        if (availableHours.length > 0) {
+          const hoursStr = availableHours.map((h) => formatHourAmPm(h)).join(", ");
+          message += `   ✅ ${hoursStr}\n`;
+        } else {
+          message += `   ❌ Sin disponibilidad\n`;
+        }
+      });
+    }
+
+    message += `\n📲 Reserva ya!\nfutboltello.com`;
+
+    return message;
+  };
+
+  const handleCopyMessage = () => {
+    const message = generateWhatsAppMessage();
+    navigator.clipboard.writeText(message);
+    setMessageCopied(true);
+    setTimeout(() => setMessageCopied(false), 2000);
+  };
+
+  const handleOpenWhatsApp = () => {
+    const message = generateWhatsAppMessage();
+    const encodedMessage = encodeURIComponent(message);
+    window.open(`https://wa.me/?text=${encodedMessage}`, "_blank");
+  };
+
   const days = getDaysInMonth(currentMonth);
   const monthName = MONTHS_SPANISH[currentMonth.getMonth()];
   const year = currentMonth.getFullYear();
@@ -530,9 +696,50 @@ export default function Dashboard() {
   return (
     <AdminLayout title="Reservaciones">
       <div className="min-h-screen">
-        {/* <h2 className="text-base font-semibold text-gray-900 mb-6">
-          Reserva del día
-        </h2> */}
+        {/* WhatsApp Message Generator */}
+        {selectedDate && (
+          <div className="mb-6 bg-gray-50 rounded-lg p-4 border border-gray-200">
+            <div className="flex items-center justify-between flex-wrap gap-3">
+              <div className="flex items-center gap-2">
+                <FaWhatsapp className="text-green-600 text-xl" />
+                <span className="text-sm font-medium text-gray-700">
+                  Compartir disponibilidad del{" "}
+                  {selectedDate.toLocaleDateString("es-CR", {
+                    weekday: "short",
+                    day: "numeric",
+                    month: "short",
+                  })}
+                </span>
+              </div>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={handleCopyMessage}
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 transition-colors"
+                >
+                  {messageCopied ? (
+                    <>
+                      <CheckIcon className="size-4 text-green-600" />
+                      Copiado
+                    </>
+                  ) : (
+                    <>
+                      <ClipboardDocumentIcon className="size-4" />
+                      Copiar mensaje
+                    </>
+                  )}
+                </button>
+                <button
+                  onClick={handleOpenWhatsApp}
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-white bg-green-600 rounded-md hover:bg-green-700 transition-colors"
+                >
+                  <FaWhatsapp className="text-lg" />
+                  Abrir WhatsApp
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
         <div className="lg:grid lg:grid-cols-12 lg:gap-x-16">
           {/* Calendar */}
           <div className="mt-10 text-center lg:col-start-8 lg:col-end-13 lg:row-start-1 lg:mt-9 xl:col-start-9">
