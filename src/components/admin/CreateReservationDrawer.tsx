@@ -720,7 +720,10 @@ export default function CreateReservationDrawer({
                                             "Dic",
                                           ][selectedDate.getMonth()]
                                         }{" "}
-                                        - {formatHourAmPm(selectedHour)}
+                                        -{" "}
+                                        {selectedHour !== null
+                                          ? formatHourAmPm(selectedHour)
+                                          : ""}
                                       </span>
                                     </div>
                                     <div className="border-t border-gray-200" />
