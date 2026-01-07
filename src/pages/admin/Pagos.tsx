@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import AdminLayout from "../../components/admin/AdminLayout";
 import PagoDrawer from "../../components/admin/PagoDrawer";
 import { supabase } from "../../lib/supabase";
@@ -12,9 +13,18 @@ import {
   BanknotesIcon,
   CheckBadgeIcon,
   XCircleIcon,
+  ClipboardDocumentCheckIcon,
+  FolderOpenIcon,
 } from "@heroicons/react/20/solid";
-import { Switch } from "@headlessui/react";
+import {
+  Switch,
+  Dialog,
+  DialogPanel,
+  DialogTitle,
+  DialogBackdrop,
+} from "@headlessui/react";
 import { RiBankLine } from "react-icons/ri";
+import { generateCierre } from "./utils/generateCierre";
 
 interface Cancha {
   id: number;
@@ -34,6 +44,7 @@ interface Pago {
   completo: boolean;
   creado_por: string;
   created_at?: string;
+  sinpe_pago: string | null;
 }
 
 interface Reserva {
@@ -70,6 +81,7 @@ const DAYS_SHORT = ["L", "M", "X", "J", "V", "S", "D"];
 
 export default function Pagos() {
   const { user } = useAuth();
+  const navigate = useNavigate();
   const [currentMonth, setCurrentMonth] = useState(new Date());
   const [selectedDate, setSelectedDate] = useState<Date | null>(new Date());
   const [selectedDates, setSelectedDates] = useState<Date[]>([]);
@@ -88,6 +100,11 @@ export default function Pagos() {
   const [selectedPagoCheckeado, setSelectedPagoCheckeado] = useState<
     ("checkeados" | "no_checkeados")[]
   >([]);
+
+  // Cierre dialog state
+  const [cierreDialogOpen, setCierreDialogOpen] = useState(false);
+  const [cierreNota, setCierreNota] = useState("");
+  const [generatingCierre, setGeneratingCierre] = useState(false);
 
   // Drawer state
   const [drawerOpen, setDrawerOpen] = useState(false);
@@ -124,7 +141,11 @@ export default function Pagos() {
   // Fetch reservations with pagos
   const fetchReservas = async () => {
     // In cierres mode, use selectedDates; otherwise use selectedDate
-    const datesToFetch = cierresMode ? selectedDates : (selectedDate ? [selectedDate] : []);
+    const datesToFetch = cierresMode
+      ? selectedDates
+      : selectedDate
+      ? [selectedDate]
+      : [];
     if (datesToFetch.length === 0) {
       setReservas([]);
       return;
@@ -246,10 +267,16 @@ export default function Pagos() {
       // Apply pago_checkeado filter (only in cierres mode)
       if (cierresMode && selectedPagoCheckeado.length > 0) {
         finalReservas = finalReservas.filter((r) => {
-          if (selectedPagoCheckeado.includes("checkeados") && r.pago_checkeado) {
+          if (
+            selectedPagoCheckeado.includes("checkeados") &&
+            r.pago_checkeado
+          ) {
             return true;
           }
-          if (selectedPagoCheckeado.includes("no_checkeados") && !r.pago_checkeado) {
+          if (
+            selectedPagoCheckeado.includes("no_checkeados") &&
+            !r.pago_checkeado
+          ) {
             return true;
           }
           return false;
@@ -257,8 +284,9 @@ export default function Pagos() {
       }
 
       // Sort by hora_inicio
-      finalReservas.sort((a, b) => 
-        new Date(a.hora_inicio).getTime() - new Date(b.hora_inicio).getTime()
+      finalReservas.sort(
+        (a, b) =>
+          new Date(a.hora_inicio).getTime() - new Date(b.hora_inicio).getTime()
       );
 
       setReservas(finalReservas);
@@ -272,7 +300,15 @@ export default function Pagos() {
   // Fetch reservations for selected date(s)
   useEffect(() => {
     fetchReservas();
-  }, [selectedDate, selectedDates, selectedCanchas, selectedLocations, selectedPagoStatus, cierresMode, selectedPagoCheckeado]);
+  }, [
+    selectedDate,
+    selectedDates,
+    selectedCanchas,
+    selectedLocations,
+    selectedPagoStatus,
+    cierresMode,
+    selectedPagoCheckeado,
+  ]);
 
   const formatLocalDate = (d: Date): string => {
     const year = d.getFullYear();
@@ -579,7 +615,9 @@ export default function Pagos() {
 
   const formatDateRange = (): string => {
     if (cierresMode && selectedDates.length > 0) {
-      const sortedDates = [...selectedDates].sort((a, b) => a.getTime() - b.getTime());
+      const sortedDates = [...selectedDates].sort(
+        (a, b) => a.getTime() - b.getTime()
+      );
       if (sortedDates.length === 1) {
         const d = sortedDates[0];
         return `${d.getDate()} ${MONTHS_SPANISH[d.getMonth()]}`;
@@ -587,14 +625,44 @@ export default function Pagos() {
       const first = sortedDates[0];
       const last = sortedDates[sortedDates.length - 1];
       if (first.getMonth() === last.getMonth()) {
-        return `${first.getDate()}-${last.getDate()} ${MONTHS_SPANISH[first.getMonth()]}`;
+        return `${first.getDate()}-${last.getDate()} ${
+          MONTHS_SPANISH[first.getMonth()]
+        }`;
       }
-      return `${first.getDate()} ${MONTHS_SPANISH[first.getMonth()]} - ${last.getDate()} ${MONTHS_SPANISH[last.getMonth()]}`;
+      return `${first.getDate()} ${
+        MONTHS_SPANISH[first.getMonth()]
+      } - ${last.getDate()} ${MONTHS_SPANISH[last.getMonth()]}`;
     }
     if (selectedDate) {
-      return `${selectedDate.getDate()} ${MONTHS_SPANISH[selectedDate.getMonth()]}`;
+      return `${selectedDate.getDate()} ${
+        MONTHS_SPANISH[selectedDate.getMonth()]
+      }`;
     }
     return "";
+  };
+
+  const handleRegistrarCierre = async () => {
+    if (!user || selectedDates.length === 0) return;
+
+    setGeneratingCierre(true);
+    setCierreDialogOpen(false);
+
+    const result = await generateCierre({
+      userId: user.id,
+      userEmail: user.email || "Usuario",
+      selectedDates,
+      cierreNota,
+      formatLocalDate,
+    });
+
+    if (result.success) {
+      setCierreNota("");
+      navigate("/admin/cierres", { state: { cierreCreated: true } });
+    } else {
+      alert(result.error || "Error al registrar el cierre.");
+    }
+
+    setGeneratingCierre(false);
   };
 
   // Get canchas for filter badges - sorted by location then id
@@ -625,7 +693,9 @@ export default function Pagos() {
         <div className="flex flex-wrap items-center gap-4 mb-4">
           <div className="flex items-center gap-3">
             <RiBankLine className="size-5 text-primary" />
-            <span className="text-sm font-medium text-gray-700">Modo Cierres</span>
+            <span className="text-sm font-medium text-gray-700">
+              Modo Cierres
+            </span>
             <Switch
               checked={cierresMode}
               onChange={(checked) => {
@@ -645,13 +715,13 @@ export default function Pagos() {
                 }
               }}
               className={`${
-                cierresMode ? 'bg-primary' : 'bg-gray-200'
+                cierresMode ? "bg-primary" : "bg-gray-200"
               } relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2`}
             >
               <span
                 aria-hidden="true"
                 className={`${
-                  cierresMode ? 'translate-x-5' : 'translate-x-0'
+                  cierresMode ? "translate-x-5" : "translate-x-0"
                 } pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out`}
               />
             </Switch>
@@ -681,6 +751,34 @@ export default function Pagos() {
               >
                 <XCircleIcon className="size-4" />
                 Pagos no checkeados
+              </button>
+            </div>
+          )}
+
+          {/* Cierre Actions - Only in Cierres Mode */}
+          {cierresMode && (
+            <div className="flex items-center gap-2 w-full lg:w-auto lg:ml-auto">
+              <button
+                onClick={() => navigate("/admin/cierres")}
+                className="rounded-md px-3 py-1.5 text-xs font-medium transition-colors flex items-center gap-1.5 border border-gray-300 bg-white text-gray-700 hover:bg-gray-50"
+              >
+                <FolderOpenIcon className="size-4" />
+                Ver Cierres
+              </button>
+              <button
+                onClick={() => {
+                  if (selectedDates.length === 0) {
+                    alert(
+                      "Seleccione al menos una fecha para registrar el cierre"
+                    );
+                    return;
+                  }
+                  setCierreDialogOpen(true);
+                }}
+                className="rounded-md px-3 py-1.5 text-xs font-medium transition-colors flex items-center gap-1.5 bg-primary text-white hover:bg-primary/90"
+              >
+                <ClipboardDocumentCheckIcon className="size-4" />
+                Registrar Cierre
               </button>
             </div>
           )}
@@ -717,8 +815,8 @@ export default function Pagos() {
             </div>
             <div className="isolate mt-2 grid grid-cols-7 gap-px rounded-lg bg-gray-200 text-sm shadow-sm ring-1 ring-gray-200">
               {days.map((day, index) => {
-                const isSelected = cierresMode 
-                  ? isDateSelected(day) 
+                const isSelected = cierresMode
+                  ? isDateSelected(day)
                   : isSameDay(selectedDate, day);
                 const isTodayDate = isToday(day);
                 const isCurrentMonthDate = isCurrentMonth(day);
@@ -771,16 +869,18 @@ export default function Pagos() {
             {(selectedDate || (cierresMode && selectedDates.length > 0)) && (
               <div className="mt-6 rounded-lg bg-white border border-gray-200 p-4 shadow-sm">
                 <h3 className="text-sm font-semibold text-gray-900 mb-3">
-                  {cierresMode && selectedDates.length > 1 
-                    ? `Totales (${formatDateRange()})` 
+                  {cierresMode && selectedDates.length > 1
+                    ? `Totales (${formatDateRange()})`
                     : "Totales del día"}
                 </h3>
-                
+
                 {cierresMode ? (
                   /* Full Totals in Cierres Mode */
                   <div className="space-y-2 text-sm">
                     <div className="flex justify-between">
-                      <span className="text-gray-600">Total reservaciones:</span>
+                      <span className="text-gray-600">
+                        Total reservaciones:
+                      </span>
                       <span className="font-medium text-gray-900">
                         ₡ {totals.totalReservas.toLocaleString()}
                       </span>
@@ -844,7 +944,8 @@ export default function Pagos() {
                     </div>
                     <div className="bg-gray-50 border border-gray-200 rounded-lg p-3">
                       <p className="text-xs text-gray-600 text-start">
-                        El objetivo es registrar pagos hasta que el faltante sea ₡ 0.
+                        El objetivo es registrar pagos hasta que el faltante sea
+                        ₡ 0.
                       </p>
                     </div>
                   </div>
@@ -1026,8 +1127,8 @@ export default function Pagos() {
                         <div className="mt-2 flex flex-wrap gap-2">
                           {getPagoBadge()}
                           {/* Pago Checkeado Badge - Only in Cierres Mode */}
-                          {cierresMode && (
-                            reserva.pago_checkeado ? (
+                          {cierresMode &&
+                            (reserva.pago_checkeado ? (
                               <span className="inline-flex items-center gap-1.5 rounded-lg bg-gray-100 border border-gray-300 px-3 py-1.5 text-xs font-semibold text-gray-700 shadow-sm">
                                 <CheckBadgeIcon className="size-4 text-gray-600" />
                                 Pago checkeado
@@ -1037,8 +1138,7 @@ export default function Pagos() {
                                 <XCircleIcon className="size-4 text-gray-400" />
                                 Pago no checkeado
                               </span>
-                            )
-                          )}
+                            ))}
                         </div>
                       </div>
                       <div className="flex items-center">
@@ -1070,6 +1170,139 @@ export default function Pagos() {
         cierresMode={cierresMode}
         onReservaUpdated={handleReservaUpdated}
       />
+
+      {/* Cierre Confirmation Dialog */}
+      <Dialog
+        open={cierreDialogOpen}
+        onClose={() => setCierreDialogOpen(false)}
+        className="relative z-50"
+      >
+        <DialogBackdrop
+          transition
+          className="fixed inset-0 bg-black/80 transition-opacity data-closed:opacity-0 data-enter:duration-300 data-enter:ease-out data-leave:duration-200 data-leave:ease-in"
+        />
+        <div className="fixed inset-0 z-10 overflow-y-auto">
+          <div className="flex min-h-full items-center justify-center p-4">
+            <DialogPanel
+              transition
+              className="relative transform overflow-hidden rounded-xl bg-white shadow-2xl transition-all data-closed:opacity-0 data-closed:scale-95 data-enter:duration-300 data-enter:ease-out data-leave:duration-200 data-leave:ease-in max-w-md w-full"
+            >
+              <div className="bg-primary px-4 py-3 flex items-center gap-2">
+                <ClipboardDocumentCheckIcon className="size-5 text-white" />
+                <DialogTitle className="text-base font-semibold text-white">
+                  Registrar Cierre
+                </DialogTitle>
+              </div>
+              <div className="p-4 space-y-4">
+                {/* Summary */}
+                <div className="bg-gray-50 rounded-lg p-3 border border-gray-200">
+                  <h4 className="text-sm font-semibold text-gray-900 mb-2">
+                    Resumen del Cierre
+                  </h4>
+                  <div className="space-y-1.5 text-sm">
+                    <div className="flex justify-between">
+                      <span className="text-gray-600">
+                        Fechas seleccionadas:
+                      </span>
+                      <span className="font-medium text-gray-900">
+                        {selectedDates.length}
+                      </span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-gray-600">Periodo:</span>
+                      <span className="font-medium text-gray-900">
+                        {formatDateRange()}
+                      </span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-gray-600">
+                        Total reservaciones:
+                      </span>
+                      <span className="font-medium text-gray-900">
+                        ₡ {totals.totalReservas.toLocaleString()}
+                      </span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-gray-600">Total pagos:</span>
+                      <span className="font-medium text-gray-900">
+                        ₡ {totals.totalPagos.toLocaleString()}
+                      </span>
+                    </div>
+                    <div className="flex justify-between border-t border-gray-200 pt-1.5">
+                      <span className="font-semibold text-gray-900">
+                        Faltante:
+                      </span>
+                      <span
+                        className={`font-bold ${
+                          totals.diferencia > 0
+                            ? "text-red-600"
+                            : "text-green-600"
+                        }`}
+                      >
+                        ₡ {totals.diferencia.toLocaleString()}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Nota input */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-900 mb-1">
+                    Nota (opcional)
+                  </label>
+                  <textarea
+                    value={cierreNota}
+                    onChange={(e) => setCierreNota(e.target.value)}
+                    placeholder="Agregar nota al cierre..."
+                    rows={2}
+                    className="block w-full rounded-md bg-white border border-gray-300 px-3 py-2 text-sm text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-1"
+                  />
+                </div>
+
+                {/* Info message */}
+                <div className="bg-gray-50 border border-gray-200 rounded-lg p-3">
+                  <p className="text-xs text-gray-700 font-medium">
+                    Se generará un PDF con toda la información del cierre,
+                    incluyendo totales por día y reservas con pendientes.
+                  </p>
+                </div>
+              </div>
+              <div className="bg-gray-50 px-4 py-3 flex justify-end gap-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setCierreDialogOpen(false);
+                    setCierreNota("");
+                  }}
+                  className="rounded-md bg-white px-4 py-2 text-sm font-semibold text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 hover:bg-gray-50"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="button"
+                  onClick={handleRegistrarCierre}
+                  className="rounded-md bg-primary px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-primary/90"
+                >
+                  Registrar Cierre
+                </button>
+              </div>
+            </DialogPanel>
+          </div>
+        </div>
+      </Dialog>
+
+      {/* Full-screen Loader for Cierre Generation */}
+      {generatingCierre && (
+        <div className="fixed inset-0 z-100 bg-black/80 flex flex-col items-center justify-center">
+          <img
+            src="/tellos-square.svg"
+            alt="Futbol Tello"
+            className="w-16 h-16 animate-spin"
+          />
+          <p className="mt-4 text-white text-lg font-semibold">Futbol Tello</p>
+          <p className="mt-2 text-white/70 text-sm">Generando cierre...</p>
+        </div>
+      )}
     </AdminLayout>
   );
 }

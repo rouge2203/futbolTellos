@@ -24,6 +24,7 @@ import Canchas from "./pages/admin/Canchas";
 import Configuracion from "./pages/admin/Configuracion";
 import AdminRetos from "./pages/admin/Retos";
 import Pagos from "./pages/admin/Pagos";
+import Cierres from "./pages/admin/Cierres";
 
 function App() {
   return (
@@ -153,6 +154,14 @@ function App() {
           element={
             <ProtectedRoute>
               <Pagos />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/admin/cierres"
+          element={
+            <ProtectedRoute>
+              <Cierres />
             </ProtectedRoute>
           }
         />
