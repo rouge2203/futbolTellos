@@ -105,6 +105,14 @@ export default function Pagos() {
   const [cierreDialogOpen, setCierreDialogOpen] = useState(false);
   const [cierreNota, setCierreNota] = useState("");
   const [generatingCierre, setGeneratingCierre] = useState(false);
+  const [cierreTotals, setCierreTotals] = useState<{
+    totalReservas: number;
+    totalPagos: number;
+    totalSinpe: number;
+    totalEfectivo: number;
+    diferencia: number;
+  } | null>(null);
+  const [loadingCierreTotals, setLoadingCierreTotals] = useState(false);
 
   // Drawer state
   const [drawerOpen, setDrawerOpen] = useState(false);
@@ -643,6 +651,75 @@ export default function Pagos() {
     return "";
   };
 
+  // Fetch all reservas totals for cierre (without filters)
+  const fetchCierreTotals = async () => {
+    if (selectedDates.length === 0) return;
+
+    setLoadingCierreTotals(true);
+    try {
+      let totalReservas = 0;
+      let totalPagos = 0;
+      let totalSinpe = 0;
+      let totalEfectivo = 0;
+
+      for (const date of selectedDates) {
+        const dateStr = formatLocalDate(date);
+        const startOfDay = `${dateStr} 00:00:00`;
+        const endOfDay = `${dateStr} 23:59:59`;
+
+        // Fetch ALL reservas for this date (no filters)
+        const { data: reservasData } = await supabase
+          .from("reservas")
+          .select("id, precio")
+          .gte("hora_inicio", startOfDay)
+          .lte("hora_inicio", endOfDay);
+
+        if (reservasData && reservasData.length > 0) {
+          // Sum up precios
+          reservasData.forEach((r: any) => {
+            totalReservas += r.precio;
+          });
+
+          // Fetch pagos for these reservas
+          const reservaIds = reservasData.map((r: any) => r.id);
+          const { data: pagosData } = await supabase
+            .from("pagos")
+            .select("monto_sinpe, monto_efectivo")
+            .in("reserva_id", reservaIds);
+
+          if (pagosData) {
+            pagosData.forEach((p: any) => {
+              totalPagos += p.monto_sinpe + p.monto_efectivo;
+              totalSinpe += p.monto_sinpe;
+              totalEfectivo += p.monto_efectivo;
+            });
+          }
+        }
+      }
+
+      setCierreTotals({
+        totalReservas,
+        totalPagos,
+        totalSinpe,
+        totalEfectivo,
+        diferencia: totalReservas - totalPagos,
+      });
+    } catch (error) {
+      console.error("Error fetching cierre totals:", error);
+    } finally {
+      setLoadingCierreTotals(false);
+    }
+  };
+
+  const handleOpenCierreDialog = async () => {
+    if (selectedDates.length === 0) {
+      alert("Seleccione al menos una fecha para registrar el cierre");
+      return;
+    }
+    setCierreDialogOpen(true);
+    await fetchCierreTotals();
+  };
+
   const handleRegistrarCierre = async () => {
     if (!user || selectedDates.length === 0) return;
 
@@ -659,6 +736,7 @@ export default function Pagos() {
 
     if (result.success) {
       setCierreNota("");
+      setCierreTotals(null);
       navigate("/admin/cierres", { state: { cierreCreated: true } });
     } else {
       alert(result.error || "Error al registrar el cierre.");
@@ -768,15 +846,7 @@ export default function Pagos() {
                 Ver Cierres
               </button>
               <button
-                onClick={() => {
-                  if (selectedDates.length === 0) {
-                    alert(
-                      "Seleccione al menos una fecha para registrar el cierre"
-                    );
-                    return;
-                  }
-                  setCierreDialogOpen(true);
-                }}
+                onClick={handleOpenCierreDialog}
                 className="rounded-md px-3 py-1.5 text-xs font-medium transition-colors flex items-center gap-1.5 bg-primary text-white hover:bg-primary/90"
               >
                 <ClipboardDocumentCheckIcon className="size-4" />
@@ -1167,7 +1237,10 @@ export default function Pagos() {
       {/* Cierre Confirmation Dialog */}
       <Dialog
         open={cierreDialogOpen}
-        onClose={() => setCierreDialogOpen(false)}
+        onClose={() => {
+          setCierreDialogOpen(false);
+          setCierreTotals(null);
+        }}
         className="relative z-50"
       >
         <DialogBackdrop
@@ -1192,50 +1265,58 @@ export default function Pagos() {
                   <h4 className="text-sm font-semibold text-gray-900 mb-2">
                     Resumen del Cierre
                   </h4>
-                  <div className="space-y-1.5 text-sm">
-                    <div className="flex justify-between">
-                      <span className="text-gray-600">
-                        Fechas seleccionadas:
-                      </span>
-                      <span className="font-medium text-gray-900">
-                        {selectedDates.length}
-                      </span>
+                  {loadingCierreTotals ? (
+                    <div className="flex items-center justify-center py-4">
+                      <div className="animate-spin rounded-full h-6 w-6 border-t-2 border-b-2 border-primary"></div>
                     </div>
-                    <div className="flex justify-between">
-                      <span className="text-gray-600">Periodo:</span>
-                      <span className="font-medium text-gray-900">
-                        {formatDateRange()}
-                      </span>
+                  ) : cierreTotals ? (
+                    <div className="space-y-1.5 text-sm">
+                      <div className="flex justify-between">
+                        <span className="text-gray-600">
+                          Fechas seleccionadas:
+                        </span>
+                        <span className="font-medium text-gray-900">
+                          {selectedDates.length}
+                        </span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-gray-600">Periodo:</span>
+                        <span className="font-medium text-gray-900">
+                          {formatDateRange()}
+                        </span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-gray-600">
+                          Total reservaciones:
+                        </span>
+                        <span className="font-medium text-gray-900">
+                          ₡ {cierreTotals.totalReservas.toLocaleString()}
+                        </span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-gray-600">Total pagos:</span>
+                        <span className="font-medium text-gray-900">
+                          ₡ {cierreTotals.totalPagos.toLocaleString()}
+                        </span>
+                      </div>
+                      <div className="flex justify-between border-t border-gray-200 pt-1.5">
+                        <span className="font-semibold text-gray-900">
+                          Faltante:
+                        </span>
+                        <span
+                          className={`font-bold ${
+                            cierreTotals.diferencia > 0
+                              ? "text-red-600"
+                              : "text-green-600"
+                          }`}
+                        >
+                          ₡ {cierreTotals.diferencia.toLocaleString()}
+                        </span>
+                      </div>
                     </div>
-                    <div className="flex justify-between">
-                      <span className="text-gray-600">
-                        Total reservaciones:
-                      </span>
-                      <span className="font-medium text-gray-900">
-                        ₡ {totals.totalReservas.toLocaleString()}
-                      </span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-gray-600">Total pagos:</span>
-                      <span className="font-medium text-gray-900">
-                        ₡ {totals.totalPagos.toLocaleString()}
-                      </span>
-                    </div>
-                    <div className="flex justify-between border-t border-gray-200 pt-1.5">
-                      <span className="font-semibold text-gray-900">
-                        Faltante:
-                      </span>
-                      <span
-                        className={`font-bold ${
-                          totals.diferencia > 0
-                            ? "text-red-600"
-                            : "text-green-600"
-                        }`}
-                      >
-                        ₡ {totals.diferencia.toLocaleString()}
-                      </span>
-                    </div>
-                  </div>
+                  ) : (
+                    <p className="text-sm text-gray-500">Cargando totales...</p>
+                  )}
                 </div>
 
                 {/* Nota input */}
@@ -1266,6 +1347,7 @@ export default function Pagos() {
                   onClick={() => {
                     setCierreDialogOpen(false);
                     setCierreNota("");
+                    setCierreTotals(null);
                   }}
                   className="rounded-md bg-white px-4 py-2 text-sm font-semibold text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 hover:bg-gray-50"
                 >
