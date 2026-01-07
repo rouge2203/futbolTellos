@@ -351,6 +351,18 @@ export default function Reservas2() {
     if (!user) return;
 
     try {
+      // First, get the reservation details to calculate the adelanto
+      const { data: reservaData, error: fetchError } = await supabase
+        .from("reservas")
+        .select("precio")
+        .eq("id", reservaId)
+        .single();
+
+      if (fetchError) throw fetchError;
+
+      const adelanto = Math.ceil((reservaData?.precio || 0) / 2);
+      const username = user.email ? user.email.split("@")[0] : user.id;
+
       const updateData: any = {
         confirmada: true,
         confirmada_por: user.email || user.id,
@@ -362,6 +374,39 @@ export default function Reservas2() {
         .eq("id", reservaId);
 
       if (error) throw error;
+
+      // Check if a pago for this SINPE confirmation already exists
+      const { data: existingPago } = await supabase
+        .from("pagos")
+        .select("id")
+        .eq("reserva_id", reservaId)
+        .eq("nota", "Adelanto SINPE confirmado")
+        .maybeSingle();
+
+      // Only create pago if one doesn't already exist
+      if (!existingPago) {
+        // Get the sinpe_reserva URL to store in sinpe_pago
+        const { data: reservaWithSinpe } = await supabase
+          .from("reservas")
+          .select("sinpe_reserva")
+          .eq("id", reservaId)
+          .single();
+
+        const { error: pagoError } = await supabase.from("pagos").insert({
+          reserva_id: reservaId,
+          monto_sinpe: adelanto,
+          monto_efectivo: 0,
+          nota: "Adelanto SINPE confirmado",
+          completo: false,
+          creado_por: username,
+          sinpe_pago: reservaWithSinpe?.sinpe_reserva || null,
+        });
+
+        if (pagoError) {
+          console.error("Error creating pago record:", pagoError);
+          // Don't throw - the SINPE confirmation was successful, just log the pago error
+        }
+      }
 
       await fetchReservas();
       if (selectedReserva) {
