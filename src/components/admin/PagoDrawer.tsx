@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import type { User } from "@supabase/supabase-js";
 import { supabase } from "../../lib/supabase";
 import {
@@ -6,8 +6,10 @@ import {
   DialogPanel,
   DialogTitle,
   DialogBackdrop,
+  Switch,
 } from "@headlessui/react";
-import { XMarkIcon } from "@heroicons/react/24/outline";
+import { XMarkIcon, EyeIcon } from "@heroicons/react/24/outline";
+import { RiBankLine } from "react-icons/ri";
 
 interface Cancha {
   id: number;
@@ -27,6 +29,7 @@ interface Pago {
   completo: boolean;
   creado_por: string;
   created_at?: string;
+  sinpe_pago: string | null;
 }
 
 interface Reserva {
@@ -41,6 +44,7 @@ interface Reserva {
   cancha: Cancha;
   pagos?: Pago[];
   pagoStatus?: "no_registrado" | "incompleto" | "completo";
+  pago_checkeado?: boolean;
 }
 
 interface PagoDrawerProps {
@@ -49,6 +53,8 @@ interface PagoDrawerProps {
   reserva: Reserva | null;
   onPagoCreated: () => Promise<void>;
   user: User | null;
+  cierresMode?: boolean;
+  onReservaUpdated?: () => Promise<void>;
 }
 
 export default function PagoDrawer({
@@ -57,6 +63,8 @@ export default function PagoDrawer({
   reserva,
   onPagoCreated,
   user,
+  cierresMode = false,
+  onReservaUpdated,
 }: PagoDrawerProps) {
   const [pagos, setPagos] = useState<Pago[]>([]);
   const [loading, setLoading] = useState(false);
@@ -67,6 +75,19 @@ export default function PagoDrawer({
   const [montoSinpe, setMontoSinpe] = useState<string>("");
   const [montoEfectivo, setMontoEfectivo] = useState<string>("");
   const [nota, setNota] = useState<string>("");
+  const [selectedSinpeFile, setSelectedSinpeFile] = useState<File | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Upload state
+  const [uploading, setUploading] = useState(false);
+
+  // Image preview dialog state
+  const [previewDialogOpen, setPreviewDialogOpen] = useState(false);
+  const [previewPago, setPreviewPago] = useState<Pago | null>(null);
+
+  // Pago checkeado state
+  const [pagoCheckeado, setPagoCheckeado] = useState(false);
+  const [updatingCheckeado, setUpdatingCheckeado] = useState(false);
 
   // User lookup cache
   const [userCache, setUserCache] = useState<Record<string, string>>({});
@@ -75,12 +96,15 @@ export default function PagoDrawer({
   useEffect(() => {
     if (open && reserva) {
       fetchPagos();
+      setPagoCheckeado(reserva.pago_checkeado || false);
     } else {
       setPagos([]);
       setShowCreateForm(false);
       setMontoSinpe("");
       setMontoEfectivo("");
       setNota("");
+      setSelectedSinpeFile(null);
+      setPagoCheckeado(false);
     }
   }, [open, reserva]);
 
@@ -145,6 +169,55 @@ export default function PagoDrawer({
     return Math.round((totalPaid / reserva.precio) * 100);
   };
 
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    // Validate file type
+    const validTypes = [
+      "image/jpeg",
+      "image/jpg",
+      "image/png",
+      "image/gif",
+      "image/webp",
+    ];
+    if (!validTypes.includes(file.type)) {
+      alert("Por favor seleccione una imagen válida (JPEG, PNG, GIF, WEBP)");
+      return;
+    }
+
+    // Validate file size (20MB max)
+    if (file.size > 20 * 1024 * 1024) {
+      alert("El archivo es muy grande. El tamaño máximo es 20MB.");
+      return;
+    }
+
+    setSelectedSinpeFile(file);
+  };
+
+  const uploadSinpeImage = async (file: File): Promise<string | null> => {
+    const fileExt = file.name.split(".").pop();
+    const fileName = `sinpe_${Date.now()}_${Math.random()
+      .toString(36)
+      .substring(7)}.${fileExt}`;
+    const filePath = `${fileName}`;
+
+    const { error: uploadError } = await supabase.storage
+      .from("Sinpes_admin")
+      .upload(filePath, file);
+
+    if (uploadError) {
+      console.error("Error uploading file:", uploadError);
+      throw uploadError;
+    }
+
+    const { data: urlData } = supabase.storage
+      .from("Sinpes_admin")
+      .getPublicUrl(filePath);
+
+    return urlData.publicUrl;
+  };
+
   const handleCreatePago = async () => {
     if (!reserva || !user) return;
 
@@ -157,7 +230,15 @@ export default function PagoDrawer({
     }
 
     setCreating(true);
+    setUploading(true);
     try {
+      let sinpeImageUrl: string | null = null;
+
+      // Upload image if selected
+      if (selectedSinpeFile) {
+        sinpeImageUrl = await uploadSinpeImage(selectedSinpeFile);
+      }
+
       const existingTotal = calculateTotalPaid();
       const newTotal = existingTotal + sinpe + efectivo;
       const completo = newTotal >= reserva.precio;
@@ -169,6 +250,7 @@ export default function PagoDrawer({
         nota: nota.trim() || null,
         completo: completo,
         creado_por: user.id,
+        sinpe_pago: sinpeImageUrl,
       });
 
       if (error) throw error;
@@ -181,13 +263,47 @@ export default function PagoDrawer({
       setMontoSinpe("");
       setMontoEfectivo("");
       setNota("");
+      setSelectedSinpeFile(null);
+      if (fileInputRef.current) {
+        fileInputRef.current.value = "";
+      }
       setShowCreateForm(false);
     } catch (error) {
       console.error("Error creating pago:", error);
       alert("Error al registrar el pago. Por favor intente de nuevo.");
     } finally {
       setCreating(false);
+      setUploading(false);
     }
+  };
+
+  const handlePagoCheckeadoChange = async (checked: boolean) => {
+    if (!reserva) return;
+
+    setUpdatingCheckeado(true);
+    try {
+      const { error } = await supabase
+        .from("reservas")
+        .update({ pago_checkeado: checked })
+        .eq("id", reserva.id);
+
+      if (error) throw error;
+
+      setPagoCheckeado(checked);
+      if (onReservaUpdated) {
+        await onReservaUpdated();
+      }
+    } catch (error) {
+      console.error("Error updating pago_checkeado:", error);
+      alert("Error al actualizar el estado. Por favor intente de nuevo.");
+    } finally {
+      setUpdatingCheckeado(false);
+    }
+  };
+
+  const handlePreviewSinpe = (pago: Pago) => {
+    setPreviewPago(pago);
+    setPreviewDialogOpen(true);
   };
 
   if (!reserva) return null;
@@ -335,6 +451,43 @@ export default function PagoDrawer({
                                   </div>
                                 )}
                               </div>
+
+                              {/* Pago Checkeado Toggle - only in Cierres mode */}
+                              {cierresMode && (
+                                <div className="border-t border-gray-200 pt-3 mt-3">
+                                  <div className="flex items-start justify-between gap-3">
+                                    <div className="flex-1">
+                                      <label className="text-sm font-semibold text-gray-900 flex items-center gap-1.5">
+                                        <RiBankLine className="size-4 text-primary" />
+                                        Monto confirmado
+                                      </label>
+                                      <p className="text-xs text-gray-500 mt-0.5">
+                                        Confirme que el total de la reserva se
+                                        encuentra en bancos y efectivo
+                                      </p>
+                                    </div>
+                                    <Switch
+                                      checked={pagoCheckeado}
+                                      onChange={handlePagoCheckeadoChange}
+                                      disabled={updatingCheckeado}
+                                      className={`${
+                                        pagoCheckeado
+                                          ? "bg-green-600"
+                                          : "bg-gray-200"
+                                      } relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-green-600 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed`}
+                                    >
+                                      <span
+                                        aria-hidden="true"
+                                        className={`${
+                                          pagoCheckeado
+                                            ? "translate-x-5"
+                                            : "translate-x-0"
+                                        } pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out`}
+                                      />
+                                    </Switch>
+                                  </div>
+                                </div>
+                              )}
                             </div>
                           </div>
 
@@ -403,6 +556,24 @@ export default function PagoDrawer({
                                       className="block w-full rounded-md bg-white border border-gray-300 px-3 py-1.5 text-sm text-gray-900 outline-1 -outline-offset-1 outline-gray-300 placeholder:text-gray-400 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-primary"
                                     />
                                   </div>
+                                  <div>
+                                    <label className="block text-xs font-medium text-gray-900 mb-1">
+                                      Comprobante de SINPE (opcional)
+                                    </label>
+                                    <input
+                                      ref={fileInputRef}
+                                      type="file"
+                                      accept="image/*"
+                                      onChange={handleFileSelect}
+                                      className="block w-full text-xs text-gray-500 file:mr-2 file:py-1.5 file:px-3 file:rounded-md file:border-0 file:text-xs file:font-semibold file:bg-primary/10 file:text-primary hover:file:bg-primary/20"
+                                    />
+                                    {selectedSinpeFile && (
+                                      <p className="mt-1 text-xs text-green-600">
+                                        Archivo seleccionado:{" "}
+                                        {selectedSinpeFile.name}
+                                      </p>
+                                    )}
+                                  </div>
                                   <div className="flex gap-2">
                                     <button
                                       type="button"
@@ -467,8 +638,24 @@ export default function PagoDrawer({
                                       return (
                                         <tr key={pago.id}>
                                           <td className="px-2 py-1.5 text-xs text-gray-900">
-                                            ₡{" "}
-                                            {pago.monto_sinpe.toLocaleString()}
+                                            <div className="flex items-center gap-1.5">
+                                              <span>
+                                                ₡{" "}
+                                                {pago.monto_sinpe.toLocaleString()}
+                                              </span>
+                                              {pago.sinpe_pago && (
+                                                <button
+                                                  type="button"
+                                                  onClick={() =>
+                                                    handlePreviewSinpe(pago)
+                                                  }
+                                                  className="text-primary hover:text-primary/80 transition-colors border border-gray-300 rounded p-0.5"
+                                                  title="Ver comprobante SINPE"
+                                                >
+                                                  <EyeIcon className="size-3.5" />
+                                                </button>
+                                              )}
+                                            </div>
                                           </td>
                                           <td className="px-2 py-1.5 text-xs text-gray-900">
                                             ₡{" "}
@@ -523,6 +710,84 @@ export default function PagoDrawer({
           </div>
         </div>
       </div>
+
+      {/* Full-screen Loader */}
+      {uploading && (
+        <div className="fixed inset-0 z-100 bg-black/80 flex flex-col items-center justify-center">
+          <img
+            src="/tellos-square.svg"
+            alt="Futbol Tello"
+            className="w-16 h-16 animate-spin"
+          />
+          <p className="mt-4 text-white text-lg font-semibold">Futbol Tello</p>
+          <p className="mt-2 text-white/70 text-sm">Subiendo comprobante...</p>
+        </div>
+      )}
+
+      {/* SINPE Image Preview Dialog */}
+      <Dialog
+        open={previewDialogOpen}
+        onClose={() => setPreviewDialogOpen(false)}
+        className="relative z-60"
+      >
+        <DialogBackdrop
+          transition
+          className="fixed inset-0 bg-black/80 transition-opacity data-closed:opacity-0 data-enter:duration-300 data-enter:ease-out data-leave:duration-200 data-leave:ease-in"
+        />
+        <div className="fixed inset-0 z-10 overflow-y-auto">
+          <div className="flex min-h-full items-center justify-center p-4">
+            <DialogPanel
+              transition
+              className="relative transform overflow-hidden rounded-xl bg-white shadow-2xl transition-all data-closed:opacity-0 data-closed:scale-95 data-enter:duration-300 data-enter:ease-out data-leave:duration-200 data-leave:ease-in max-w-lg w-full"
+            >
+              <div className="bg-primary px-4 py-3 flex items-center justify-between">
+                <DialogTitle className="text-base font-semibold text-white">
+                  Comprobante SINPE
+                </DialogTitle>
+                <button
+                  type="button"
+                  onClick={() => setPreviewDialogOpen(false)}
+                  className="text-white/70 hover:text-white"
+                >
+                  <XMarkIcon className="size-5" />
+                </button>
+              </div>
+              <div className="p-4">
+                {previewPago && (
+                  <>
+                    <div className="mb-4 bg-gray-50 rounded-lg p-3 border border-gray-200">
+                      <div className="flex justify-between items-center">
+                        <span className="text-sm text-gray-600">
+                          Monto SINPE:
+                        </span>
+                        <span className="text-lg font-bold text-gray-900">
+                          ₡ {previewPago.monto_sinpe.toLocaleString()}
+                        </span>
+                      </div>
+                    </div>
+                    {previewPago.sinpe_pago && (
+                      <img
+                        src={previewPago.sinpe_pago}
+                        alt="Comprobante SINPE"
+                        className="w-full rounded-lg shadow-md"
+                      />
+                    )}
+                  </>
+                )}
+              </div>
+              <div className="bg-gray-50 px-4 py-3 flex justify-end">
+                <button
+                  type="button"
+                  onClick={() => setPreviewDialogOpen(false)}
+                  className="rounded-md bg-primary px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-primary/90"
+                >
+                  Cerrar
+                </button>
+              </div>
+            </DialogPanel>
+          </div>
+        </div>
+      </Dialog>
     </Dialog>
   );
 }

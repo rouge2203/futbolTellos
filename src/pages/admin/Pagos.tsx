@@ -10,7 +10,11 @@ import {
   MapPinIcon,
   DocumentTextIcon,
   BanknotesIcon,
+  CheckBadgeIcon,
+  XCircleIcon,
 } from "@heroicons/react/20/solid";
+import { Switch } from "@headlessui/react";
+import { RiBankLine } from "react-icons/ri";
 
 interface Cancha {
   id: number;
@@ -44,6 +48,7 @@ interface Reserva {
   cancha: Cancha;
   pagos?: Pago[];
   pagoStatus?: "no_registrado" | "incompleto" | "completo";
+  pago_checkeado?: boolean;
 }
 
 const MONTHS_SPANISH = [
@@ -67,6 +72,7 @@ export default function Pagos() {
   const { user } = useAuth();
   const [currentMonth, setCurrentMonth] = useState(new Date());
   const [selectedDate, setSelectedDate] = useState<Date | null>(new Date());
+  const [selectedDates, setSelectedDates] = useState<Date[]>([]);
   const [reservas, setReservas] = useState<Reserva[]>([]);
   const [canchas, setCanchas] = useState<Cancha[]>([]);
   const [loading, setLoading] = useState(true);
@@ -75,6 +81,12 @@ export default function Pagos() {
   const [selectedLocations, setSelectedLocations] = useState<number[]>([]);
   const [selectedPagoStatus, setSelectedPagoStatus] = useState<
     ("no_pagadas" | "incompletos" | "completos")[]
+  >([]);
+
+  // Cierres mode state
+  const [cierresMode, setCierresMode] = useState(false);
+  const [selectedPagoCheckeado, setSelectedPagoCheckeado] = useState<
+    ("checkeados" | "no_checkeados")[]
   >([]);
 
   // Drawer state
@@ -111,49 +123,60 @@ export default function Pagos() {
 
   // Fetch reservations with pagos
   const fetchReservas = async () => {
-    if (!selectedDate) return;
+    // In cierres mode, use selectedDates; otherwise use selectedDate
+    const datesToFetch = cierresMode ? selectedDates : (selectedDate ? [selectedDate] : []);
+    if (datesToFetch.length === 0) {
+      setReservas([]);
+      return;
+    }
 
     setLoadingReservas(true);
     try {
-      const dateStr = formatLocalDate(selectedDate);
-      const startOfDay = `${dateStr} 00:00:00`;
-      const endOfDay = `${dateStr} 23:59:59`;
+      let allReservasData: any[] = [];
 
-      let query = supabase
-        .from("reservas")
-        .select(
-          `
-            id,
-            hora_inicio,
-            hora_fin,
-            nombre_reserva,
-            celular_reserva,
-            correo_reserva,
-            precio,
-            arbitro,
-            cancha:cancha_id (
+      // Fetch reservations for each selected date
+      for (const date of datesToFetch) {
+        const dateStr = formatLocalDate(date);
+        const startOfDay = `${dateStr} 00:00:00`;
+        const endOfDay = `${dateStr} 23:59:59`;
+
+        let query = supabase
+          .from("reservas")
+          .select(
+            `
               id,
-              nombre,
-              img,
-              local
-            )
-          `
-        )
-        .gte("hora_inicio", startOfDay)
-        .lte("hora_inicio", endOfDay)
-        .order("hora_inicio", { ascending: true });
+              hora_inicio,
+              hora_fin,
+              nombre_reserva,
+              celular_reserva,
+              correo_reserva,
+              precio,
+              arbitro,
+              pago_checkeado,
+              cancha:cancha_id (
+                id,
+                nombre,
+                img,
+                local
+              )
+            `
+          )
+          .gte("hora_inicio", startOfDay)
+          .lte("hora_inicio", endOfDay)
+          .order("hora_inicio", { ascending: true });
 
-      // Apply filters
-      if (selectedCanchas.length > 0) {
-        query = query.in("cancha_id", selectedCanchas);
+        // Apply filters
+        if (selectedCanchas.length > 0) {
+          query = query.in("cancha_id", selectedCanchas);
+        }
+
+        const { data: reservasData, error: reservasError } = await query;
+        if (reservasError) throw reservasError;
+        allReservasData = [...allReservasData, ...(reservasData || [])];
       }
 
-      const { data: reservasData, error: reservasError } = await query;
-
-      if (reservasError) throw reservasError;
-
       // Filter by location if selected
-      let filteredReservas: any[] = reservasData || [];
+      let filteredReservas: any[] = allReservasData;
       if (selectedLocations.length > 0) {
         filteredReservas = filteredReservas.filter(
           (r: any) => r.cancha && selectedLocations.includes(r.cancha.local)
@@ -162,16 +185,20 @@ export default function Pagos() {
 
       // Fetch pagos for all reservas
       const reservaIds = filteredReservas.map((r: any) => r.id);
-      const { data: pagosData, error: pagosError } = await supabase
-        .from("pagos")
-        .select("*")
-        .in("reserva_id", reservaIds);
+      let pagosData: any[] = [];
+      if (reservaIds.length > 0) {
+        const { data, error: pagosError } = await supabase
+          .from("pagos")
+          .select("*")
+          .in("reserva_id", reservaIds);
 
-      if (pagosError) throw pagosError;
+        if (pagosError) throw pagosError;
+        pagosData = data || [];
+      }
 
       // Group pagos by reserva_id
       const pagosByReserva: Record<number, Pago[]> = {};
-      (pagosData || []).forEach((pago: Pago) => {
+      pagosData.forEach((pago: Pago) => {
         if (!pagosByReserva[pago.reserva_id]) {
           pagosByReserva[pago.reserva_id] = [];
         }
@@ -194,13 +221,14 @@ export default function Pagos() {
           cancha: Array.isArray(r.cancha) ? r.cancha[0] : r.cancha,
           pagos,
           pagoStatus,
+          pago_checkeado: r.pago_checkeado || false,
         };
       });
 
       // Apply payment status filter
       let finalReservas = reservasConPagos;
       if (selectedPagoStatus.length > 0) {
-        finalReservas = reservasConPagos.filter((r) => {
+        finalReservas = finalReservas.filter((r) => {
           const statusMap: Record<
             "no_pagadas" | "incompletos" | "completos",
             "no_registrado" | "incompleto" | "completo"
@@ -215,6 +243,24 @@ export default function Pagos() {
         });
       }
 
+      // Apply pago_checkeado filter (only in cierres mode)
+      if (cierresMode && selectedPagoCheckeado.length > 0) {
+        finalReservas = finalReservas.filter((r) => {
+          if (selectedPagoCheckeado.includes("checkeados") && r.pago_checkeado) {
+            return true;
+          }
+          if (selectedPagoCheckeado.includes("no_checkeados") && !r.pago_checkeado) {
+            return true;
+          }
+          return false;
+        });
+      }
+
+      // Sort by hora_inicio
+      finalReservas.sort((a, b) => 
+        new Date(a.hora_inicio).getTime() - new Date(b.hora_inicio).getTime()
+      );
+
       setReservas(finalReservas);
     } catch (error) {
       console.error("Error fetching reservaciones:", error);
@@ -223,10 +269,10 @@ export default function Pagos() {
     }
   };
 
-  // Fetch reservations for selected date
+  // Fetch reservations for selected date(s)
   useEffect(() => {
     fetchReservas();
-  }, [selectedDate, selectedCanchas, selectedLocations, selectedPagoStatus]);
+  }, [selectedDate, selectedDates, selectedCanchas, selectedLocations, selectedPagoStatus, cierresMode, selectedPagoCheckeado]);
 
   const formatLocalDate = (d: Date): string => {
     const year = d.getFullYear();
@@ -358,9 +404,88 @@ export default function Pagos() {
     );
   };
 
+  const togglePagoCheckeadoFilter = (
+    status: "checkeados" | "no_checkeados"
+  ) => {
+    setSelectedPagoCheckeado((prev) =>
+      prev.includes(status)
+        ? prev.filter((s) => s !== status)
+        : [...prev, status]
+    );
+  };
+
+  const toggleDateSelection = (date: Date) => {
+    setSelectedDates((prev) => {
+      const exists = prev.some((d) => isSameDay(d, date));
+      if (exists) {
+        return prev.filter((d) => !isSameDay(d, date));
+      } else {
+        return [...prev, date];
+      }
+    });
+  };
+
+  const isDateSelected = (date: Date): boolean => {
+    return selectedDates.some((d) => isSameDay(d, date));
+  };
+
   const handleVerPagos = (reserva: Reserva) => {
     setSelectedReserva(reserva);
     setDrawerOpen(true);
+  };
+
+  const handleReservaUpdated = async () => {
+    await fetchReservas();
+    if (selectedReserva) {
+      // Refresh selected reserva data
+      const { data, error } = await supabase
+        .from("reservas")
+        .select(
+          `
+            id,
+            hora_inicio,
+            hora_fin,
+            nombre_reserva,
+            celular_reserva,
+            correo_reserva,
+            precio,
+            arbitro,
+            pago_checkeado,
+            cancha:cancha_id (
+              id,
+              nombre,
+              img,
+              local
+            )
+          `
+        )
+        .eq("id", selectedReserva.id)
+        .single();
+
+      if (!error && data) {
+        const { data: pagosData } = await supabase
+          .from("pagos")
+          .select("*")
+          .eq("reserva_id", selectedReserva.id);
+
+        const pagos = pagosData || [];
+        let pagoStatus: "no_registrado" | "incompleto" | "completo" =
+          "no_registrado";
+
+        if (pagos.length > 0) {
+          const hasCompleto = pagos.some((p: Pago) => p.completo === true);
+          pagoStatus = hasCompleto ? "completo" : "incompleto";
+        }
+
+        setSelectedReserva({
+          ...data,
+          cancha: Array.isArray(data.cancha) ? data.cancha[0] : data.cancha,
+          pagos,
+          pagoStatus,
+          pago_checkeado: data.pago_checkeado || false,
+        });
+      }
+    }
   };
 
   const handlePagoCreated = async () => {
@@ -452,6 +577,26 @@ export default function Pagos() {
   const monthName = MONTHS_SPANISH[currentMonth.getMonth()];
   const year = currentMonth.getFullYear();
 
+  const formatDateRange = (): string => {
+    if (cierresMode && selectedDates.length > 0) {
+      const sortedDates = [...selectedDates].sort((a, b) => a.getTime() - b.getTime());
+      if (sortedDates.length === 1) {
+        const d = sortedDates[0];
+        return `${d.getDate()} ${MONTHS_SPANISH[d.getMonth()]}`;
+      }
+      const first = sortedDates[0];
+      const last = sortedDates[sortedDates.length - 1];
+      if (first.getMonth() === last.getMonth()) {
+        return `${first.getDate()}-${last.getDate()} ${MONTHS_SPANISH[first.getMonth()]}`;
+      }
+      return `${first.getDate()} ${MONTHS_SPANISH[first.getMonth()]} - ${last.getDate()} ${MONTHS_SPANISH[last.getMonth()]}`;
+    }
+    if (selectedDate) {
+      return `${selectedDate.getDate()} ${MONTHS_SPANISH[selectedDate.getMonth()]}`;
+    }
+    return "";
+  };
+
   // Get canchas for filter badges - sorted by location then id
   const sabanaCanchas = canchas
     .filter((c) => c.local === 1)
@@ -476,6 +621,71 @@ export default function Pagos() {
   return (
     <AdminLayout title="Pagos">
       <div className="min-h-screen">
+        {/* Cierres Mode Toggle */}
+        <div className="flex flex-wrap items-center gap-4 mb-4">
+          <div className="flex items-center gap-3">
+            <RiBankLine className="size-5 text-primary" />
+            <span className="text-sm font-medium text-gray-700">Modo Cierres</span>
+            <Switch
+              checked={cierresMode}
+              onChange={(checked) => {
+                setCierresMode(checked);
+                if (checked) {
+                  // Initialize with current selectedDate if any
+                  if (selectedDate) {
+                    setSelectedDates([selectedDate]);
+                  }
+                } else {
+                  // Reset to single date mode
+                  if (selectedDates.length > 0) {
+                    setSelectedDate(selectedDates[0]);
+                  }
+                  setSelectedDates([]);
+                  setSelectedPagoCheckeado([]);
+                }
+              }}
+              className={`${
+                cierresMode ? 'bg-primary' : 'bg-gray-200'
+              } relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2`}
+            >
+              <span
+                aria-hidden="true"
+                className={`${
+                  cierresMode ? 'translate-x-5' : 'translate-x-0'
+                } pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out`}
+              />
+            </Switch>
+          </div>
+
+          {/* Pago Checkeado Filters - Only in Cierres Mode, next to toggle */}
+          {cierresMode && (
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => togglePagoCheckeadoFilter("checkeados")}
+                className={`rounded-md px-3 py-1.5 text-xs font-medium transition-colors flex items-center gap-1.5 border ${
+                  selectedPagoCheckeado.includes("checkeados")
+                    ? "bg-gray-700 text-white border-gray-700"
+                    : "bg-gray-50 text-gray-700 border-gray-300 hover:bg-gray-100"
+                }`}
+              >
+                <CheckBadgeIcon className="size-4" />
+                Pagos checkeados
+              </button>
+              <button
+                onClick={() => togglePagoCheckeadoFilter("no_checkeados")}
+                className={`rounded-md px-3 py-1.5 text-xs font-medium transition-colors flex items-center gap-1.5 border ${
+                  selectedPagoCheckeado.includes("no_checkeados")
+                    ? "bg-gray-700 text-white border-gray-700"
+                    : "bg-gray-50 text-gray-700 border-gray-300 hover:bg-gray-100"
+                }`}
+              >
+                <XCircleIcon className="size-4" />
+                Pagos no checkeados
+              </button>
+            </div>
+          )}
+        </div>
+
         <div className="lg:grid lg:grid-cols-12 lg:gap-x-16">
           {/* Calendar */}
           <div className="mt-10 text-center lg:col-start-8 lg:col-end-13 lg:row-start-1 lg:mt-9 xl:col-start-9">
@@ -507,7 +717,9 @@ export default function Pagos() {
             </div>
             <div className="isolate mt-2 grid grid-cols-7 gap-px rounded-lg bg-gray-200 text-sm shadow-sm ring-1 ring-gray-200">
               {days.map((day, index) => {
-                const isSelected = isSameDay(selectedDate, day);
+                const isSelected = cierresMode 
+                  ? isDateSelected(day) 
+                  : isSameDay(selectedDate, day);
                 const isTodayDate = isToday(day);
                 const isCurrentMonthDate = isCurrentMonth(day);
 
@@ -515,7 +727,13 @@ export default function Pagos() {
                   <button
                     key={index}
                     type="button"
-                    onClick={() => setSelectedDate(new Date(day))}
+                    onClick={() => {
+                      if (cierresMode) {
+                        toggleDateSelection(new Date(day));
+                      } else {
+                        setSelectedDate(new Date(day));
+                      }
+                    }}
                     className={`py-1.5 ${
                       !isCurrentMonthDate
                         ? "bg-gray-50 text-gray-400"
@@ -550,58 +768,87 @@ export default function Pagos() {
             </div>
 
             {/* Daily Totals */}
-            {selectedDate && (
+            {(selectedDate || (cierresMode && selectedDates.length > 0)) && (
               <div className="mt-6 rounded-lg bg-white border border-gray-200 p-4 shadow-sm">
                 <h3 className="text-sm font-semibold text-gray-900 mb-3">
-                  Totales del día
+                  {cierresMode && selectedDates.length > 1 
+                    ? `Totales (${formatDateRange()})` 
+                    : "Totales del día"}
                 </h3>
-                <div className="space-y-2 text-sm">
-                  <div className="flex justify-between">
-                    <span className="text-gray-600">Total reservaciones:</span>
-                    <span className="font-medium text-gray-900">
-                      ₡ {totals.totalReservas.toLocaleString()}
-                    </span>
-                  </div>
+                
+                {cierresMode ? (
+                  /* Full Totals in Cierres Mode */
+                  <div className="space-y-2 text-sm">
+                    <div className="flex justify-between">
+                      <span className="text-gray-600">Total reservaciones:</span>
+                      <span className="font-medium text-gray-900">
+                        ₡ {totals.totalReservas.toLocaleString()}
+                      </span>
+                    </div>
 
-                  <div className="flex justify-between">
-                    <span className="text-gray-600">Total Pagos:</span>
-                    <span className="font-medium text-gray-900">
-                      ₡ {totals.totalPagos.toLocaleString()}
-                    </span>
+                    <div className="flex justify-between">
+                      <span className="text-gray-600">Total Pagos:</span>
+                      <span className="font-medium text-gray-900">
+                        ₡ {totals.totalPagos.toLocaleString()}
+                      </span>
+                    </div>
+                    <div className="flex justify-between items-center">
+                      <span className="text-gray-600 flex text-xs items-center gap-1.5">
+                        <DocumentTextIcon className="size-3 text-gray-500" />
+                        SINPE:
+                      </span>
+                      <span className="font-medium text-gray-900 text-xs">
+                        ₡ {totals.totalSinpe.toLocaleString()}
+                      </span>
+                    </div>
+                    <div className="flex justify-between items-center">
+                      <span className="text-gray-600 flex text-xs items-center gap-1.5">
+                        <BanknotesIcon className="size-3 text-gray-500" />
+                        Efectivo:
+                      </span>
+                      <span className="font-medium text-xs text-gray-900">
+                        ₡ {totals.totalEfectivo.toLocaleString()}
+                      </span>
+                    </div>
+                    <div className="border-t border-gray-200 pt-2 flex justify-between">
+                      <span className="text-gray-900 font-semibold">
+                        Faltante:
+                      </span>
+                      <span
+                        className={`font-bold ${
+                          totals.diferencia > 0
+                            ? "text-red-600"
+                            : "text-green-600"
+                        }`}
+                      >
+                        ₡ {totals.diferencia.toLocaleString()}
+                      </span>
+                    </div>
                   </div>
-                  <div className="flex justify-between items-center">
-                    <span className="text-gray-600 flex text-xs items-center gap-1.5">
-                      <DocumentTextIcon className="size-3 text-gray-500" />
-                      SINPE:
-                    </span>
-                    <span className="font-medium text-gray-900 text-xs">
-                      ₡ {totals.totalSinpe.toLocaleString()}
-                    </span>
+                ) : (
+                  /* Normal Mode - Only Faltante + Info Message */
+                  <div className="space-y-3 text-sm">
+                    <div className="flex justify-between">
+                      <span className="text-gray-900 font-semibold">
+                        Faltante:
+                      </span>
+                      <span
+                        className={`font-bold ${
+                          totals.diferencia > 0
+                            ? "text-red-600"
+                            : "text-green-600"
+                        }`}
+                      >
+                        ₡ {totals.diferencia.toLocaleString()}
+                      </span>
+                    </div>
+                    <div className="bg-gray-50 border border-gray-200 rounded-lg p-3">
+                      <p className="text-xs text-gray-600 text-start">
+                        El objetivo es registrar pagos hasta que el faltante sea ₡ 0.
+                      </p>
+                    </div>
                   </div>
-                  <div className="flex justify-between items-center">
-                    <span className="text-gray-600 flex text-xs items-center gap-1.5">
-                      <BanknotesIcon className="size-3 text-gray-500" />
-                      Efectivo:
-                    </span>
-                    <span className="font-medium text-xs text-gray-900">
-                      ₡ {totals.totalEfectivo.toLocaleString()}
-                    </span>
-                  </div>
-                  <div className="border-t border-gray-200 pt-2 flex justify-between">
-                    <span className="text-gray-900 font-semibold">
-                      Faltante:
-                    </span>
-                    <span
-                      className={`font-bold ${
-                        totals.diferencia > 0
-                          ? "text-red-600"
-                          : "text-green-600"
-                      }`}
-                    >
-                      ₡ {totals.diferencia.toLocaleString()}
-                    </span>
-                  </div>
-                </div>
+                )}
               </div>
             )}
           </div>
@@ -776,7 +1023,23 @@ export default function Pagos() {
                           </div>
                         </dl>
                         {/* Payment Status */}
-                        <div className="mt-2">{getPagoBadge()}</div>
+                        <div className="mt-2 flex flex-wrap gap-2">
+                          {getPagoBadge()}
+                          {/* Pago Checkeado Badge - Only in Cierres Mode */}
+                          {cierresMode && (
+                            reserva.pago_checkeado ? (
+                              <span className="inline-flex items-center gap-1.5 rounded-lg bg-gray-100 border border-gray-300 px-3 py-1.5 text-xs font-semibold text-gray-700 shadow-sm">
+                                <CheckBadgeIcon className="size-4 text-gray-600" />
+                                Pago checkeado
+                              </span>
+                            ) : (
+                              <span className="inline-flex items-center gap-1.5 rounded-lg bg-gray-50 border border-gray-200 px-3 py-1.5 text-xs font-semibold text-gray-500 shadow-sm">
+                                <XCircleIcon className="size-4 text-gray-400" />
+                                Pago no checkeado
+                              </span>
+                            )
+                          )}
+                        </div>
                       </div>
                       <div className="flex items-center">
                         <button
@@ -804,6 +1067,8 @@ export default function Pagos() {
         reserva={selectedReserva}
         onPagoCreated={handlePagoCreated}
         user={user}
+        cierresMode={cierresMode}
+        onReservaUpdated={handleReservaUpdated}
       />
     </AdminLayout>
   );
