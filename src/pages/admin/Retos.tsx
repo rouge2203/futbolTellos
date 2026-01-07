@@ -78,12 +78,14 @@ const formatDateTime = (timestamp: string): { date: string; time: string } => {
   const day = date.getDate();
   const month = MONTHS_SPANISH[date.getMonth()];
   const dayName = DAYS_SPANISH[date.getDay()];
-  const hours = String(date.getHours()).padStart(2, "0");
+  const hours = date.getHours();
   const minutes = String(date.getMinutes()).padStart(2, "0");
+  const ampm = hours >= 12 ? "PM" : "AM";
+  const hour12 = hours % 12 || 12;
 
   return {
     date: `${dayName} ${day} ${month}`,
-    time: `${hours}:${minutes}`,
+    time: `${hour12}:${minutes} ${ampm}`,
   };
 };
 

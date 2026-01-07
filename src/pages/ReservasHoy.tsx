@@ -17,6 +17,12 @@ interface Reserva {
   };
 }
 
+const formatTimeAmPm = (hours: number, minutes: number): string => {
+  const ampm = hours >= 12 ? "PM" : "AM";
+  const hour12 = hours % 12 || 12;
+  return `${hour12}:${minutes.toString().padStart(2, "0")} ${ampm}`;
+};
+
 function ReservasHoy() {
   const navigate = useNavigate();
   const [reservas, setReservas] = useState<Reserva[]>([]);
@@ -112,13 +118,13 @@ function ReservasHoy() {
   const parseHourFromTimestamp = (timestamp: string): string => {
     const timeMatch = timestamp.match(/(\d{2}):(\d{2}):(\d{2})/);
     if (timeMatch) {
-      return `${timeMatch[1]}:${timeMatch[2]}`;
+      const hours = parseInt(timeMatch[1], 10);
+      const minutes = parseInt(timeMatch[2], 10);
+      return formatTimeAmPm(hours, minutes);
     }
     // Fallback
     const date = new Date(timestamp);
-    const hours = date.getHours().toString().padStart(2, "0");
-    const minutes = date.getMinutes().toString().padStart(2, "0");
-    return `${hours}:${minutes}`;
+    return formatTimeAmPm(date.getHours(), date.getMinutes());
   };
 
   return (
@@ -212,7 +218,7 @@ function ReservasHoy() {
               <thead className="bg-white/5">
                 <tr>
                   <th className="px-6 py-3 text-left text-xs font-medium text-white/80 uppercase tracking-wider">
-                    Nombre Reserva
+                    Cancha
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-white/80 uppercase tracking-wider">
                     Ubicación
@@ -233,7 +239,7 @@ function ReservasHoy() {
                   >
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="text-sm font-medium text-white">
-                        {reserva.nombre_reserva}
+                        {reserva.cancha?.nombre || "-"}
                       </div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
@@ -251,7 +257,11 @@ function ReservasHoy() {
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <button
-                        onClick={() => navigate(`/reserva/${reserva.id}`)}
+                        onClick={() =>
+                          navigate(`/reserva/${reserva.id}`, {
+                            state: { fromReservasHoy: true },
+                          })
+                        }
                         className="flex items-center gap-2 px-4 py-2 bg-primary hover:bg-primary/90 text-white rounded-lg transition-colors text-sm font-medium"
                       >
                         <FaEye />

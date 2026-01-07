@@ -49,6 +49,12 @@ const MONTHS_SPANISH = [
   "Dic",
 ];
 
+const formatHourAmPm = (hour: number): string => {
+  const ampm = hour >= 12 ? "PM" : "AM";
+  const hour12 = hour % 12 || 12;
+  return `${hour12}:00 ${ampm}`;
+};
+
 function ConfirmarReserva() {
   const location = useLocation();
   const navigate = useNavigate();
@@ -340,15 +346,16 @@ function ConfirmarReserva() {
     <div className="min-h-screen bg-bg pb-32 px-0 py-0 sm:px-6 lg:px-8 relative">
       {/* Loading Overlay */}
       {submitting && (
-        <div className="fixed inset-0 z-[100] bg-black/80 backdrop-blur-sm flex items-center justify-center">
-          <div className="flex flex-col items-center gap-6">
-            {/* Spinner */}
-            <div className="animate-spin rounded-full h-16 w-16 border-t-4 border-b-4 border-primary border-r-transparent border-l-transparent"></div>
-            {/* Loading Message */}
-            <p className="text-white text-base font-medium animate-pulse">
-              {loadingMessages[currentLoadingMessageIndex]}
-            </p>
-          </div>
+        <div className="fixed inset-0 z-100 bg-black/80 backdrop-blur-sm flex flex-col items-center justify-center">
+          <img
+            src="/tellos-square.svg"
+            alt="Futbol Tello"
+            className="w-16 h-16 animate-spin"
+          />
+          <p className="mt-4 text-white text-lg font-semibold">Futbol Tello</p>
+          <p className="mt-2 text-white/70 text-sm animate-pulse">
+            {loadingMessages[currentLoadingMessageIndex]}
+          </p>
         </div>
       )}
       {/* Header with back button */}
@@ -405,7 +412,7 @@ function ConfirmarReserva() {
               <span className="text-white/80 text-sm">Fecha y hora</span>
             </div>
             <span className="text-white font-medium">
-              {formatDate()} - {selectedHour}:00
+              {formatDate()} - {formatHourAmPm(selectedHour)}
             </span>
           </div>
           <div className="border-t border-white/10" />

@@ -82,6 +82,12 @@ const MONTHS_SPANISH = [
 const DAYS_SPANISH = ["Dom", "Lun", "Mar", "Mié", "Jue", "Vie", "Sáb"];
 const LINKED_CANCHAS = [1, 3, 5];
 
+const formatHourAmPm = (hour: number): string => {
+  const ampm = hour >= 12 ? "PM" : "AM";
+  const hour12 = hour % 12 || 12;
+  return `${hour12}:00 ${ampm}`;
+};
+
 export default function RetoDrawer({
   open,
   onClose,
@@ -843,10 +849,7 @@ export default function RetoDrawer({
                                       type="text"
                                       value={
                                         editHour !== null
-                                          ? `${String(editHour).padStart(
-                                              2,
-                                              "0"
-                                            )}:00`
+                                          ? formatHourAmPm(editHour)
                                           : ""
                                       }
                                       readOnly
@@ -895,7 +898,7 @@ export default function RetoDrawer({
                                                   : "bg-white border-primary border-dashed text-gray-900 hover:bg-primary/10"
                                               }`}
                                             >
-                                              {hour}:00
+                                              {formatHourAmPm(hour)}
                                             </button>
                                           );
                                         })}
@@ -914,7 +917,7 @@ export default function RetoDrawer({
                               ) : (
                                 <div className="block w-full rounded-md bg-gray-50 border border-gray-300 px-3 py-1.5 text-base text-gray-900 sm:text-sm/6">
                                   {editHour !== null
-                                    ? `${String(editHour).padStart(2, "0")}:00`
+                                    ? formatHourAmPm(editHour)
                                     : ""}
                                 </div>
                               )}

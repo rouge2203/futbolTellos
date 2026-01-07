@@ -27,6 +27,12 @@ interface Configuracion {
 
 const DAYS_SPANISH = ["Dom", "Lun", "Mar", "Mié", "Jue", "Vie", "Sáb"];
 
+const formatHourAmPm = (hour: number): string => {
+  const ampm = hour >= 12 ? "PM" : "AM";
+  const hour12 = hour % 12 || 12;
+  return `${hour12}:00 ${ampm}`;
+};
+
 function CanchaDetails() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
@@ -318,7 +324,7 @@ function CanchaDetails() {
     if (!selectedHour) return "Selecciona fecha y hora";
     const day = selectedDate.getDate();
     const month = selectedDate.toLocaleDateString("es-CR", { month: "short" });
-    return `${day} ${month} - ${selectedHour}:00`;
+    return `${day} ${month} - ${formatHourAmPm(selectedHour)}`;
   };
 
   const handleReservar = () => {
@@ -339,8 +345,14 @@ function CanchaDetails() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-bg flex items-center justify-center">
-        <div className="text-white text-lg">Cargando...</div>
+      <div className="min-h-screen bg-bg flex flex-col items-center justify-center">
+        <img
+          src="/tellos-square.svg"
+          alt="Futbol Tello"
+          className="w-16 h-16 animate-spin"
+        />
+        <p className="mt-4 text-white text-lg font-semibold">Futbol Tello</p>
+        <p className="mt-2 text-white/70 text-sm">Cargando...</p>
       </div>
     );
   }
@@ -491,7 +503,7 @@ function CanchaDetails() {
                     : "bg-transparent border-primary border-dashed text-white hover:bg-primary/20"
                 }`}
               >
-                {hour}:00
+                {formatHourAmPm(hour)}
               </button>
             );
           })}

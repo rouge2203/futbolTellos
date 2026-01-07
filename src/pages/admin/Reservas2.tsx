@@ -844,9 +844,10 @@ export default function Reservas2() {
                               <time dateTime={reserva.hora_inicio}>
                                 {new Date(
                                   reserva.hora_inicio
-                                ).toLocaleTimeString("es-CR", {
-                                  hour: "2-digit",
+                                ).toLocaleTimeString("en-US", {
+                                  hour: "numeric",
                                   minute: "2-digit",
+                                  hour12: true,
                                 })}
                               </time>
                             </p>

@@ -38,6 +38,12 @@ const DAYS_SPANISH = ["Dom", "Lun", "Mar", "Mié", "Jue", "Vie", "Sáb"];
 const ARBITRO_COST = 5000;
 const LINKED_CANCHAS = [1, 3, 5];
 
+const formatHourAmPm = (hour: number): string => {
+  const ampm = hour >= 12 ? "PM" : "AM";
+  const hour12 = hour % 12 || 12;
+  return `${hour12}:00 ${ampm}`;
+};
+
 export default function CreateReservationDrawer({
   open,
   onClose,
@@ -589,7 +595,7 @@ export default function CreateReservationDrawer({
                                                 : "bg-white border-primary border-dashed text-gray-900 hover:bg-primary/10"
                                             }`}
                                           >
-                                            {hour}:00
+                                            {formatHourAmPm(hour)}
                                           </button>
                                         );
                                       })}
@@ -714,7 +720,7 @@ export default function CreateReservationDrawer({
                                             "Dic",
                                           ][selectedDate.getMonth()]
                                         }{" "}
-                                        - {selectedHour}:00
+                                        - {formatHourAmPm(selectedHour)}
                                       </span>
                                     </div>
                                     <div className="border-t border-gray-200" />

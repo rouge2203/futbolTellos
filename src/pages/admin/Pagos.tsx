@@ -345,9 +345,11 @@ export default function Pagos() {
     const day = date.getDate();
     const month = MONTHS_SPANISH[date.getMonth()];
     const year = date.getFullYear();
-    const hours = String(date.getHours()).padStart(2, "0");
+    const hours = date.getHours();
     const minutes = String(date.getMinutes()).padStart(2, "0");
-    return `${day} de ${month} de ${year} a las ${hours}:${minutes}`;
+    const ampm = hours >= 12 ? "PM" : "AM";
+    const hour12 = hours % 12 || 12;
+    return `${day} de ${month} de ${year} a las ${hour12}:${minutes} ${ampm}`;
   };
 
   // Calendar generation
@@ -1086,41 +1088,32 @@ export default function Pagos() {
                         <h3 className="pr-10 font-semibold text-gray-900 xl:pr-0">
                           {reserva.nombre_reserva}
                         </h3>
-                        <dl className="mt-2 flex flex-col text-gray-500 xl:flex-row">
-                          <div className="flex items-start gap-x-3">
-                            <dt className="mt-0.5">
-                              <span className="sr-only">Fecha</span>
-                              <CalendarIcon
-                                aria-hidden="true"
-                                className="size-5 text-gray-400"
-                              />
-                            </dt>
-                            <dd>
-                              <time dateTime={reserva.hora_inicio}>
-                                {formatDateTime(reserva.hora_inicio)}
-                              </time>
-                            </dd>
-                          </div>
-                          <div className="mt-2 flex items-start gap-x-3 xl:mt-0 xl:ml-3.5 xl:border-l xl:border-gray-400/50 xl:pl-3.5">
-                            <dt className="mt-0.5">
-                              <span className="sr-only">Ubicación</span>
-                              <MapPinIcon
-                                aria-hidden="true"
-                                className="size-5 text-gray-400"
-                              />
-                            </dt>
-                            <dd>
+                        <dl className="mt-2 flex flex-col text-gray-500 xl:flex-row xl:items-center">
+                          <div className="flex items-center gap-x-2">
+                            <CalendarIcon
+                              aria-hidden="true"
+                              className="size-4 text-gray-400"
+                            />
+                            <time
+                              dateTime={reserva.hora_inicio}
+                              className="text-sm"
+                            >
+                              {formatDateTime(reserva.hora_inicio)}
+                            </time>
+                            <span className="text-gray-300">•</span>
+                            <MapPinIcon
+                              aria-hidden="true"
+                              className="size-4 text-gray-400"
+                            />
+                            <span className="text-sm">
                               {reserva.cancha.nombre} -{" "}
                               {getLocalName(reserva.cancha.local)}
-                            </dd>
+                            </span>
                           </div>
-                          <div className="mt-2 flex items-start gap-x-3 xl:mt-0 xl:ml-3.5 xl:border-l xl:border-gray-400/50 xl:pl-3.5">
-                            <dt className="mt-0.5">
-                              <span className="sr-only">Precio</span>
-                            </dt>
-                            <dd className="font-semibold text-gray-900">
+                          <div className="mt-1 xl:mt-0 xl:ml-3.5 xl:border-l xl:border-gray-400/50 xl:pl-3.5">
+                            <span className="font-semibold text-gray-900">
                               ₡ {reserva.precio.toLocaleString()}
-                            </dd>
+                            </span>
                           </div>
                         </dl>
                         {/* Payment Status */}

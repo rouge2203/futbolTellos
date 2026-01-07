@@ -49,6 +49,12 @@ const MONTHS_SPANISH = [
   "Dic",
 ];
 
+const formatHourAmPm = (hour: number): string => {
+  const ampm = hour >= 12 ? "PM" : "AM";
+  const hour12 = hour % 12 || 12;
+  return `${hour12}:00 ${ampm}`;
+};
+
 // Parse precio string "23.000" -> 23000
 const parsePrecio = (precioStr: string | undefined): number => {
   if (!precioStr) return 0;
@@ -335,7 +341,7 @@ function CrearReto() {
     if (!selectedHour) return "Selecciona fecha y hora";
     const day = selectedDate.getDate();
     const month = MONTHS_SPANISH[selectedDate.getMonth()];
-    return `${day} ${month} - ${selectedHour}:00`;
+    return `${day} ${month} - ${formatHourAmPm(selectedHour)}`;
   };
 
   // Validation helpers
@@ -447,8 +453,14 @@ function CrearReto() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-bg flex items-center justify-center">
-        <div className="text-white text-lg">Cargando...</div>
+      <div className="min-h-screen bg-bg flex flex-col items-center justify-center">
+        <img
+          src="/tellos-square.svg"
+          alt="Futbol Tello"
+          className="w-16 h-16 animate-spin"
+        />
+        <p className="mt-4 text-white text-lg font-semibold">Futbol Tello</p>
+        <p className="mt-2 text-white/70 text-sm">Cargando...</p>
       </div>
     );
   }
@@ -759,7 +771,7 @@ function CrearReto() {
                         : "bg-transparent border-primary border-dashed text-white hover:bg-primary/20"
                     }`}
                   >
-                    {hour}:00
+                    {formatHourAmPm(hour)}
                   </button>
                 );
               })}
@@ -987,7 +999,7 @@ function CrearReto() {
                         </span>
                       </div>
                       <span className="text-white font-medium text-right">
-                        {formatDateDisplay()} - {selectedHour}:00
+                        {formatDateDisplay()} - {formatHourAmPm(selectedHour)}
                       </span>
                     </div>
                     <div className="flex items-center justify-between">

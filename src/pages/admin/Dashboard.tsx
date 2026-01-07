@@ -209,9 +209,11 @@ export default function Dashboard() {
     const day = date.getDate();
     const month = MONTHS_SPANISH[date.getMonth()];
     const year = date.getFullYear();
-    const hours = String(date.getHours()).padStart(2, "0");
+    const hours = date.getHours();
     const minutes = String(date.getMinutes()).padStart(2, "0");
-    return `${day} de ${month} de ${year} a las ${hours}:${minutes}`;
+    const ampm = hours >= 12 ? "PM" : "AM";
+    const hour12 = hours % 12 || 12;
+    return `${day} de ${month} de ${year} a las ${hour12}:${minutes} ${ampm}`;
   };
 
   // Calendar generation

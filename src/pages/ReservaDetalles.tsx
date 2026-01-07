@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { useNavigate, useParams } from "react-router-dom";
+import { useNavigate, useParams, useLocation } from "react-router-dom";
 import { IoArrowBack } from "react-icons/io5";
 import { MdLocationOn, MdContentCopy } from "react-icons/md";
 import { FaUsers, FaWaze, FaMapMarkerAlt, FaWhatsapp } from "react-icons/fa";
@@ -59,9 +59,20 @@ const MONTHS_SPANISH = [
   "Diciembre",
 ];
 
+const formatHourAmPm = (hour: number): string => {
+  const ampm = hour >= 12 ? "PM" : "AM";
+  const hour12 = hour % 12 || 12;
+  return `${hour12}:00 ${ampm}`;
+};
+
 function ReservaDetalles() {
   const navigate = useNavigate();
+  const location = useLocation();
   const { id } = useParams<{ id: string }>();
+
+  // Check if coming from ReservasHoy
+  const fromReservasHoy =
+    (location.state as { fromReservasHoy?: boolean })?.fromReservasHoy || false;
 
   const [reserva, setReserva] = useState<Reserva | null>(null);
   const [cancha, setCancha] = useState<Cancha | null>(null);
@@ -432,14 +443,14 @@ function ReservaDetalles() {
             <div>
               <p className="text-white/60 text-xs">Fecha y hora</p>
               <p className="text-white font-medium tracking-tight">
-                {formatDate()} - {selectedHour}:00
+                {formatDate()} - {formatHourAmPm(selectedHour)}
               </p>
             </div>
             <div>
               {/* <p className="text-white/60 text-xs">Jugadores</p> */}
               <p className="text-white  text-sm flex items-center gap-2">
                 <FaUsers className="text-secondary" />
-                {getPlayerCount() * 2} jugadores
+                FUT {getPlayerCount() * 2}
               </p>
             </div>
             {reserva.cancha?.local === 2 && arbitro && (
@@ -468,17 +479,20 @@ function ReservaDetalles() {
             </div> */}
           </div>
 
-          <div className="border-t border-white/10" />
-
-          {/* Contact Info */}
-          <div>
-            <p className="text-white/60 text-xs">Reservado por</p>
-            <div className="flex items-center gap-2 ">
-              <p className="text-white font-medium">{nombre}</p>
-              <p className="text-white/80 text-sm">({celular})</p>
-            </div>
-            <p className="text-white/80 text-xs">{correo}</p>
-          </div>
+          {/* Contact Info - Hidden when coming from ReservasHoy */}
+          {!fromReservasHoy && (
+            <>
+              <div className="border-t border-white/10" />
+              <div>
+                <p className="text-white/60 text-xs">Reservado por</p>
+                <div className="flex items-center gap-2 ">
+                  <p className="text-white font-medium">{nombre}</p>
+                  <p className="text-white/80 text-sm">({celular})</p>
+                </div>
+                <p className="text-white/80 text-xs">{correo}</p>
+              </div>
+            </>
+          )}
         </div>
       </div>
 
@@ -544,7 +558,7 @@ function ReservaDetalles() {
               <div className="flex items-center justify-between">
                 <span className="text-white/80 text-sm">Número de SINPE</span>
                 <span className="text-white font-medium tracking-tighter">
-                  8888-8888
+                  8616-7000
                 </span>
               </div>
               <div className="border-t border-white/10" />
