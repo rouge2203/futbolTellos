@@ -429,6 +429,19 @@ export default function ReservationDrawer({
 
   return (
     <>
+      {/* Updating Overlay */}
+      {updating && (
+        <div className="fixed inset-0 z-[100] bg-black/80 backdrop-blur-sm flex flex-col items-center justify-center">
+          <img
+            src="/tellos-square.svg"
+            alt="Futbol Tello"
+            className="w-16 h-16 animate-spin"
+          />
+          <p className="mt-4 text-white text-lg font-semibold">Futbol Tello</p>
+          <p className="mt-2 text-white/70 text-sm">Actualizando reservación...</p>
+        </div>
+      )}
+
       <Dialog open={open} onClose={onClose} className="relative z-50">
         <DialogBackdrop
           transition
@@ -986,7 +999,6 @@ export default function ReservationDrawer({
                         disabled={
                           updating ||
                           !editNombre ||
-                          !editCorreo ||
                           !editCelular ||
                           editHour === null ||
                           !editDate
