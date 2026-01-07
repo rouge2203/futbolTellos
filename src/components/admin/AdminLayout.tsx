@@ -83,7 +83,7 @@ export default function AdminLayout({ children, title }: AdminLayoutProps) {
                   </span>
                 </Link>
               </div>
-              <div className="hidden sm:-my-px sm:ml-6 sm:flex sm:space-x-8">
+              <div className="hidden lg:-my-px lg:ml-6 lg:flex lg:space-x-8">
                 {navigation.map((item) => {
                   const isCurrent = location.pathname === item.path;
                   return (
@@ -104,7 +104,7 @@ export default function AdminLayout({ children, title }: AdminLayoutProps) {
                 })}
               </div>
             </div>
-            <div className="hidden sm:ml-6 sm:flex sm:items-center">
+            <div className="hidden lg:ml-6 lg:flex lg:items-center">
               {/* Profile dropdown */}
               <Menu as="div" className="relative ml-3">
                 <MenuButton className="relative flex max-w-xs items-center rounded-full bg-white text-sm focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary">
@@ -163,7 +163,7 @@ export default function AdminLayout({ children, title }: AdminLayoutProps) {
                 </MenuItems>
               </Menu>
             </div>
-            <div className="-mr-2 flex items-center sm:hidden">
+            <div className="-mr-2 flex items-center lg:hidden">
               {/* Mobile menu button */}
               <DisclosureButton className="group relative inline-flex items-center justify-center rounded-md bg-white p-2 text-gray-400 hover:bg-gray-100 hover:text-gray-500 focus:outline-2 focus:outline-offset-2 focus:outline-primary">
                 <span className="absolute -inset-0.5" />
@@ -181,7 +181,7 @@ export default function AdminLayout({ children, title }: AdminLayoutProps) {
           </div>
         </div>
 
-        <DisclosurePanel className="sm:hidden">
+        <DisclosurePanel className="lg:hidden">
           <div className="space-y-1 pt-2 pb-3">
             {navigation.map((item) => {
               const isCurrent = location.pathname === item.path;

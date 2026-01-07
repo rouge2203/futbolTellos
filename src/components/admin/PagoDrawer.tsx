@@ -89,9 +89,6 @@ export default function PagoDrawer({
   const [pagoCheckeado, setPagoCheckeado] = useState(false);
   const [updatingCheckeado, setUpdatingCheckeado] = useState(false);
 
-  // User lookup cache
-  const [userCache, setUserCache] = useState<Record<string, string>>({});
-
   // Fetch pagos when drawer opens
   useEffect(() => {
     if (open && reserva) {
@@ -122,25 +119,6 @@ export default function PagoDrawer({
       if (error) throw error;
 
       setPagos(data || []);
-
-      // Fetch user info for creado_por
-      const userIds = [...new Set((data || []).map((p) => p.creado_por))];
-      const newUserCache: Record<string, string> = { ...userCache };
-
-      for (const userId of userIds) {
-        if (!userCache[userId]) {
-          try {
-            // Try to get user from auth.users via admin API
-            // Since we can't directly query auth.users, we'll use the email from user context if available
-            // Or display UUID
-            newUserCache[userId] = userId;
-          } catch (err) {
-            newUserCache[userId] = userId;
-          }
-        }
-      }
-
-      setUserCache(newUserCache);
     } catch (error) {
       console.error("Error fetching pagos:", error);
     } finally {
@@ -148,15 +126,9 @@ export default function PagoDrawer({
     }
   };
 
-  const getUserDisplay = (userId: string): string => {
-    if (userCache[userId]) {
-      // If it's the current user, show email
-      if (user && user.id === userId) {
-        return user.email || userId;
-      }
-      return userCache[userId];
-    }
-    return userId;
+  const getUserDisplay = (creadoPor: string): string => {
+    // Return the stored username directly
+    return creadoPor;
   };
 
   const calculateTotalPaid = (): number => {
@@ -243,13 +215,16 @@ export default function PagoDrawer({
       const newTotal = existingTotal + sinpe + efectivo;
       const completo = newTotal >= reserva.precio;
 
+      // Get username from email (part before @)
+      const username = user.email ? user.email.split("@")[0] : user.id;
+
       const { error } = await supabase.from("pagos").insert({
         reserva_id: reserva.id,
         monto_sinpe: sinpe,
         monto_efectivo: efectivo,
         nota: nota.trim() || null,
         completo: completo,
-        creado_por: user.id,
+        creado_por: username,
         sinpe_pago: sinpeImageUrl,
       });
 
