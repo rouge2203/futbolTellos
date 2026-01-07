@@ -430,11 +430,57 @@ function CrearReto() {
         // reserva_id is omitted when null - will use column default
       };
 
-      const { error: insertError } = await supabase
+      const { data: retoData, error: insertError } = await supabase
         .from("retos")
-        .insert(insertData);
+        .insert(insertData)
+        .select()
+        .single();
 
       if (insertError) throw insertError;
+
+      // Notify backend about new reto
+      try {
+        const djangoApiUrl = import.meta.env.VITE_DJANGO_API_URL || "";
+        if (djangoApiUrl) {
+          const notifyPayload = {
+            reto_id: retoData.id,
+            hora_inicio: formatLocalTimestamp(horaInicio),
+            hora_fin: formatLocalTimestamp(horaFin),
+            local: localStr,
+            fut: selectedFut,
+            arbitro: selectedCancha?.local === 2 ? arbitro : false,
+            cancha_id: selectedCancha.id,
+            cancha_nombre: selectedCancha.nombre,
+            equipo1_nombre: equipo1Nombre.trim() || null,
+            equipo1_encargado: equipo1Encargado.trim(),
+            equipo1_celular: equipo1Celular.trim(),
+            equipo1_correo: equipo1Correo.trim() || null,
+            precio_por_equipo: getPricePerTeam(),
+            created_at: retoData.created_at,
+          };
+
+          const response = await fetch(
+            `${djangoApiUrl}/tellos/notify-new-reto`,
+            {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+              },
+              body: JSON.stringify(notifyPayload),
+            }
+          );
+
+          if (!response.ok) {
+            console.error(
+              "Error notifying admin of new reto:",
+              response.statusText
+            );
+          }
+        }
+      } catch (notifyError) {
+        // Don't fail the reto creation if notification fails
+        console.error("Error calling reto notification endpoint:", notifyError);
+      }
 
       // Show success dialog
       setSuccessDialogOpen(true);
@@ -483,6 +529,19 @@ function CrearReto() {
 
   return (
     <div className="min-h-screen border-white bg-bg pb-32 px-0 py-0 sm:px-6 lg:px-8">
+      {/* Loading Overlay */}
+      {submitting && (
+        <div className="fixed inset-0 z-100 bg-black/80 backdrop-blur-sm flex flex-col items-center justify-center">
+          <img
+            src="/tellos-square.svg"
+            alt="Futbol Tello"
+            className="w-16 h-16 animate-spin"
+          />
+          <p className="mt-4 text-white text-lg font-semibold">Futbol Tello</p>
+          <p className="mt-2 text-white/70 text-sm">Creando reto...</p>
+        </div>
+      )}
+
       {/* Header with back button */}
       <div className="top-0 z-10 bg-bg/95 backdrop-blur-sm px-2 pb-2 flex items-center gap-3 border-gray-800">
         <button
