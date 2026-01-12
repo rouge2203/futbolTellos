@@ -903,25 +903,6 @@ function CrearReto() {
             <div className="space-y-4">
               <div>
                 <label
-                  htmlFor="equipo1-nombre"
-                  className="block text-sm/6 font-medium text-white/80"
-                >
-                  Nombre de mi equipo
-                </label>
-                <div className="mt-2">
-                  <input
-                    id="equipo1-nombre"
-                    name="equipo1-nombre"
-                    type="text"
-                    placeholder="Nombre del equipo"
-                    value={equipo1Nombre}
-                    onChange={(e) => setEquipo1Nombre(e.target.value)}
-                    className="block w-full rounded-md bg-white/5 px-3 py-1.5 text-base text-white outline-1 -outline-offset-1 outline-white/10 placeholder:text-gray-500 focus:outline-2 focus:-outline-offset-2 focus:outline-primary sm:text-sm/6"
-                  />
-                </div>
-              </div>
-              <div>
-                <label
                   htmlFor="equipo1-encargado"
                   className="block text-sm/6 font-medium text-white"
                 >
@@ -975,6 +956,25 @@ function CrearReto() {
                     placeholder="correo@ejemplo.com"
                     value={equipo1Correo}
                     onChange={(e) => setEquipo1Correo(e.target.value)}
+                    className="block w-full rounded-md bg-white/5 px-3 py-1.5 text-base text-white outline-1 -outline-offset-1 outline-white/10 placeholder:text-gray-500 focus:outline-2 focus:-outline-offset-2 focus:outline-primary sm:text-sm/6"
+                  />
+                </div>
+              </div>
+              <div>
+                <label
+                  htmlFor="equipo1-nombre"
+                  className="block text-sm/6 font-medium text-white/80 "
+                >
+                  Nombre de mi <span className="text-yellow-500 underline underline-offset-2">equipo</span>
+                </label>
+                <div className="mt-2">
+                  <input
+                    id="equipo1-nombre"
+                    name="equipo1-nombre"
+                    type="text"
+                    placeholder="Nombre del equipo"
+                    value={equipo1Nombre}
+                    onChange={(e) => setEquipo1Nombre(e.target.value)}
                     className="block w-full rounded-md bg-white/5 px-3 py-1.5 text-base text-white outline-1 -outline-offset-1 outline-white/10 placeholder:text-gray-500 focus:outline-2 focus:-outline-offset-2 focus:outline-primary sm:text-sm/6"
                   />
                 </div>

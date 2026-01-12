@@ -15,6 +15,7 @@ import {
   CheckIcon,
 } from "@heroicons/react/20/solid";
 import { FaWhatsapp } from "react-icons/fa";
+import { GiWhistle } from "react-icons/gi";
 import { Menu, MenuButton, MenuItem, MenuItems } from "@headlessui/react";
 
 interface Cancha {
@@ -636,8 +637,8 @@ export default function Dashboard() {
       .filter((r) => r.cancha_id === cancha.id)
       .map((r) => parseHourFromTimestamp(r.hora_inicio));
 
-    // Filter out reserved hours
-    return allHours.filter((hour) => !reservedHours.includes(hour));
+    // Filter out reserved hours and only include hours from 3 PM (15:00) onwards
+    return allHours.filter((hour) => !reservedHours.includes(hour) && hour >= 15);
   };
 
   const generateWhatsAppMessage = (): string => {
@@ -982,6 +983,20 @@ export default function Dashboard() {
                               {getLocalName(reserva.cancha.local)}
                             </dd>
                           </div>
+                          {reserva.arbitro && (
+                            <div className="mt-2 flex items-start gap-x-3 xl:mt-0 xl:ml-3.5 xl:border-l xl:border-gray-400/50 xl:pl-3.5">
+                              <dt className="mt-0.5">
+                                <span className="sr-only">Árbitro</span>
+                                <GiWhistle
+                                  aria-hidden="true"
+                                  className="size-5 text-primary"
+                                />
+                              </dt>
+                              <dd className="text-primary font-medium">
+                                Incluye árbitro
+                              </dd>
+                            </div>
+                          )}
                         </dl>
                         {/* SINPE Status */}
                         {isSabana && (

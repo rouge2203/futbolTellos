@@ -11,6 +11,7 @@ import {
   ChevronRightIcon,
   EllipsisHorizontalIcon,
 } from "@heroicons/react/20/solid";
+import { GiWhistle } from "react-icons/gi";
 import { Menu, MenuButton, MenuItem, MenuItems } from "@headlessui/react";
 
 interface Cancha {
@@ -896,6 +897,22 @@ export default function Reservas2() {
                                 })}
                               </time>
                             </p>
+
+                            {/* Arbitro indicator */}
+                            {reserva.arbitro && (
+                              <div className="flex items-center gap-1 mb-1">
+                                <GiWhistle className="text-primary text-sm" />
+                                <p
+                                  className={`text-xs ${
+                                    isConfirmed
+                                      ? "text-primary/70"
+                                      : "text-primary/60"
+                                  } group-hover:text-primary`}
+                                >
+                                  Incluye árbitro
+                                </p>
+                              </div>
+                            )}
 
                             {/* SINPE Status Badges - Absolute positioned in bottom right */}
                             {isSabana && (

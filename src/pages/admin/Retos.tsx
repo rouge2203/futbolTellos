@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import AdminLayout from "../../components/admin/AdminLayout";
 import RetoDrawer from "../../components/admin/RetoDrawer";
 import SuccessNotification from "../../components/admin/SuccessNotification";
@@ -95,6 +96,7 @@ const getLocalName = (local: string): string => {
 
 export default function Retos() {
   const { user } = useAuth();
+  const navigate = useNavigate();
   const [openRetos, setOpenRetos] = useState<Reto[]>([]);
   const [closedRetos, setClosedRetos] = useState<Reto[]>([]);
   const [loading, setLoading] = useState(true);
@@ -223,28 +225,36 @@ export default function Retos() {
             <h3 className="text-lg font-semibold text-gray-900">
               Lista de Retos
             </h3>
-            <nav className="-mb-px flex space-x-8" aria-label="Tabs">
+            <div className="flex items-center gap-4">
+              <nav className="-mb-px flex space-x-8" aria-label="Tabs">
+                <button
+                  onClick={() => setActiveTab("open")}
+                  className={`${
+                    activeTab === "open"
+                      ? "border-primary text-primary"
+                      : "border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700"
+                  } whitespace-nowrap border-b-2 py-4 px-1 text-sm font-medium`}
+                >
+                  Retos Abiertos ({openRetos.length})
+                </button>
+                <button
+                  onClick={() => setActiveTab("closed")}
+                  className={`${
+                    activeTab === "closed"
+                      ? "border-primary text-primary"
+                      : "border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700"
+                  } whitespace-nowrap border-b-2 py-4 px-1 text-sm font-medium`}
+                >
+                  Retos Cerrados ({closedRetos.length})
+                </button>
+              </nav>
               <button
-                onClick={() => setActiveTab("open")}
-                className={`${
-                  activeTab === "open"
-                    ? "border-primary text-primary"
-                    : "border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700"
-                } whitespace-nowrap border-b-2 py-4 px-1 text-sm font-medium`}
+                onClick={() => navigate("/retos")}
+                className="rounded-md bg-primary px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-primary/90 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
               >
-                Retos Abiertos ({openRetos.length})
+                Crear Reto
               </button>
-              <button
-                onClick={() => setActiveTab("closed")}
-                className={`${
-                  activeTab === "closed"
-                    ? "border-primary text-primary"
-                    : "border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700"
-                } whitespace-nowrap border-b-2 py-4 px-1 text-sm font-medium`}
-              >
-                Retos Cerrados ({closedRetos.length})
-              </button>
-            </nav>
+            </div>
           </div>
 
           {/* Table */}
