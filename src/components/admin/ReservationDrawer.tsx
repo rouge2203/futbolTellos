@@ -97,7 +97,6 @@ export default function ReservationDrawer({
   mode,
   onUpdate,
   onDelete,
-  onConfirmSinpe,
   onRefresh,
   user,
 }: ReservationDrawerProps) {
