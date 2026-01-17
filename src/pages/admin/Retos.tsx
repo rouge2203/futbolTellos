@@ -65,9 +65,20 @@ const parsePrecio = (precioStr: string | undefined): number => {
 const calculatePricePerTeam = (
   canchaPrecio: number,
   arbitro: boolean,
-  local: string
+  local: string,
+  fut: number
 ): number => {
-  const basePrice = canchaPrecio / 2;
+  // For FUT 7/8/9, use fixed prices per team
+  let basePrice: number;
+  if (fut === 7) {
+    basePrice = 20000;
+  } else if (fut === 8) {
+    basePrice = 22500;
+  } else if (fut === 9) {
+    basePrice = 25000;
+  } else {
+    basePrice = canchaPrecio / 2;
+  }
   // Arbitro cost only for Guadalupe (local == "Guadalupe")
   const arbitroCost = local === "Guadalupe" && arbitro ? 2500 : 0;
   return basePrice + arbitroCost;
@@ -329,16 +340,12 @@ export default function Retos() {
                     const canchaPrecio = reto.cancha
                       ? parsePrecio(reto.cancha.precio)
                       : 0;
-                    const pricePerTeam =
-                      canchaPrecio > 0
-                        ? calculatePricePerTeam(
-                            canchaPrecio,
-                            reto.arbitro,
-                            reto.local
-                          )
-                        : reto.local === "Guadalupe" && reto.arbitro
-                        ? 2500
-                        : 0;
+                    const pricePerTeam = calculatePricePerTeam(
+                      canchaPrecio,
+                      reto.arbitro,
+                      reto.local,
+                      reto.fut
+                    );
 
                     const expired = activeTab === "open" && isRetoExpired(reto);
 

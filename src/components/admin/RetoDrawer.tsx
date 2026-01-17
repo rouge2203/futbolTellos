@@ -193,12 +193,12 @@ export default function RetoDrawer({
 
     // Special handling for cancha.id === 6
     if (currentCancha.id === 6) {
-      if (editFut === 6) {
+      if (editFut === 7) {
         basePrice = 40000;
-      } else if (editFut === 7) {
-        basePrice = 45000;
       } else if (editFut === 8) {
-        basePrice = 50000;
+        basePrice = 45000;
+      } else if (editFut === 9) {
+        basePrice = 55000;
       } else {
         basePrice = 40000; // default
       }
@@ -1098,9 +1098,9 @@ export default function RetoDrawer({
                                 >
                                   {currentCancha.id === 6 ? (
                                     <>
-                                      <option value="6">6</option>
                                       <option value="7">7</option>
                                       <option value="8">8</option>
+                                      <option value="9">9</option>
                                     </>
                                   ) : (
                                     <option value={currentCancha.cantidad}>
@@ -1176,6 +1176,7 @@ export default function RetoDrawer({
                                       if (editFut === 6) basePrice = 40000;
                                       else if (editFut === 7) basePrice = 45000;
                                       else if (editFut === 8) basePrice = 50000;
+                                      else if (editFut === 9) basePrice = 55000;
                                       else basePrice = 40000;
                                     } else {
                                       const precioStr =
