@@ -111,8 +111,8 @@ function CrearReto() {
   // Canchas that share availability with cancha 6
   const LINKED_CANCHAS = [1, 3, 5];
 
-  // Generate dates for today + 10 days
-  const dates = Array.from({ length: 11 }, (_, i) => {
+  // Generate dates for today + 30 days
+  const dates = Array.from({ length: 31 }, (_, i) => {
     const date = new Date();
     date.setDate(date.getDate() + i);
     return date;
@@ -795,6 +795,9 @@ function CrearReto() {
                     </span>
                     <span className="text-xs tracking-tight uppercase mt-1.5">
                       {isToday ? "Hoy" : DAYS_SPANISH[date.getDay()]}
+                    </span>
+                    <span className="text-[8px] tracking-tight uppercase mt-0.5 opacity-80">
+                      {date.toLocaleDateString("es-CR", { month: "short" })}
                     </span>
                   </button>
                 );
