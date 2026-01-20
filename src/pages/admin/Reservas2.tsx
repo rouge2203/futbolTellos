@@ -36,6 +36,7 @@ interface Reserva {
   precio: number;
   arbitro: boolean;
   cancha: Cancha;
+  reservacion_fija_id: number | null;
 }
 
 const MONTHS_SPANISH = [

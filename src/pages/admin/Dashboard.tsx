@@ -9,14 +9,16 @@ import {
   CalendarIcon,
   ChevronLeftIcon,
   ChevronRightIcon,
+  ChevronDownIcon,
   EllipsisHorizontalIcon,
   MapPinIcon,
   ClipboardDocumentIcon,
   CheckIcon,
+  TrashIcon,
 } from "@heroicons/react/20/solid";
 import { FaWhatsapp } from "react-icons/fa";
 import { GiWhistle } from "react-icons/gi";
-import { Menu, MenuButton, MenuItem, MenuItems } from "@headlessui/react";
+import { Menu, MenuButton, MenuItem, MenuItems, Dialog, DialogPanel, DialogTitle, DialogBackdrop } from "@headlessui/react";
 
 interface Cancha {
   id: number;
@@ -47,6 +49,13 @@ interface Reserva {
   precio: number;
   arbitro: boolean;
   cancha: Cancha;
+  reservacion_fija_id: number | null;
+}
+
+interface ListaEspera {
+  id: number;
+  date: string;
+  note: string;
 }
 
 const MONTHS_SPANISH = [
@@ -91,6 +100,15 @@ export default function Dashboard() {
   const [allReservasForDate, setAllReservasForDate] = useState<{ cancha_id: number; hora_inicio: string }[]>([]);
   const [messageCopied, setMessageCopied] = useState(false);
 
+  // Lista Espera state
+  const [listaEspera, setListaEspera] = useState<ListaEspera[]>([]);
+  const [loadingListaEspera, setLoadingListaEspera] = useState(false);
+  const [newListaDate, setNewListaDate] = useState("");
+  const [newListaNote, setNewListaNote] = useState("");
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [listaToDelete, setListaToDelete] = useState<number | null>(null);
+  const [showListaEspera, setShowListaEspera] = useState(false);
+
   // Fetch canchas and configuracion
   useEffect(() => {
     const fetchInitialData = async () => {
@@ -120,6 +138,35 @@ export default function Dashboard() {
     };
 
     fetchInitialData();
+  }, []);
+
+  // Fetch lista espera
+  const fetchListaEspera = async () => {
+    setLoadingListaEspera(true);
+    try {
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      const todayStr = today.toISOString();
+
+      const { data, error } = await supabase
+        .from("lista_espera")
+        .select("*")
+        .gte("date", todayStr)
+        .order("date", { ascending: true });
+
+      if (error) throw error;
+
+      setListaEspera(data || []);
+    } catch (error) {
+      console.error("Error fetching lista espera:", error);
+    } finally {
+      setLoadingListaEspera(false);
+    }
+  };
+
+  // Fetch lista espera on component mount
+  useEffect(() => {
+    fetchListaEspera();
   }, []);
 
   // Fetch reservations function (can be called to refresh)
@@ -716,6 +763,76 @@ export default function Dashboard() {
     window.open(`https://wa.me/?text=${encodedMessage}`, "_blank");
   };
 
+  // Lista Espera functions
+  const handleCreateListaEspera = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newListaDate || !newListaNote.trim()) return;
+
+    try {
+      const { error } = await supabase.from("lista_espera").insert({
+        date: newListaDate,
+        note: newListaNote.trim(),
+      });
+
+      if (error) throw error;
+
+      // Clear form and refresh list
+      setNewListaDate("");
+      setNewListaNote("");
+      await fetchListaEspera();
+    } catch (error) {
+      console.error("Error creating lista espera:", error);
+      alert("Error al crear la nota. Por favor intente de nuevo.");
+    }
+  };
+
+  const handleDeleteListaEspera = async () => {
+    if (!listaToDelete) return;
+
+    try {
+      const { error } = await supabase
+        .from("lista_espera")
+        .delete()
+        .eq("id", listaToDelete);
+
+      if (error) throw error;
+
+      // Refresh list and close dialog
+      await fetchListaEspera();
+      setDeleteDialogOpen(false);
+      setListaToDelete(null);
+    } catch (error) {
+      console.error("Error deleting lista espera:", error);
+      alert("Error al eliminar la nota. Por favor intente de nuevo.");
+    }
+  };
+
+  const openDeleteDialog = (id: number) => {
+    setListaToDelete(id);
+    setDeleteDialogOpen(true);
+  };
+
+  const formatRelativeTime = (dateStr: string): string => {
+    const date = new Date(dateStr);
+    const now = new Date();
+    // Reset time to midnight for accurate day comparison
+    now.setHours(0, 0, 0, 0);
+    const dateOnly = new Date(date);
+    dateOnly.setHours(0, 0, 0, 0);
+    
+    const diffTime = dateOnly.getTime() - now.getTime();
+    const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+
+    if (diffDays === 0) return "Hoy";
+    if (diffDays === 1) return "Mañana";
+    if (diffDays > 1 && diffDays <= 7) return `En ${diffDays} días`;
+    
+    // Format as date
+    const day = date.getDate();
+    const month = MONTHS_SPANISH[date.getMonth()];
+    return `${day} de ${month}`;
+  };
+
   const days = getDaysInMonth(currentMonth);
   const monthName = MONTHS_SPANISH[currentMonth.getMonth()];
   const year = currentMonth.getFullYear();
@@ -785,6 +902,154 @@ export default function Dashboard() {
             </div>
           </div>
         )}
+
+        {/* Lista Espera Section */}
+        <div className="mb-6 bg-gray-50 rounded-lg border border-gray-200 overflow-hidden">
+          <button
+            onClick={() => setShowListaEspera(!showListaEspera)}
+            className="w-full flex items-center justify-between px-4 py-3 sm:p-4 text-left hover:bg-gray-100 active:bg-gray-100 transition-colors touch-manipulation"
+            type="button"
+          >
+            <h3 className="text-base font-semibold text-gray-900">
+              Lista Espera
+              {listaEspera.length > 0 && (
+                <span className="ml-2 inline-flex items-center justify-center px-2 py-0.5 text-xs font-medium text-primary bg-primary/10 rounded-full">
+                  {listaEspera.length}
+                </span>
+              )}
+            </h3>
+            <ChevronDownIcon
+              className={`size-5 shrink-0 text-gray-500 transition-transform ${
+                showListaEspera ? "rotate-180" : ""
+              }`}
+            />
+          </button>
+
+          {showListaEspera && (
+            <div className="px-4 pb-4 sm:px-6">
+              {loadingListaEspera ? (
+                <div className="flex items-center justify-center py-8">
+                  <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-primary"></div>
+                </div>
+              ) : (
+                <>
+                  {/* Timeline List */}
+                  {listaEspera.length > 0 && (
+                    <ul role="list" className="space-y-6 mb-6">
+                      {listaEspera.map((item, index) => (
+                        <li key={item.id} className="relative flex flex-col sm:flex-row gap-x-4">
+                          {/* Vertical line connector */}
+                          {index < listaEspera.length - 1 && (
+                            <div className="absolute top-0 -bottom-6 left-0 flex w-6 justify-center sm:flex">
+                              <div className="w-px bg-gray-200"></div>
+                            </div>
+                          )}
+
+                          <div className="flex gap-x-4 flex-1">
+                            {/* Dot indicator */}
+                            <div className="relative flex size-6 flex-none items-center justify-center bg-white">
+                              <div className="size-1.5 rounded-full bg-gray-100 ring ring-gray-300"></div>
+                            </div>
+
+                            {/* Content */}
+                            <div className="flex-auto min-w-0">
+                              <p className="py-0.5 text-sm text-gray-900 break-words">{item.note}</p>
+                              
+                              {/* Date and delete button - mobile */}
+                              <div className="flex items-center justify-between gap-2 mt-2 sm:hidden">
+                                <time
+                                  dateTime={item.date}
+                                  className="text-xs text-gray-500"
+                                >
+                                  {formatRelativeTime(item.date)}
+                                </time>
+                                <button
+                                  onClick={() => openDeleteDialog(item.id)}
+                                  className="text-red-800 hover:text-red-700 p-1"
+                                  title="Eliminar"
+                                >
+                                  <TrashIcon className="size-4" />
+                                </button>
+                              </div>
+                            </div>
+                          </div>
+
+                          {/* Date and delete button - desktop */}
+                          <div className="hidden sm:flex items-start gap-2 flex-none">
+                            <time
+                              dateTime={item.date}
+                              className="py-0.5 text-xs text-gray-500 whitespace-nowrap"
+                            >
+                              {formatRelativeTime(item.date)}
+                            </time>
+                            <button
+                              onClick={() => openDeleteDialog(item.id)}
+                              className="text-red-800 hover:text-red-700 p-1"
+                              title="Eliminar"
+                            >
+                              <TrashIcon className="size-4" />
+                            </button>
+                          </div>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+
+                  {/* New comment form */}
+                  <div className="mt-6 pt-6 border-t border-gray-200">
+                    <form onSubmit={handleCreateListaEspera} className="space-y-4">
+                      <div>
+                        <label
+                          htmlFor="lista-date"
+                          className="block text-sm font-medium text-gray-700 mb-2"
+                        >
+                          Fecha
+                        </label>
+                        <input
+                          type="date"
+                          id="lista-date"
+                          value={newListaDate}
+                          onChange={(e) => setNewListaDate(e.target.value)}
+                          min={new Date().toISOString().split('T')[0]}
+                          required
+                          className="block w-full rounded-md border border-gray-300 px-3 py-2.5 text-sm text-gray-900 placeholder:text-gray-400 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary"
+                        />
+                      </div>
+
+                      <div>
+                        <label
+                          htmlFor="lista-note"
+                          className="block text-sm font-medium text-gray-700 mb-2"
+                        >
+                          Nota
+                        </label>
+                        <textarea
+                          id="lista-note"
+                          name="lista-note"
+                          rows={3}
+                          value={newListaNote}
+                          onChange={(e) => setNewListaNote(e.target.value)}
+                          placeholder="Agregar nota..."
+                          required
+                          className="block w-full rounded-md border border-gray-300 px-3 py-2.5 text-sm text-gray-900 placeholder:text-gray-400 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary resize-none"
+                        />
+                      </div>
+
+                      <div className="flex justify-end pt-2">
+                        <button
+                          type="submit"
+                          className="w-full sm:w-auto rounded-md bg-primary px-6 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-primary/90 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary transition-colors"
+                        >
+                          Agregar a Lista
+                        </button>
+                      </div>
+                    </form>
+                  </div>
+                </>
+              )}
+            </div>
+          )}
+        </div>
 
         <div className="lg:grid lg:grid-cols-12 lg:gap-x-16">
           {/* Calendar */}
@@ -1110,6 +1375,41 @@ export default function Dashboard() {
         message="Reserva creada"
         description="La reservación se ha creado exitosamente."
       />
+
+      {/* Delete Lista Espera Confirmation Dialog */}
+      <Dialog
+        open={deleteDialogOpen}
+        onClose={() => setDeleteDialogOpen(false)}
+        className="relative z-50"
+      >
+        <DialogBackdrop className="fixed inset-0 bg-black/80" />
+        <div className="fixed inset-0 z-50 w-screen overflow-y-auto">
+          <div className="flex min-h-full items-end justify-center p-4 text-center sm:items-center sm:p-0">
+            <DialogPanel className="relative transform w-full overflow-hidden rounded-lg bg-white px-4 pt-5 pb-4 text-left shadow-xl ring-1 ring-black/5 transition-all data-closed:translate-y-4 data-closed:opacity-0 data-enter:duration-300 data-enter:ease-out data-leave:duration-200 data-leave:ease-in sm:my-8 sm:w-full sm:max-w-sm sm:p-6 data-closed:sm:translate-y-0 data-closed:sm:scale-95">
+              <DialogTitle className="text-base font-semibold text-gray-900 mb-4">
+                ¿Está seguro de eliminar esta nota?
+              </DialogTitle>
+              <p className="text-sm text-gray-600 mb-4">
+                Esta acción no se puede deshacer.
+              </p>
+              <div className="flex gap-3">
+                <button
+                  onClick={() => setDeleteDialogOpen(false)}
+                  className="flex-1 rounded-md bg-white px-4 py-2 text-sm font-medium text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 hover:bg-gray-50"
+                >
+                  Cancelar
+                </button>
+                <button
+                  onClick={handleDeleteListaEspera}
+                  className="flex-1 rounded-md bg-red-600 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-red-700"
+                >
+                  Eliminar
+                </button>
+              </div>
+            </DialogPanel>
+          </div>
+        </div>
+      </Dialog>
     </AdminLayout>
   );
 }

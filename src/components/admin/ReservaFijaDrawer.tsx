@@ -117,7 +117,6 @@ export default function ReservaFijaDrawer({
   reservaFija,
   onUpdate,
   onDelete,
-  user,
 }: ReservaFijaDrawerProps) {
   const [canchas, setCanchas] = useState<Cancha[]>([]);
   const [reservas, setReservas] = useState<Reserva[]>([]);
@@ -505,7 +504,6 @@ export default function ReservaFijaDrawer({
     return null;
   }
 
-  const isSabana = currentCancha.local === 1;
 
   return (
     <>

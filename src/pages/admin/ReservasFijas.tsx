@@ -1,19 +1,17 @@
 import { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
 import AdminLayout from "../../components/admin/AdminLayout";
 import CreateReservaFijaDrawer from "../../components/admin/CreateReservaFijaDrawer";
 import ReservaFijaDrawer from "../../components/admin/ReservaFijaDrawer";
 import { supabase } from "../../lib/supabase";
 import { useAuth } from "../../contexts/AuthContext";
 import { MdLocationOn } from "react-icons/md";
-import { TbPlayFootball, TbRun } from "react-icons/tb";
 import { GiWhistle } from "react-icons/gi";
 import { FaRegClock } from "react-icons/fa";
 
 interface Cancha {
   id: number;
   nombre: string;
-  img?: string;
+  img: string;
   precio?: string;
   local: number;
   cantidad?: string;
@@ -59,7 +57,6 @@ const getLocalName = (local: number): string => {
 
 export default function ReservasFijas() {
   const { user } = useAuth();
-  const navigate = useNavigate();
   const [reservasFijas, setReservasFijas] = useState<ReservaFija[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedDay, setSelectedDay] = useState<number>(1);
