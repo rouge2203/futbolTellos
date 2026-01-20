@@ -124,15 +124,15 @@ export default function Canchas() {
   return (
     <AdminLayout title="Canchas">
       {loading ? (
-        <div className="flex h-screen items-center justify-center">
+        <div className="flex h-screen  items-center justify-center">
           <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary"></div>
         </div>
       ) : (
-        <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
+        <div className="grid grid-cols-1 min-h-screen gap-6 sm:grid-cols-2 lg:grid-cols-3 grid-rows-3">
           {canchas.map((cancha) => (
             <div
               key={cancha.id}
-              className="bg-white rounded-lg shadow overflow-hidden"
+              className="bg-white rounded-lg max-h-96 shadow overflow-hidden"
             >
               <div className="relative h-48">
                 <img

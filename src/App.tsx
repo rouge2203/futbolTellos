@@ -25,6 +25,7 @@ import Configuracion from "./pages/admin/Configuracion";
 import AdminRetos from "./pages/admin/Retos";
 import Pagos from "./pages/admin/Pagos";
 import Cierres from "./pages/admin/Cierres";
+import ReservasFijas from "./pages/admin/ReservasFijas";
 
 function App() {
   return (
@@ -162,6 +163,14 @@ function App() {
           element={
             <ProtectedRoute>
               <Cierres />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/admin/reservas-fijas"
+          element={
+            <ProtectedRoute>
+              <ReservasFijas />
             </ProtectedRoute>
           }
         />

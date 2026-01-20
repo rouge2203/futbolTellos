@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import type { User } from "@supabase/supabase-js";
 import { supabase } from "../../lib/supabase";
+import { Link } from "react-router-dom";
 import {
   Dialog,
   DialogPanel,
@@ -38,6 +39,7 @@ interface Reserva {
   precio: number;
   arbitro: boolean;
   cancha: Cancha;
+  reservacion_fija_id: number | null;
 }
 
 interface Configuracion {
@@ -185,7 +187,8 @@ export default function ReservationDrawer({
       setShowDateSelector(false);
       setShowCanchaSelector(false);
       setShowPrecioEdit(false);
-      
+      setUpdating(false); // Reset updating state when opening drawer
+
       // Set default adelanto amount to 50% of precio
       setCustomAdelantoAmount(Math.ceil(reserva.precio / 2));
       setLocalConfirmed(reserva.confirmada || false);
@@ -595,6 +598,55 @@ export default function ReservationDrawer({
                         </p>
                       </div>
                     </div>
+
+                    {/* Reservacion Fija Notice */}
+                    {reserva.reservacion_fija_id && (
+                      <div className="bg-blue-50 border-b border-blue-200 px-4 sm:px-6 py-4">
+                        <div className="flex items-start gap-3">
+                          <div className="shrink-0">
+                            <svg
+                              className="h-5 w-5 text-blue-800"
+                              viewBox="0 0 20 20"
+                              fill="currentColor"
+                            >
+                              <path
+                                fillRule="evenodd"
+                                d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a.75.75 0 000 1.5h.253a.25.25 0 01.244.304l-.459 2.066A1.75 1.75 0 0010.747 15H11a.75.75 0 000-1.5h-.253a.25.25 0 01-.244-.304l.459-2.066A1.75 1.75 0 009.253 9H9z"
+                                clipRule="evenodd"
+                              />
+                            </svg>
+                          </div>
+                          <div className="flex-1">
+                            <p className="text-sm font-medium text-blue-900">
+                              Reservación Fija
+                            </p>
+                            <p className="mt-1 text-sm text-blue-800">
+                              Esta reservación pertenece a una Reservación Fija y se actualiza/elimina automáticamente.
+                            </p>
+                            <div className="mt-3">
+                              <Link
+                                to="/admin/reservas-fijas"
+                                className="inline-flex items-center gap-2 rounded-md bg-blue-800 px-3 py-1.5 text-xs font-semibold text-white shadow-sm hover:bg-blue-500 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600"
+                              >
+                                Ir a Reservaciones Fijas
+                                <svg
+                                  className="h-4 w-4"
+                                  viewBox="0 0 20 20"
+                                  fill="currentColor"
+                                >
+                                  <path
+                                    fillRule="evenodd"
+                                    d="M5 10a.75.75 0 01.75-.75h6.638L10.23 7.29a.75.75 0 111.04-1.08l3.5 3.25a.75.75 0 010 1.08l-3.5 3.25a.75.75 0 11-1.04-1.08l2.158-1.96H5.75A.75.75 0 015 10z"
+                                    clipRule="evenodd"
+                                  />
+                                </svg>
+                              </Link>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+
                     <div className="flex flex-1 flex-col justify-between">
                       <div className="divide-y divide-gray-200 px-4 sm:px-6">
                         <div className="space-y-6 pt-6 pb-5">
