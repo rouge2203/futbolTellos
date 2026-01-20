@@ -283,7 +283,7 @@ function Retos() {
                     <div className="flex-1">
                       <h3 className="text-white font-semibold text-lg mb-1">
                         {reto.equipo1_nombre
-                          ? `${reto.equipo1_nombre}`
+                          ? `${reto.equipo1_nombre} busca rival`
                           : "Equipo busca rival"}
                       </h3>
                       <p className="text-white/60 text-sm">

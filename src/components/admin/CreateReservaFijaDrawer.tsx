@@ -71,6 +71,7 @@ export default function CreateReservaFijaDrawer({
   const [arbitro, setArbitro] = useState(false);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
+  const [reservedHoursByReservasFijas, setReservedHoursByReservasFijas] = useState<number[]>([]);
 
   // Step 2 states
   const [nombre, setNombre] = useState("");
@@ -153,6 +154,47 @@ export default function CreateReservaFijaDrawer({
     setCustomPrice(null);
     setShowPriceEdit(false);
   }, [selectedCancha?.id, selectedPlayers, arbitro]);
+
+  // Fetch existing reservas_fijas for the selected day and cancha
+  useEffect(() => {
+    const fetchReservasFijas = async () => {
+      if (!selectedCancha) return;
+
+      try {
+        let canchaIds: number[];
+        if (selectedCancha.id === 6) {
+          canchaIds = [6, ...LINKED_CANCHAS];
+        } else if (LINKED_CANCHAS.includes(selectedCancha.id)) {
+          canchaIds = [selectedCancha.id, 6];
+        } else {
+          canchaIds = [selectedCancha.id];
+        }
+
+        const { data: reservasFijasData, error } = await supabase
+          .from("reservas_fijas")
+          .select("hora_inicio")
+          .eq("dia", selectedDay)
+          .in("cancha_id", canchaIds);
+
+        if (error) throw error;
+
+        const occupiedHours = (reservasFijasData || []).map((rf) => {
+          const timeMatch = rf.hora_inicio.match(/(\d{2}):(\d{2}):(\d{2})/);
+          if (timeMatch) {
+            return parseInt(timeMatch[1], 10);
+          }
+          return 0;
+        });
+
+        setReservedHoursByReservasFijas(occupiedHours);
+      } catch (error) {
+        console.error("Error fetching reservas fijas:", error);
+        setReservedHoursByReservasFijas([]);
+      }
+    };
+
+    fetchReservasFijas();
+  }, [selectedDay, selectedCancha]);
 
   const parseTimeToHour = (timeStr: string): number => {
     return parseInt(timeStr.split(":")[0], 10);
@@ -597,13 +639,17 @@ export default function CreateReservaFijaDrawer({
                                   <div className="grid grid-cols-4 gap-2">
                                     {availableHours.map((hour) => {
                                       const isSelected = selectedHour === hour;
+                                      const isOccupied = reservedHoursByReservasFijas.includes(hour);
                                       return (
                                         <button
                                           key={hour}
                                           type="button"
-                                          onClick={() => setSelectedHour(hour)}
+                                          onClick={() => !isOccupied && setSelectedHour(hour)}
+                                          disabled={isOccupied}
                                           className={`py-3 text-base tracking-tight rounded-lg border transition-all font-medium ${
-                                            isSelected
+                                            isOccupied
+                                              ? "bg-gray-100 border-gray-300 text-gray-400 cursor-not-allowed line-through"
+                                              : isSelected
                                               ? "bg-primary border-primary text-white"
                                               : "bg-white border-primary border-dashed text-gray-900 hover:bg-primary/10"
                                           }`}

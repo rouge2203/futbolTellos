@@ -434,11 +434,17 @@ export default function ReservaFijaDrawer({
 
     setUpdating(true);
     try {
-      // Delete all related reservas first
+      // Get today's date at midnight (start of day)
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      const todayStr = today.toISOString().split('T')[0]; // YYYY-MM-DD format
+
+      // Delete only future related reservas (from today onwards)
       const { error: deleteReservasError } = await supabase
         .from("reservas")
         .delete()
-        .eq("reservacion_fija_id", reservaFija.id);
+        .eq("reservacion_fija_id", reservaFija.id)
+        .gte("hora_inicio", `${todayStr} 00:00:00`);
 
       if (deleteReservasError) throw deleteReservasError;
 

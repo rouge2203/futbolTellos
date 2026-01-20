@@ -198,7 +198,7 @@ export default function RetoDrawer({
       } else if (editFut === 8) {
         basePrice = 45000;
       } else if (editFut === 9) {
-        basePrice = 55000;
+        basePrice = 50000;
       } else {
         basePrice = 40000; // default
       }
@@ -638,6 +638,19 @@ export default function RetoDrawer({
 
   return (
     <>
+      {/* Creating Overlay */}
+      {creating && (
+        <div className="fixed inset-0 z-[100] bg-black/80 backdrop-blur-sm flex flex-col items-center justify-center">
+          <img
+            src="/tellos-square.svg"
+            alt="Futbol Tello"
+            className="w-16 h-16 animate-spin"
+          />
+          <p className="mt-4 text-white text-lg font-semibold">Futbol Tello</p>
+          <p className="mt-2 text-white/70 text-sm">Creando reservación...</p>
+        </div>
+      )}
+
       <Dialog open={open} onClose={onClose} className="relative z-50">
         <DialogBackdrop
           transition
@@ -930,20 +943,14 @@ export default function RetoDrawer({
                               Equipo 1
                             </h3>
                             <div className="space-y-2">
-                              <div>
-                                <p className="text-sm text-gray-600">Nombre</p>
-                                <p className="text-sm text-gray-900">
-                                  {reto.equipo1_nombre || "Sin nombre"}
-                                </p>
-                              </div>
-                              <div>
+                            <div>
                                 <p className="text-sm text-gray-600">
-                                  Encargado
+                                  Nombre de Encargado
                                 </p>
                                 <p className="text-sm text-gray-900">
                                   {reto.equipo1_encargado}
                                 </p>
-                              </div>
+                              </div> 
                               <div>
                                 <p className="text-sm text-gray-600">Celular</p>
                                 <p className="text-sm text-gray-900">
@@ -960,6 +967,12 @@ export default function RetoDrawer({
                                   </p>
                                 </div>
                               )}
+                               <div>
+                                <p className="text-sm text-gray-600">Nombre del equipo</p>
+                                <p className="text-sm text-gray-900">
+                                  {reto.equipo1_nombre || "Sin nombre"}
+                                </p>
+                              </div>
                             </div>
                           </div>
 
@@ -970,32 +983,12 @@ export default function RetoDrawer({
                                 Equipo 2 (Rival)
                               </h3>
                               <div className="space-y-4">
-                                <div>
-                                  <label
-                                    htmlFor="equipo2-nombre"
-                                    className="block text-sm/6 font-medium text-gray-900"
-                                  >
-                                    Nombre de equipo (opcional)
-                                  </label>
-                                  <div className="mt-2">
-                                    <input
-                                      id="equipo2-nombre"
-                                      type="text"
-                                      value={equipo2Nombre}
-                                      onChange={(e) =>
-                                        setEquipo2Nombre(e.target.value)
-                                      }
-                                      className="block w-full rounded-md bg-white border border-gray-300 px-3 py-1.5 text-base text-gray-900 outline-1 -outline-offset-1 outline-gray-300 placeholder:text-gray-400 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-primary sm:text-sm/6"
-                                      placeholder="Nombre del equipo"
-                                    />
-                                  </div>
-                                </div>
-                                <div>
+                              <div>
                                   <label
                                     htmlFor="equipo2-encargado"
                                     className="block text-sm/6 font-medium text-gray-900"
                                   >
-                                    Encargado *
+                                    Nombre de Encargado *
                                   </label>
                                   <div className="mt-2">
                                     <input
@@ -1032,6 +1025,28 @@ export default function RetoDrawer({
                                     />
                                   </div>
                                 </div>
+                                <div>
+                                  <label
+                                    htmlFor="equipo2-nombre"
+                                    className="block text-sm/6 font-medium text-gray-900"
+                                  >
+                                    Nombre del <span className="underline underline-offset-2 text-yellow-500">equipo</span> (opcional)
+                                  </label>
+                                  <div className="mt-2">
+                                    <input
+                                      id="equipo2-nombre"
+                                      type="text"
+                                      value={equipo2Nombre}
+                                      onChange={(e) =>
+                                        setEquipo2Nombre(e.target.value)
+                                      }
+                                      className="block w-full rounded-md bg-white border border-gray-300 px-3 py-1.5 text-base text-gray-900 outline-1 -outline-offset-1 outline-gray-300 placeholder:text-gray-400 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-primary sm:text-sm/6"
+                                      placeholder="Nombre del equipo"
+                                    />
+                                  </div>
+                                </div>
+                                
+                               
                               </div>
                             </div>
                           ) : (
@@ -1040,17 +1055,9 @@ export default function RetoDrawer({
                                 Equipo 2
                               </h3>
                               <div className="space-y-2">
-                                <div>
+                              <div>
                                   <p className="text-sm text-gray-600">
-                                    Nombre
-                                  </p>
-                                  <p className="text-sm text-gray-900">
-                                    {reto.equipo2_nombre || "Sin nombre"}
-                                  </p>
-                                </div>
-                                <div>
-                                  <p className="text-sm text-gray-600">
-                                    Encargado
+                                    Nombre de Encargado
                                   </p>
                                   <p className="text-sm text-gray-900">
                                     {reto.equipo2_encargado || "N/A"}
@@ -1064,6 +1071,14 @@ export default function RetoDrawer({
                                     {reto.equipo2_celular || "N/A"}
                                   </p>
                                 </div>
+                                <div>
+                                  <p className="text-sm text-gray-600">
+                                    Nombre del equipo
+                                  </p>
+                                  <p className="text-sm text-gray-900">
+                                    {reto.equipo2_nombre || "Sin nombre"}
+                                  </p>
+                                </div> 
                               </div>
                             </div>
                           )}
@@ -1173,10 +1188,9 @@ export default function RetoDrawer({
                                     if (!currentCancha) return "0";
                                     let basePrice: number;
                                     if (currentCancha.id === 6) {
-                                      if (editFut === 6) basePrice = 40000;
-                                      else if (editFut === 7) basePrice = 45000;
-                                      else if (editFut === 8) basePrice = 50000;
-                                      else if (editFut === 9) basePrice = 55000;
+                                      if (editFut === 7) basePrice = 40000;
+                                      else if (editFut === 8) basePrice = 45000;
+                                      else if (editFut === 9) basePrice = 50000;
                                       else basePrice = 40000;
                                     } else {
                                       const precioStr =
