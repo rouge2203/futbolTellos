@@ -102,6 +102,7 @@ export default function RetoDrawer({
     null
   );
   const [canchas, setCanchas] = useState<Cancha[]>([]);
+  const [localReto, setLocalReto] = useState<Reto | null>(null);
 
   // Form state for editing
   const [editCanchaId, setEditCanchaId] = useState<number | null>(null);
@@ -112,6 +113,20 @@ export default function RetoDrawer({
   const [equipo2Nombre, setEquipo2Nombre] = useState<string>("");
   const [equipo2Encargado, setEquipo2Encargado] = useState<string>("");
   const [equipo2Celular, setEquipo2Celular] = useState<string>("");
+
+  // Edit state for equipo1 fields
+  const [editingEquipo1, setEditingEquipo1] = useState<{
+    field: string | null;
+    value: string;
+  }>({ field: null, value: "" });
+  
+  // Edit state for equipo2 fields (only when equipo2 info exists)
+  const [editingEquipo2, setEditingEquipo2] = useState<{
+    field: string | null;
+    value: string;
+  }>({ field: null, value: "" });
+  
+  const [savingField, setSavingField] = useState<string | null>(null);
 
   const [availableHours, setAvailableHours] = useState<number[]>([]);
   const [reservedHours, setReservedHours] = useState<number[]>([]);
@@ -161,6 +176,7 @@ export default function RetoDrawer({
   // Initialize form when reto changes
   useEffect(() => {
     if (reto) {
+      setLocalReto(reto);
       setEditCanchaId(reto.cancha_id);
       setEditFut(reto.fut);
       // Only set arbitro if cancha is Guadalupe (local == 2)
@@ -179,6 +195,11 @@ export default function RetoDrawer({
       setShowDateSelector(false);
       setShowCanchaSelector(false);
       setShowFutEdit(false);
+      
+      // Reset editing states
+      setEditingEquipo1({ field: null, value: "" });
+      setEditingEquipo2({ field: null, value: "" });
+      setSavingField(null);
     }
   }, [reto]);
 
@@ -619,18 +640,138 @@ export default function RetoDrawer({
     }
   };
 
+  const handleStartEditEquipo1 = (field: string, currentValue: string) => {
+    setEditingEquipo1({ field, value: currentValue || "" });
+  };
+
+  const handleStartEditEquipo2 = (field: string, currentValue: string) => {
+    setEditingEquipo2({ field, value: currentValue || "" });
+  };
+
+  const handleCancelEditEquipo1 = () => {
+    setEditingEquipo1({ field: null, value: "" });
+  };
+
+  const handleCancelEditEquipo2 = () => {
+    setEditingEquipo2({ field: null, value: "" });
+  };
+
+  const handleSaveEquipo1Field = async (
+    field: string,
+    value: string
+  ) => {
+    if (!reto || !localReto) return;
+
+    const trimmedValue = value.trim();
+    const finalValue = field === "correo" || field === "nombre" 
+      ? (trimmedValue || null) 
+      : trimmedValue;
+
+    setSavingField(`equipo1_${field}`);
+    
+    // Optimistic update
+    const updatedReto = {
+      ...localReto,
+      [`equipo1_${field}`]: finalValue,
+    } as Reto;
+    setLocalReto(updatedReto);
+    
+    setEditingEquipo1({ field: null, value: "" });
+
+    try {
+      const updateData: Record<string, string | null> = {};
+      
+      if (field === "encargado") {
+        updateData.equipo1_encargado = trimmedValue;
+      } else if (field === "celular") {
+        updateData.equipo1_celular = trimmedValue;
+      } else if (field === "correo") {
+        updateData.equipo1_correo = trimmedValue || null;
+      } else if (field === "nombre") {
+        updateData.equipo1_nombre = trimmedValue || null;
+      }
+
+      const { error } = await supabase
+        .from("retos")
+        .update(updateData)
+        .eq("id", reto.id);
+
+      if (error) throw error;
+
+      // Don't call onRefresh to avoid reloading the drawer
+    } catch (error) {
+      console.error("Error saving equipo1 field:", error);
+      // Revert optimistic update on error
+      setLocalReto(reto);
+      alert("Error al guardar el campo. Por favor intente de nuevo.");
+    } finally {
+      setSavingField(null);
+    }
+  };
+
+  const handleSaveEquipo2Field = async (
+    field: string,
+    value: string
+  ) => {
+    if (!reto || !localReto) return;
+
+    const trimmedValue = value.trim();
+    const finalValue = trimmedValue || null;
+
+    setSavingField(`equipo2_${field}`);
+    
+    // Optimistic update
+    const updatedReto = {
+      ...localReto,
+      [`equipo2_${field}`]: finalValue,
+    } as Reto;
+    setLocalReto(updatedReto);
+    
+    setEditingEquipo2({ field: null, value: "" });
+
+    try {
+      const updateData: Record<string, string | null> = {};
+      
+      if (field === "encargado") {
+        updateData.equipo2_encargado = finalValue;
+      } else if (field === "celular") {
+        updateData.equipo2_celular = finalValue;
+      } else if (field === "nombre") {
+        updateData.equipo2_nombre = finalValue;
+      }
+
+      const { error } = await supabase
+        .from("retos")
+        .update(updateData)
+        .eq("id", reto.id);
+
+      if (error) throw error;
+
+      // Don't call onRefresh to avoid reloading the drawer
+    } catch (error) {
+      console.error("Error saving equipo2 field:", error);
+      // Revert optimistic update on error
+      setLocalReto(reto);
+      alert("Error al guardar el campo. Por favor intente de nuevo.");
+    } finally {
+      setSavingField(null);
+    }
+  };
+
   if (!reto) return null;
 
+  const displayReto = localReto || reto;
+
   const currentCancha =
-    canchas.find((c) => c.id === (editCanchaId || reto.cancha_id)) ||
-    (reto.cancha
+    canchas.find((c) => c.id === (editCanchaId || displayReto.cancha_id)) ||
+    (displayReto.cancha
       ? {
-          id: reto.cancha_id,
-          nombre: reto.cancha.nombre,
+          id: displayReto.cancha_id,
+          nombre: displayReto.cancha.nombre,
           img: "",
-          local: reto.local === "Sabana" ? 1 : 2,
+          local: displayReto.local === "Sabana" ? 1 : 2,
           cantidad: "",
-          precio: reto.cancha.precio,
+          precio: displayReto.cancha.precio,
         }
       : null);
 
@@ -943,35 +1084,227 @@ export default function RetoDrawer({
                               Equipo 1
                             </h3>
                             <div className="space-y-2">
-                            <div>
-                                <p className="text-sm text-gray-600">
-                                  Nombre de Encargado
-                                </p>
-                                <p className="text-sm text-gray-900">
-                                  {reto.equipo1_encargado}
-                                </p>
+                            <div className="flex items-center gap-2">
+                                <div className="flex-1">
+                                  <p className="text-sm text-gray-600 flex items-center gap-2">
+                                    Nombre de Encargado
+                                    {savingField === "equipo1_encargado" && (
+                                      <ArrowPathIcon className="size-3 animate-spin text-primary" />
+                                    )}
+                                  </p>
+                                  {editingEquipo1.field === "encargado" ? (
+                                    <input
+                                      type="text"
+                                      value={editingEquipo1.value}
+                                      onChange={(e) =>
+                                        setEditingEquipo1({
+                                          ...editingEquipo1,
+                                          value: e.target.value,
+                                        })
+                                      }
+                                      onKeyDown={(e) => {
+                                        if (e.key === "Enter") {
+                                          handleSaveEquipo1Field(
+                                            "encargado",
+                                            editingEquipo1.value
+                                          );
+                                        } else if (e.key === "Escape") {
+                                          handleCancelEditEquipo1();
+                                        }
+                                      }}
+                                      autoFocus
+                                      className="mt-1 block w-full rounded-md bg-white border border-gray-300 px-3 py-1.5 text-sm text-gray-900 outline-1 -outline-offset-1 outline-gray-300 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-primary"
+                                    />
+                                  ) : (
+                                    <p className="text-sm text-gray-900">
+                                      {displayReto.equipo1_encargado}
+                                    </p>
+                                  )}
+                                </div>
+                                {editingEquipo1.field !== "encargado" && (
+                                  <button
+                                    type="button"
+                                    onClick={() =>
+                                      handleStartEditEquipo1(
+                                        "encargado",
+                                        displayReto.equipo1_encargado
+                                      )
+                                    }
+                                    className="relative inline-flex shrink-0 items-center justify-center rounded-md border border-gray-300 bg-white px-2 py-1 text-xs font-medium text-gray-700 hover:bg-gray-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+                                  >
+                                    <PencilSquareIcon
+                                      aria-hidden="true"
+                                      className="size-4"
+                                    />
+                                  </button>
+                                )}
                               </div> 
-                              <div>
-                                <p className="text-sm text-gray-600">Celular</p>
-                                <p className="text-sm text-gray-900">
-                                  {reto.equipo1_celular}
-                                </p>
+                              <div className="flex items-center gap-2">
+                                <div className="flex-1">
+                                  <p className="text-sm text-gray-600 flex items-center gap-2">
+                                    Celular
+                                    {savingField === "equipo1_celular" && (
+                                      <ArrowPathIcon className="size-3 animate-spin text-primary" />
+                                    )}
+                                  </p>
+                                  {editingEquipo1.field === "celular" ? (
+                                    <input
+                                      type="tel"
+                                      value={editingEquipo1.value}
+                                      onChange={(e) =>
+                                        setEditingEquipo1({
+                                          ...editingEquipo1,
+                                          value: e.target.value,
+                                        })
+                                      }
+                                      onKeyDown={(e) => {
+                                        if (e.key === "Enter") {
+                                          handleSaveEquipo1Field(
+                                            "celular",
+                                            editingEquipo1.value
+                                          );
+                                        } else if (e.key === "Escape") {
+                                          handleCancelEditEquipo1();
+                                        }
+                                      }}
+                                      autoFocus
+                                      className="mt-1 block w-full rounded-md bg-white border border-gray-300 px-3 py-1.5 text-sm text-gray-900 outline-1 -outline-offset-1 outline-gray-300 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-primary"
+                                    />
+                                  ) : (
+                                    <p className="text-sm text-gray-900">
+                                      {displayReto.equipo1_celular}
+                                    </p>
+                                  )}
+                                </div>
+                                {editingEquipo1.field !== "celular" && (
+                                  <button
+                                    type="button"
+                                    onClick={() =>
+                                      handleStartEditEquipo1(
+                                        "celular",
+                                        displayReto.equipo1_celular
+                                      )
+                                    }
+                                    className="relative inline-flex shrink-0 items-center justify-center rounded-md border border-gray-300 bg-white px-2 py-1 text-xs font-medium text-gray-700 hover:bg-gray-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+                                  >
+                                    <PencilSquareIcon
+                                      aria-hidden="true"
+                                      className="size-4"
+                                    />
+                                  </button>
+                                )}
                               </div>
-                              {reto.equipo1_correo && (
-                                <div>
-                                  <p className="text-sm text-gray-600">
-                                    Correo
-                                  </p>
-                                  <p className="text-sm text-gray-900">
-                                    {reto.equipo1_correo}
-                                  </p>
+                              {(displayReto.equipo1_correo || editingEquipo1.field === "correo") && (
+                                <div className="flex items-center gap-2">
+                                  <div className="flex-1">
+                                    <p className="text-sm text-gray-600 flex items-center gap-2">
+                                      Correo
+                                      {savingField === "equipo1_correo" && (
+                                        <ArrowPathIcon className="size-3 animate-spin text-primary" />
+                                      )}
+                                    </p>
+                                    {editingEquipo1.field === "correo" ? (
+                                      <input
+                                        type="email"
+                                        value={editingEquipo1.value}
+                                        onChange={(e) =>
+                                          setEditingEquipo1({
+                                            ...editingEquipo1,
+                                            value: e.target.value,
+                                          })
+                                        }
+                                        onKeyDown={(e) => {
+                                          if (e.key === "Enter") {
+                                            handleSaveEquipo1Field(
+                                              "correo",
+                                              editingEquipo1.value
+                                            );
+                                          } else if (e.key === "Escape") {
+                                            handleCancelEditEquipo1();
+                                          }
+                                        }}
+                                        autoFocus
+                                        className="mt-1 block w-full rounded-md bg-white border border-gray-300 px-3 py-1.5 text-sm text-gray-900 outline-1 -outline-offset-1 outline-gray-300 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-primary"
+                                      />
+                                    ) : (
+                                      <p className="text-sm text-gray-900">
+                                        {displayReto.equipo1_correo || "Sin correo"}
+                                      </p>
+                                    )}
+                                  </div>
+                                  {editingEquipo1.field !== "correo" && (
+                                    <button
+                                      type="button"
+                                      onClick={() =>
+                                        handleStartEditEquipo1(
+                                          "correo",
+                                          displayReto.equipo1_correo || ""
+                                        )
+                                      }
+                                      className="relative inline-flex shrink-0 items-center justify-center rounded-md border border-gray-300 bg-white px-2 py-1 text-xs font-medium text-gray-700 hover:bg-gray-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+                                    >
+                                      <PencilSquareIcon
+                                        aria-hidden="true"
+                                        className="size-4"
+                                      />
+                                    </button>
+                                  )}
                                 </div>
                               )}
-                               <div>
-                                <p className="text-sm text-gray-600">Nombre del equipo</p>
-                                <p className="text-sm text-gray-900">
-                                  {reto.equipo1_nombre || "Sin nombre"}
-                                </p>
+                               <div className="flex items-center gap-2">
+                                <div className="flex-1">
+                                  <p className="text-sm text-gray-600 flex items-center gap-2">
+                                    Nombre del equipo
+                                    {savingField === "equipo1_nombre" && (
+                                      <ArrowPathIcon className="size-3 animate-spin text-primary" />
+                                    )}
+                                  </p>
+                                  {editingEquipo1.field === "nombre" ? (
+                                    <input
+                                      type="text"
+                                      value={editingEquipo1.value}
+                                      onChange={(e) =>
+                                        setEditingEquipo1({
+                                          ...editingEquipo1,
+                                          value: e.target.value,
+                                        })
+                                      }
+                                      onKeyDown={(e) => {
+                                        if (e.key === "Enter") {
+                                          handleSaveEquipo1Field(
+                                            "nombre",
+                                            editingEquipo1.value
+                                          );
+                                        } else if (e.key === "Escape") {
+                                          handleCancelEditEquipo1();
+                                        }
+                                      }}
+                                      autoFocus
+                                      className="mt-1 block w-full rounded-md bg-white border border-gray-300 px-3 py-1.5 text-sm text-gray-900 outline-1 -outline-offset-1 outline-gray-300 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-primary"
+                                    />
+                                  ) : (
+                                    <p className="text-sm text-gray-900">
+                                      {displayReto.equipo1_nombre || "Sin nombre"}
+                                    </p>
+                                  )}
+                                </div>
+                                {editingEquipo1.field !== "nombre" && (
+                                  <button
+                                    type="button"
+                                    onClick={() =>
+                                      handleStartEditEquipo1(
+                                        "nombre",
+                                        displayReto.equipo1_nombre || ""
+                                      )
+                                    }
+                                    className="relative inline-flex shrink-0 items-center justify-center rounded-md border border-gray-300 bg-white px-2 py-1 text-xs font-medium text-gray-700 hover:bg-gray-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+                                  >
+                                    <PencilSquareIcon
+                                      aria-hidden="true"
+                                      className="size-4"
+                                    />
+                                  </button>
+                                )}
                               </div>
                             </div>
                           </div>
@@ -1049,39 +1382,180 @@ export default function RetoDrawer({
                                
                               </div>
                             </div>
-                          ) : (
+                          ) : displayReto.equipo2_encargado ? (
                             <div>
                               <h3 className="text-sm/6 font-medium text-gray-900 mb-3">
                                 Equipo 2
                               </h3>
                               <div className="space-y-2">
-                              <div>
-                                  <p className="text-sm text-gray-600">
-                                    Nombre de Encargado
-                                  </p>
-                                  <p className="text-sm text-gray-900">
-                                    {reto.equipo2_encargado || "N/A"}
-                                  </p>
+                              <div className="flex items-center gap-2">
+                                  <div className="flex-1">
+                                    <p className="text-sm text-gray-600 flex items-center gap-2">
+                                      Nombre de Encargado
+                                      {savingField === "equipo2_encargado" && (
+                                        <ArrowPathIcon className="size-3 animate-spin text-primary" />
+                                      )}
+                                    </p>
+                                    {editingEquipo2.field === "encargado" ? (
+                                      <input
+                                        type="text"
+                                        value={editingEquipo2.value}
+                                        onChange={(e) =>
+                                          setEditingEquipo2({
+                                            ...editingEquipo2,
+                                            value: e.target.value,
+                                          })
+                                        }
+                                        onKeyDown={(e) => {
+                                          if (e.key === "Enter") {
+                                            handleSaveEquipo2Field(
+                                              "encargado",
+                                              editingEquipo2.value
+                                            );
+                                          } else if (e.key === "Escape") {
+                                            handleCancelEditEquipo2();
+                                          }
+                                        }}
+                                        autoFocus
+                                        className="mt-1 block w-full rounded-md bg-white border border-gray-300 px-3 py-1.5 text-sm text-gray-900 outline-1 -outline-offset-1 outline-gray-300 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-primary"
+                                      />
+                                    ) : (
+                                      <p className="text-sm text-gray-900">
+                                        {displayReto.equipo2_encargado || "N/A"}
+                                      </p>
+                                    )}
+                                  </div>
+                                  {editingEquipo2.field !== "encargado" && (
+                                    <button
+                                      type="button"
+                                      onClick={() =>
+                                        handleStartEditEquipo2(
+                                          "encargado",
+                                          displayReto.equipo2_encargado || ""
+                                        )
+                                      }
+                                      className="relative inline-flex shrink-0 items-center justify-center rounded-md border border-gray-300 bg-white px-2 py-1 text-xs font-medium text-gray-700 hover:bg-gray-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+                                    >
+                                      <PencilSquareIcon
+                                        aria-hidden="true"
+                                        className="size-4"
+                                      />
+                                    </button>
+                                  )}
                                 </div>
-                                <div>
-                                  <p className="text-sm text-gray-600">
-                                    Celular
-                                  </p>
-                                  <p className="text-sm text-gray-900">
-                                    {reto.equipo2_celular || "N/A"}
-                                  </p>
+                                <div className="flex items-center gap-2">
+                                  <div className="flex-1">
+                                    <p className="text-sm text-gray-600 flex items-center gap-2">
+                                      Celular
+                                      {savingField === "equipo2_celular" && (
+                                        <ArrowPathIcon className="size-3 animate-spin text-primary" />
+                                      )}
+                                    </p>
+                                    {editingEquipo2.field === "celular" ? (
+                                      <input
+                                        type="tel"
+                                        value={editingEquipo2.value}
+                                        onChange={(e) =>
+                                          setEditingEquipo2({
+                                            ...editingEquipo2,
+                                            value: e.target.value,
+                                          })
+                                        }
+                                        onKeyDown={(e) => {
+                                          if (e.key === "Enter") {
+                                            handleSaveEquipo2Field(
+                                              "celular",
+                                              editingEquipo2.value
+                                            );
+                                          } else if (e.key === "Escape") {
+                                            handleCancelEditEquipo2();
+                                          }
+                                        }}
+                                        autoFocus
+                                        className="mt-1 block w-full rounded-md bg-white border border-gray-300 px-3 py-1.5 text-sm text-gray-900 outline-1 -outline-offset-1 outline-gray-300 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-primary"
+                                      />
+                                    ) : (
+                                      <p className="text-sm text-gray-900">
+                                        {displayReto.equipo2_celular || "N/A"}
+                                      </p>
+                                    )}
+                                  </div>
+                                  {editingEquipo2.field !== "celular" && (
+                                    <button
+                                      type="button"
+                                      onClick={() =>
+                                        handleStartEditEquipo2(
+                                          "celular",
+                                          displayReto.equipo2_celular || ""
+                                        )
+                                      }
+                                      className="relative inline-flex shrink-0 items-center justify-center rounded-md border border-gray-300 bg-white px-2 py-1 text-xs font-medium text-gray-700 hover:bg-gray-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+                                    >
+                                      <PencilSquareIcon
+                                        aria-hidden="true"
+                                        className="size-4"
+                                      />
+                                    </button>
+                                  )}
                                 </div>
-                                <div>
-                                  <p className="text-sm text-gray-600">
-                                    Nombre del equipo
-                                  </p>
-                                  <p className="text-sm text-gray-900">
-                                    {reto.equipo2_nombre || "Sin nombre"}
-                                  </p>
+                                <div className="flex items-center gap-2">
+                                  <div className="flex-1">
+                                    <p className="text-sm text-gray-600 flex items-center gap-2">
+                                      Nombre del equipo
+                                      {savingField === "equipo2_nombre" && (
+                                        <ArrowPathIcon className="size-3 animate-spin text-primary" />
+                                      )}
+                                    </p>
+                                    {editingEquipo2.field === "nombre" ? (
+                                      <input
+                                        type="text"
+                                        value={editingEquipo2.value}
+                                        onChange={(e) =>
+                                          setEditingEquipo2({
+                                            ...editingEquipo2,
+                                            value: e.target.value,
+                                          })
+                                        }
+                                        onKeyDown={(e) => {
+                                          if (e.key === "Enter") {
+                                            handleSaveEquipo2Field(
+                                              "nombre",
+                                              editingEquipo2.value
+                                            );
+                                          } else if (e.key === "Escape") {
+                                            handleCancelEditEquipo2();
+                                          }
+                                        }}
+                                        autoFocus
+                                        className="mt-1 block w-full rounded-md bg-white border border-gray-300 px-3 py-1.5 text-sm text-gray-900 outline-1 -outline-offset-1 outline-gray-300 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-primary"
+                                      />
+                                    ) : (
+                                      <p className="text-sm text-gray-900">
+                                        {displayReto.equipo2_nombre || "Sin nombre"}
+                                      </p>
+                                    )}
+                                  </div>
+                                  {editingEquipo2.field !== "nombre" && (
+                                    <button
+                                      type="button"
+                                      onClick={() =>
+                                        handleStartEditEquipo2(
+                                          "nombre",
+                                          displayReto.equipo2_nombre || ""
+                                        )
+                                      }
+                                      className="relative inline-flex shrink-0 items-center justify-center rounded-md border border-gray-300 bg-white px-2 py-1 text-xs font-medium text-gray-700 hover:bg-gray-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+                                    >
+                                      <PencilSquareIcon
+                                        aria-hidden="true"
+                                        className="size-4"
+                                      />
+                                    </button>
+                                  )}
                                 </div> 
                               </div>
                             </div>
-                          )}
+                          ) : null}
 
                           {/* FUT Selection */}
                           <div>
