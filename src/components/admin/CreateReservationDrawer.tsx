@@ -5,7 +5,11 @@ import {
   DialogTitle,
   DialogBackdrop,
 } from "@headlessui/react";
-import { XMarkIcon, ChevronLeftIcon, ChevronRightIcon } from "@heroicons/react/24/outline";
+import {
+  XMarkIcon,
+  ChevronLeftIcon,
+  ChevronRightIcon,
+} from "@heroicons/react/24/outline";
 import { supabase } from "../../lib/supabase";
 import { FaRegCalendarCheck, FaRegClock } from "react-icons/fa";
 import { TbPlayFootball, TbRun } from "react-icons/tb";
@@ -31,13 +35,24 @@ interface CreateReservationDrawerProps {
   open: boolean;
   onClose: () => void;
   defaultCanchaId?: number;
+  defaultDate?: Date;
   onSuccess: (reservaId: number) => void;
 }
 
 const DAYS_SPANISH_SHORT = ["L", "M", "M", "J", "V", "S", "D"];
 const MONTHS_SPANISH = [
-  "Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio",
-  "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"
+  "Enero",
+  "Febrero",
+  "Marzo",
+  "Abril",
+  "Mayo",
+  "Junio",
+  "Julio",
+  "Agosto",
+  "Septiembre",
+  "Octubre",
+  "Noviembre",
+  "Diciembre",
 ];
 const ARBITRO_COST = 5000;
 const LINKED_CANCHAS = [1, 3, 5];
@@ -52,16 +67,21 @@ export default function CreateReservationDrawer({
   open,
   onClose,
   defaultCanchaId = 1,
+  defaultDate,
   onSuccess,
 }: CreateReservationDrawerProps) {
   const [step, setStep] = useState<1 | 2>(1);
   const [canchas, setCanchas] = useState<Cancha[]>([]);
   const [selectedCancha, setSelectedCancha] = useState<Cancha | null>(null);
   const [configuracion, setConfiguracion] = useState<Configuracion | null>(
-    null
+    null,
   );
-  const [selectedDate, setSelectedDate] = useState<Date>(new Date());
-  const [displayedMonth, setDisplayedMonth] = useState<Date>(new Date());
+  const [selectedDate, setSelectedDate] = useState<Date>(
+    defaultDate || new Date(),
+  );
+  const [displayedMonth, setDisplayedMonth] = useState<Date>(
+    defaultDate || new Date(),
+  );
   const [selectedHour, setSelectedHour] = useState<number | null>(null);
   const [selectedPlayers, setSelectedPlayers] = useState<number | null>(null);
   const [reservedHours, setReservedHours] = useState<number[]>([]);
@@ -75,7 +95,6 @@ export default function CreateReservationDrawer({
   const [celular, setCelular] = useState("");
   const [correo, setCorreo] = useState("");
 
-  
   // Fetch canchas and configuracion
   useEffect(() => {
     const fetchData = async () => {
@@ -102,7 +121,7 @@ export default function CreateReservationDrawer({
 
         // Set default cancha
         const defaultCancha = sortedCanchas.find(
-          (c) => c.id === defaultCanchaId
+          (c) => c.id === defaultCanchaId,
         );
         if (defaultCancha) {
           setSelectedCancha(defaultCancha);
@@ -126,8 +145,8 @@ export default function CreateReservationDrawer({
   useEffect(() => {
     if (!open) {
       setStep(1);
-      setSelectedDate(new Date());
-      setDisplayedMonth(new Date());
+      setSelectedDate(defaultDate || new Date());
+      setDisplayedMonth(defaultDate || new Date());
       setSelectedHour(null);
       setSelectedPlayers(null);
       setArbitro(false);
@@ -135,7 +154,15 @@ export default function CreateReservationDrawer({
       setCelular("");
       setCorreo("");
     }
-  }, [open]);
+  }, [open, defaultDate]);
+
+  // Update selected date when defaultDate prop changes and drawer is open
+  useEffect(() => {
+    if (open && defaultDate) {
+      setSelectedDate(defaultDate);
+      setDisplayedMonth(defaultDate);
+    }
+  }, [open, defaultDate]);
 
   const formatLocalDate = (d: Date): string => {
     const year = d.getFullYear();
@@ -182,7 +209,7 @@ export default function CreateReservationDrawer({
         if (reservasError) throw reservasError;
 
         const hours = (reservasData || []).map((r) =>
-          parseHourFromTimestamp(r.hora_inicio)
+          parseHourFromTimestamp(r.hora_inicio),
         );
 
         setReservedHours(hours);
@@ -205,7 +232,7 @@ export default function CreateReservationDrawer({
   const getCurrentHourCR = (): number => {
     const now = new Date();
     const crTime = new Date(
-      now.toLocaleString("en-US", { timeZone: "America/Costa_Rica" })
+      now.toLocaleString("en-US", { timeZone: "America/Costa_Rica" }),
     );
     return crTime.getHours();
   };
@@ -213,10 +240,10 @@ export default function CreateReservationDrawer({
   const isToday = (): boolean => {
     const today = new Date();
     const crToday = new Date(
-      today.toLocaleString("en-US", { timeZone: "America/Costa_Rica" })
+      today.toLocaleString("en-US", { timeZone: "America/Costa_Rica" }),
     );
     const crSelected = new Date(
-      selectedDate.toLocaleString("en-US", { timeZone: "America/Costa_Rica" })
+      selectedDate.toLocaleString("en-US", { timeZone: "America/Costa_Rica" }),
     );
 
     return (
@@ -484,7 +511,7 @@ export default function CreateReservationDrawer({
                                     value={selectedCancha?.id || ""}
                                     onChange={(e) => {
                                       const cancha = canchas.find(
-                                        (c) => c.id === Number(e.target.value)
+                                        (c) => c.id === Number(e.target.value),
                                       );
                                       if (cancha) {
                                         setSelectedCancha(cancha);
@@ -528,33 +555,56 @@ export default function CreateReservationDrawer({
                                           <button
                                             type="button"
                                             onClick={() => {
-                                              const newMonth = new Date(displayedMonth);
-                                              newMonth.setMonth(newMonth.getMonth() - 1);
+                                              const newMonth = new Date(
+                                                displayedMonth,
+                                              );
+                                              newMonth.setMonth(
+                                                newMonth.getMonth() - 1,
+                                              );
                                               // Don't go before current month
                                               const today = new Date();
-                                              if (newMonth.getFullYear() > today.getFullYear() ||
-                                                  (newMonth.getFullYear() === today.getFullYear() && newMonth.getMonth() >= today.getMonth())) {
+                                              if (
+                                                newMonth.getFullYear() >
+                                                  today.getFullYear() ||
+                                                (newMonth.getFullYear() ===
+                                                  today.getFullYear() &&
+                                                  newMonth.getMonth() >=
+                                                    today.getMonth())
+                                              ) {
                                                 setDisplayedMonth(newMonth);
                                               }
                                             }}
                                             className="-m-1.5 flex flex-none items-center justify-center p-1.5 text-gray-400 hover:text-gray-500"
                                           >
-                                            <span className="sr-only">Mes anterior</span>
+                                            <span className="sr-only">
+                                              Mes anterior
+                                            </span>
                                             <ChevronLeftIcon className="size-5" />
                                           </button>
                                           <div className="flex-auto text-sm font-semibold">
-                                            {MONTHS_SPANISH[displayedMonth.getMonth()]} {displayedMonth.getFullYear()}
+                                            {
+                                              MONTHS_SPANISH[
+                                                displayedMonth.getMonth()
+                                              ]
+                                            }{" "}
+                                            {displayedMonth.getFullYear()}
                                           </div>
                                           <button
                                             type="button"
                                             onClick={() => {
-                                              const newMonth = new Date(displayedMonth);
-                                              newMonth.setMonth(newMonth.getMonth() + 1);
+                                              const newMonth = new Date(
+                                                displayedMonth,
+                                              );
+                                              newMonth.setMonth(
+                                                newMonth.getMonth() + 1,
+                                              );
                                               setDisplayedMonth(newMonth);
                                             }}
                                             className="-m-1.5 flex flex-none items-center justify-center p-1.5 text-gray-400 hover:text-gray-500"
                                           >
-                                            <span className="sr-only">Mes siguiente</span>
+                                            <span className="sr-only">
+                                              Mes siguiente
+                                            </span>
                                             <ChevronRightIcon className="size-5" />
                                           </button>
                                         </div>
@@ -572,107 +622,209 @@ export default function CreateReservationDrawer({
                                             const today = new Date();
                                             today.setHours(0, 0, 0, 0);
 
-                                            const year = displayedMonth.getFullYear();
-                                            const month = displayedMonth.getMonth();
+                                            const year =
+                                              displayedMonth.getFullYear();
+                                            const month =
+                                              displayedMonth.getMonth();
 
                                             // First day of the month
-                                            const firstDay = new Date(year, month, 1);
+                                            const firstDay = new Date(
+                                              year,
+                                              month,
+                                              1,
+                                            );
                                             // Last day of the month
-                                            const lastDay = new Date(year, month + 1, 0);
+                                            const lastDay = new Date(
+                                              year,
+                                              month + 1,
+                                              0,
+                                            );
 
                                             // Start from Monday (1) - adjust if first day is Sunday (0)
                                             let startDay = firstDay.getDay();
                                             // Convert Sunday=0 to 7 for Monday-first calendar
-                                            startDay = startDay === 0 ? 7 : startDay;
+                                            startDay =
+                                              startDay === 0 ? 7 : startDay;
                                             // Days to show from previous month
-                                            const daysFromPrevMonth = startDay - 1;
+                                            const daysFromPrevMonth =
+                                              startDay - 1;
 
                                             // End on Sunday - adjust if last day is not Sunday
                                             let endDay = lastDay.getDay();
                                             endDay = endDay === 0 ? 7 : endDay;
-                                            const daysFromNextMonth = 7 - endDay;
+                                            const daysFromNextMonth =
+                                              7 - endDay;
 
-                                            const calendarDays: { date: Date; isCurrentMonth: boolean }[] = [];
+                                            const calendarDays: {
+                                              date: Date;
+                                              isCurrentMonth: boolean;
+                                            }[] = [];
 
                                             // Previous month days
-                                            for (let i = daysFromPrevMonth; i > 0; i--) {
-                                              const date = new Date(year, month, 1 - i);
-                                              calendarDays.push({ date, isCurrentMonth: false });
+                                            for (
+                                              let i = daysFromPrevMonth;
+                                              i > 0;
+                                              i--
+                                            ) {
+                                              const date = new Date(
+                                                year,
+                                                month,
+                                                1 - i,
+                                              );
+                                              calendarDays.push({
+                                                date,
+                                                isCurrentMonth: false,
+                                              });
                                             }
 
                                             // Current month days
-                                            for (let i = 1; i <= lastDay.getDate(); i++) {
-                                              const date = new Date(year, month, i);
-                                              calendarDays.push({ date, isCurrentMonth: true });
+                                            for (
+                                              let i = 1;
+                                              i <= lastDay.getDate();
+                                              i++
+                                            ) {
+                                              const date = new Date(
+                                                year,
+                                                month,
+                                                i,
+                                              );
+                                              calendarDays.push({
+                                                date,
+                                                isCurrentMonth: true,
+                                              });
                                             }
 
                                             // Next month days
-                                            for (let i = 1; i <= daysFromNextMonth; i++) {
-                                              const date = new Date(year, month + 1, i);
-                                              calendarDays.push({ date, isCurrentMonth: false });
+                                            for (
+                                              let i = 1;
+                                              i <= daysFromNextMonth;
+                                              i++
+                                            ) {
+                                              const date = new Date(
+                                                year,
+                                                month + 1,
+                                                i,
+                                              );
+                                              calendarDays.push({
+                                                date,
+                                                isCurrentMonth: false,
+                                              });
                                             }
 
-                                            return calendarDays.map(({ date, isCurrentMonth }, index) => {
-                                              const dateOnly = new Date(date);
-                                              dateOnly.setHours(0, 0, 0, 0);
+                                            return calendarDays.map(
+                                              (
+                                                { date, isCurrentMonth },
+                                                index,
+                                              ) => {
+                                                const dateOnly = new Date(date);
+                                                dateOnly.setHours(0, 0, 0, 0);
 
-                                              const isToday = dateOnly.getTime() === today.getTime();
-                                              const isSelected = dateOnly.getTime() === new Date(selectedDate.setHours(0, 0, 0, 0)).getTime();
-                                              const isPast = dateOnly < today;
-                                              const isDisabled = isPast || !isCurrentMonth;
+                                                const isToday =
+                                                  dateOnly.getTime() ===
+                                                  today.getTime();
+                                                const isSelected =
+                                                  dateOnly.getTime() ===
+                                                  new Date(
+                                                    selectedDate.setHours(
+                                                      0,
+                                                      0,
+                                                      0,
+                                                      0,
+                                                    ),
+                                                  ).getTime();
+                                                const isPast = dateOnly < today;
+                                                const isDisabled =
+                                                  isPast || !isCurrentMonth;
 
-                                              // Corner rounding classes
-                                              const isFirstCell = index === 0;
-                                              const isLastCell = index === calendarDays.length - 1;
-                                              const isTopRight = index === 6;
-                                              const isBottomLeft = index === calendarDays.length - 7;
+                                                // Corner rounding classes
+                                                const isFirstCell = index === 0;
+                                                const isLastCell =
+                                                  index ===
+                                                  calendarDays.length - 1;
+                                                const isTopRight = index === 6;
+                                                const isBottomLeft =
+                                                  index ===
+                                                  calendarDays.length - 7;
 
-                                              return (
-                                                <button
-                                                  key={date.toISOString()}
-                                                  type="button"
-                                                  disabled={isDisabled}
-                                                  onClick={() => {
-                                                    if (!isDisabled) {
-                                                      setSelectedDate(date);
-                                                      setSelectedHour(null);
-                                                    }
-                                                  }}
-                                                  className={`py-1.5 focus:z-10 ${
-                                                    isCurrentMonth ? "bg-white hover:bg-gray-100" : "bg-gray-50"
-                                                  } ${
-                                                    !isSelected && !isCurrentMonth && !isToday ? "text-gray-400" : ""
-                                                  } ${
-                                                    !isSelected && isCurrentMonth && !isToday ? "text-gray-900" : ""
-                                                  } ${
-                                                    isSelected ? "font-semibold text-white" : ""
-                                                  } ${
-                                                    isToday && !isSelected ? "font-semibold text-primary" : ""
-                                                  } ${
-                                                    isFirstCell ? "rounded-tl-lg" : ""
-                                                  } ${
-                                                    isTopRight ? "rounded-tr-lg" : ""
-                                                  } ${
-                                                    isBottomLeft ? "rounded-bl-lg" : ""
-                                                  } ${
-                                                    isLastCell ? "rounded-br-lg" : ""
-                                                  } ${
-                                                    isDisabled ? "cursor-not-allowed opacity-50" : ""
-                                                  }`}
-                                                >
-                                                  <time
-                                                    dateTime={date.toISOString().split("T")[0]}
-                                                    className={`mx-auto flex size-7 items-center justify-center rounded-full ${
-                                                      isSelected && !isToday ? "bg-gray-900" : ""
+                                                return (
+                                                  <button
+                                                    key={date.toISOString()}
+                                                    type="button"
+                                                    disabled={isDisabled}
+                                                    onClick={() => {
+                                                      if (!isDisabled) {
+                                                        setSelectedDate(date);
+                                                        setSelectedHour(null);
+                                                      }
+                                                    }}
+                                                    className={`py-1.5 focus:z-10 ${
+                                                      isCurrentMonth
+                                                        ? "bg-white hover:bg-gray-100"
+                                                        : "bg-gray-50"
                                                     } ${
-                                                      isSelected && isToday ? "bg-primary" : ""
+                                                      !isSelected &&
+                                                      !isCurrentMonth &&
+                                                      !isToday
+                                                        ? "text-gray-400"
+                                                        : ""
+                                                    } ${
+                                                      !isSelected &&
+                                                      isCurrentMonth &&
+                                                      !isToday
+                                                        ? "text-gray-900"
+                                                        : ""
+                                                    } ${
+                                                      isSelected
+                                                        ? "font-semibold text-white"
+                                                        : ""
+                                                    } ${
+                                                      isToday && !isSelected
+                                                        ? "font-semibold text-primary"
+                                                        : ""
+                                                    } ${
+                                                      isFirstCell
+                                                        ? "rounded-tl-lg"
+                                                        : ""
+                                                    } ${
+                                                      isTopRight
+                                                        ? "rounded-tr-lg"
+                                                        : ""
+                                                    } ${
+                                                      isBottomLeft
+                                                        ? "rounded-bl-lg"
+                                                        : ""
+                                                    } ${
+                                                      isLastCell
+                                                        ? "rounded-br-lg"
+                                                        : ""
+                                                    } ${
+                                                      isDisabled
+                                                        ? "cursor-not-allowed opacity-50"
+                                                        : ""
                                                     }`}
                                                   >
-                                                    {date.getDate()}
-                                                  </time>
-                                                </button>
-                                              );
-                                            });
+                                                    <time
+                                                      dateTime={
+                                                        date
+                                                          .toISOString()
+                                                          .split("T")[0]
+                                                      }
+                                                      className={`mx-auto flex size-7 items-center justify-center rounded-full ${
+                                                        isSelected && !isToday
+                                                          ? "bg-gray-900"
+                                                          : ""
+                                                      } ${
+                                                        isSelected && isToday
+                                                          ? "bg-primary"
+                                                          : ""
+                                                      }`}
+                                                    >
+                                                      {date.getDate()}
+                                                    </time>
+                                                  </button>
+                                                );
+                                              },
+                                            );
                                           })()}
                                         </div>
                                       </div>
@@ -737,8 +889,8 @@ export default function CreateReservationDrawer({
                                                 isReserved
                                                   ? "bg-gray-100 border-gray-300 text-gray-400 cursor-not-allowed line-through"
                                                   : isSelected
-                                                  ? "bg-primary border-primary text-white"
-                                                  : "bg-white border-primary border-dashed text-gray-900 hover:bg-primary/10"
+                                                    ? "bg-primary border-primary text-white"
+                                                    : "bg-white border-primary border-dashed text-gray-900 hover:bg-primary/10"
                                               }`}
                                             >
                                               {formatHourAmPm(hour)}
@@ -747,7 +899,7 @@ export default function CreateReservationDrawer({
                                         })}
                                       </div>
                                       {availableHours.every((h) =>
-                                        reservedHours.includes(h)
+                                        reservedHours.includes(h),
                                       ) && (
                                         <p className="text-gray-500 text-sm text-center mt-4">
                                           No hay horarios disponibles para esta
@@ -918,7 +1070,7 @@ export default function CreateReservationDrawer({
                                           htmlFor="celular-create"
                                           className="block text-sm/6 font-medium text-gray-900"
                                         >
-                                          Celular (opcional)
+                                          Celular
                                         </label>
                                         <div className="mt-2">
                                           <input
@@ -941,7 +1093,7 @@ export default function CreateReservationDrawer({
                                           htmlFor="correo-create"
                                           className="block text-sm/6 font-medium text-gray-900"
                                         >
-                                          Correo electrónico (opcional)
+                                          Correo electrónico
                                         </label>
                                         <div className="mt-2">
                                           <input

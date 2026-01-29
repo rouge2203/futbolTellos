@@ -1,0 +1,127 @@
+ACTUALIZACIÓN - SISTEMA DE BÚSQUEDA DE RESERVACIONES
+=====================================================
+
+Fecha: Enero 2026
+Versión: 1.1.0
+
+NUEVAS FUNCIONALIDADES
+----------------------
+
+1. BÚSQUEDA POR NOMBRE DE RESERVACIÓN
+   - Se agregó un campo de búsqueda en las páginas de "Reservaciones" y "Pagos"
+   - Permite buscar reservaciones por nombre en todas las fechas del sistema
+   - La búsqueda no distingue entre mayúsculas y minúsculas
+   - Funciona con coincidencias parciales del nombre
+
+2. ORDENAMIENTO INTELIGENTE DE RESULTADOS
+   - Las reservaciones futuras aparecen primero (la más lejana primero)
+   - Las reservaciones pasadas aparecen después (la más reciente primero)
+   - Prioriza mostrar información relevante y próxima
+
+3. PAGINACIÓN DE RESULTADOS
+   - Muestra máximo 10 reservaciones por página cuando se realiza una búsqueda
+   - Navegación con botones "Anterior" y "Siguiente"
+   - Números de página para acceso directo
+   - Optimiza el rendimiento al cargar grandes cantidades de datos
+
+4. VISUALIZACIÓN MEJORADA EN MODO BÚSQUEDA
+   - En resultados de búsqueda, se muestra:
+     * Fecha de la reservación (icono de calendario)
+     * Hora de la reservación (icono de reloj)
+     * Ubicación de la cancha
+     * Estado de pago (solo en página de Pagos)
+
+5. INTEGRACIÓN CON FILTROS EXISTENTES
+   - Los filtros por ubicación (Sabana/Guadalupe) funcionan con la búsqueda
+   - Los filtros por cancha se aplican también a las búsquedas
+   - Los filtros de estado de pago funcionan en modo búsqueda (página Pagos)
+   - Los filtros de pago checkeado funcionan en modo cierres (página Pagos)
+
+6. BOTÓN CANCELAR BÚSQUEDA
+   - Permite regresar fácilmente al modo de filtrado por fecha
+   - Limpia la búsqueda y restaura la vista de calendario
+   - Icono "X" visible cuando hay una búsqueda activa
+
+7. COMPORTAMIENTO DEL CALENDARIO
+   - En modo búsqueda, el calendario no marca ningún día
+   - Hacer clic en cualquier fecha del calendario cancela la búsqueda automáticamente
+   - El calendario permanece visible para facilitar la navegación
+
+8. PRE-SELECCIÓN DE FECHA EN CREAR RESERVACIÓN
+   - Al hacer clic en "Crear reservación" desde la página de Reservaciones
+   - El calendario en el modal se pre-carga con la fecha seleccionada en el Dashboard
+   - Facilita la creación de reservaciones para fechas específicas
+   - Ahorra tiempo al no tener que navegar nuevamente al día deseado
+
+9. DETECCIÓN AUTOMÁTICA DE PAGO COMPLETO
+   - Al confirmar un comprobante SINPE en el Drawer de Reservaciones
+   - Si el monto del adelanto es igual o mayor al precio de la reservación
+   - El pago se marca automáticamente como "completo" (completo: true)
+   - La nota del pago cambia a "Pago completo SINPE confirmado"
+   - Elimina la necesidad de marcar manualmente pagos completos
+   - La reservación aparecerá con etiqueta verde "Pago registrado"
+
+10. INDICADOR DE RESERVACIONES FIJAS
+   - Las reservaciones que pertenecen a una Reservación Fija ahora muestran un badge especial
+   - Badge azul con icono de candado (🔒) y texto "Fija"
+   - Aparece junto a los demás badges (SINPE, pago checkeado, etc.)
+   - Facilita la identificación visual de reservaciones fijas
+   - Visible en páginas de Reservaciones y Pagos
+
+11. INDICADORES DE ESTADO DE PAGO EN RESERVACIONES
+   - Badges de estado de pago visibles en la página de Reservaciones (Dashboard)
+   - Tres estados claramente diferenciados:
+     * "Pago completo" - Badge verde: indica que al menos un pago tiene completo=true
+     * "Pago incompleto" - Badge amarillo: indica que hay pagos registrados pero ninguno está completo
+     * "Pago pendiente" - Badge gris: indica que no hay pagos registrados para la reservación
+   - Los badges aparecen junto a los indicadores de SINPE y Reservación Fija
+   - Facilita la identificación rápida del estado de pago sin necesidad de ir a la sección de Pagos
+   - Visible en cualquier cancha (no solo Sabana)
+
+12. SINCRONIZACIÓN AUTOMÁTICA DE BADGES SINPE CON PAGOS
+   - En Sabana: el badge "Adelanto Confirmado" ahora aparece automáticamente si:
+     * La reservación tiene pagos registrados manualmente desde Pagos
+     * La reservación ya estaba confirmada previamente
+   - Elimina el conflicto donde una reservación con pagos mostraba "Adelanto Pendiente"
+   - El sistema detecta si existen pagos registrados antes de mostrar "Adelanto Pendiente" o "Confirme Adelanto"
+
+13. VISUALIZACIÓN DE PAGOS EN DRAWER DE RESERVACIONES
+   - En el Drawer de Reservaciones (Sabana): si la reservación tiene pagos registrados:
+     * Se muestra un resumen verde con el total de pagos
+     * Indica la cantidad de pagos registrados
+     * Muestra el monto total (SINPE + Efectivo) de todos los pagos
+     * Ya no permite agregar adelantos duplicados
+   - Si no hay pagos: mantiene el flujo normal de confirmación de adelanto
+   - Dirige al usuario a la sección de Pagos para ver detalles completos
+
+PÁGINAS AFECTADAS
+------------------
+- /admin/reservaciones (Dashboard)
+- /admin/pagos
+
+MEJORAS TÉCNICAS
+----------------
+- Optimización de consultas a la base de datos
+- Implementación de paginación eficiente
+- Mejora en la experiencia de usuario con feedback visual
+- Código limpio sin errores de linter
+
+INSTRUCCIONES DE USO
+--------------------
+1. En la parte superior de la lista de reservaciones, encontrará el campo "Buscar reservación"
+2. Escriba el nombre (o parte del nombre) de la reservación que busca
+3. Los resultados aparecerán automáticamente mientras escribe
+4. Use los filtros de ubicación y cancha para refinar su búsqueda
+5. Navegue entre páginas si hay más de 10 resultados
+6. Haga clic en "Cancelar" o seleccione una fecha del calendario para salir del modo búsqueda
+
+BENEFICIOS
+----------
+✓ Búsqueda rápida de reservaciones sin importar la fecha
+✓ Mejor organización de resultados por relevancia temporal
+✓ Rendimiento optimizado con paginación
+✓ Interfaz consistente entre secciones del sistema
+✓ Facilita la gestión de reservaciones y pagos
+
+---
+Desarrollado por: Futbol Tello Dev Team

@@ -15,10 +15,29 @@ import {
   ClipboardDocumentIcon,
   CheckIcon,
   TrashIcon,
+  ArrowLongLeftIcon,
+  ArrowLongRightIcon,
+  ClockIcon,
+  XMarkIcon,
 } from "@heroicons/react/20/solid";
 import { FaWhatsapp } from "react-icons/fa";
 import { GiWhistle } from "react-icons/gi";
-import { Menu, MenuButton, MenuItem, MenuItems, Dialog, DialogPanel, DialogTitle, DialogBackdrop } from "@headlessui/react";
+import { HiOutlineDocumentCheck } from "react-icons/hi2";
+import { LuClockAlert } from "react-icons/lu";
+import { IoMdCheckmark } from "react-icons/io";
+import { IoWarningOutline } from "react-icons/io5";
+import { LiaMoneyBillWaveSolid } from "react-icons/lia";
+import { GoLock } from "react-icons/go";
+import {
+  Menu,
+  MenuButton,
+  MenuItem,
+  MenuItems,
+  Dialog,
+  DialogPanel,
+  DialogTitle,
+  DialogBackdrop,
+} from "@headlessui/react";
 
 interface Cancha {
   id: number;
@@ -36,6 +55,18 @@ interface Configuracion {
   cierre_guada: string;
 }
 
+interface Pago {
+  id: number;
+  reserva_id: number;
+  monto_sinpe: number;
+  monto_efectivo: number;
+  nota: string | null;
+  completo: boolean;
+  creado_por: string;
+  created_at?: string;
+  sinpe_pago: string | null;
+}
+
 interface Reserva {
   id: number;
   hora_inicio: string;
@@ -50,6 +81,8 @@ interface Reserva {
   arbitro: boolean;
   cancha: Cancha;
   reservacion_fija_id: number | null;
+  pagos?: Pago[];
+  pagoStatus?: "no_registrado" | "incompleto" | "completo";
 }
 
 interface ListaEspera {
@@ -86,6 +119,12 @@ export default function Dashboard() {
   const [selectedCanchas, setSelectedCanchas] = useState<number[]>([]);
   const [selectedLocations, setSelectedLocations] = useState<number[]>([]);
 
+  // Search state
+  const [searchQuery, setSearchQuery] = useState("");
+  const [searchMode, setSearchMode] = useState(false);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [totalResults, setTotalResults] = useState(0);
+
   // Drawer state
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [drawerMode, setDrawerMode] = useState<"edit" | "cancel">("edit");
@@ -96,8 +135,12 @@ export default function Dashboard() {
   const [showSuccessNotification, setShowSuccessNotification] = useState(false);
 
   // Configuracion and WhatsApp message state
-  const [configuracion, setConfiguracion] = useState<Configuracion | null>(null);
-  const [allReservasForDate, setAllReservasForDate] = useState<{ cancha_id: number; hora_inicio: string }[]>([]);
+  const [configuracion, setConfiguracion] = useState<Configuracion | null>(
+    null,
+  );
+  const [allReservasForDate, setAllReservasForDate] = useState<
+    { cancha_id: number; hora_inicio: string }[]
+  >([]);
   const [messageCopied, setMessageCopied] = useState(false);
 
   // Lista Espera state
@@ -114,7 +157,10 @@ export default function Dashboard() {
     const fetchInitialData = async () => {
       try {
         const [canchasResult, configResult] = await Promise.all([
-          supabase.from("canchas").select("id, nombre, img, local, cantidad, precio").order("id"),
+          supabase
+            .from("canchas")
+            .select("id, nombre, img, local, cantidad, precio")
+            .order("id"),
           supabase.from("configuracion").select("*").limit(1).single(),
         ]);
 
@@ -194,13 +240,14 @@ export default function Dashboard() {
             confirmada_por,
             precio,
             arbitro,
+            reservacion_fija_id,
             cancha:cancha_id (
               id,
               nombre,
               img,
               local
             )
-          `
+          `,
         )
         .gte("hora_inicio", startOfDay)
         .lte("hora_inicio", endOfDay)
@@ -215,7 +262,7 @@ export default function Dashboard() {
 
       if (error) throw error;
 
-      let filteredReservas: Reserva[] = (data || []).map((r: any) => ({
+      let filteredReservas: any[] = (data || []).map((r: any) => ({
         ...r,
         cancha: Array.isArray(r.cancha) ? r.cancha[0] : r.cancha,
       }));
@@ -223,11 +270,43 @@ export default function Dashboard() {
       // Filter by location if selected
       if (selectedLocations.length > 0) {
         filteredReservas = filteredReservas.filter(
-          (r) => r.cancha && selectedLocations.includes(r.cancha.local)
+          (r: any) => r.cancha && selectedLocations.includes(r.cancha.local),
         );
       }
 
-      setReservas(filteredReservas);
+      // Fetch pagos for all reservas
+      const reservaIds = filteredReservas.map((r: any) => r.id);
+      let pagosData: any[] = [];
+      if (reservaIds.length > 0) {
+        const { data: pagos, error: pagosError } = await supabase
+          .from("pagos")
+          .select("*")
+          .in("reserva_id", reservaIds);
+
+        if (pagosError) throw pagosError;
+        pagosData = pagos || [];
+      }
+
+      // Add pagos and pagoStatus to each reserva
+      const reservasWithPagos = filteredReservas.map((r: any) => {
+        const pagos = pagosData.filter((p: any) => p.reserva_id === r.id);
+
+        let pagoStatus: "no_registrado" | "incompleto" | "completo" =
+          "no_registrado";
+
+        if (pagos.length > 0) {
+          const hasCompleto = pagos.some((p: Pago) => p.completo === true);
+          pagoStatus = hasCompleto ? "completo" : "incompleto";
+        }
+
+        return {
+          ...r,
+          pagos,
+          pagoStatus,
+        };
+      });
+
+      setReservas(reservasWithPagos);
     } catch (error) {
       console.error("Error fetching reservas:", error);
     } finally {
@@ -235,10 +314,146 @@ export default function Dashboard() {
     }
   };
 
-  // Fetch reservations for selected date
+  // Search reservations by name
+  const searchReservasByName = async () => {
+    if (!searchQuery.trim()) {
+      setSearchMode(false);
+      setReservas([]);
+      setTotalResults(0);
+      return;
+    }
+
+    setLoadingReservas(true);
+    try {
+      const now = new Date().toISOString();
+      const itemsPerPage = 10;
+      const offset = (currentPage - 1) * itemsPerPage;
+
+      // Build base query
+      let query = supabase
+        .from("reservas")
+        .select(
+          `
+            id,
+            hora_inicio,
+            hora_fin,
+            nombre_reserva,
+            celular_reserva,
+            correo_reserva,
+            sinpe_reserva,
+            confirmada,
+            confirmada_por,
+            precio,
+            arbitro,
+            reservacion_fija_id,
+            cancha:cancha_id (
+              id,
+              nombre,
+              img,
+              local
+            )
+          `,
+          { count: "exact" },
+        )
+        .ilike("nombre_reserva", `%${searchQuery.trim()}%`);
+
+      // Apply cancha filter if selected
+      if (selectedCanchas.length > 0) {
+        query = query.in("cancha_id", selectedCanchas);
+      }
+
+      const { data, error } = await query;
+
+      if (error) throw error;
+
+      let results: any[] = (data || []).map((r: any) => ({
+        ...r,
+        cancha: Array.isArray(r.cancha) ? r.cancha[0] : r.cancha,
+      }));
+
+      // Filter by location if selected
+      if (selectedLocations.length > 0) {
+        results = results.filter(
+          (r: any) => r.cancha && selectedLocations.includes(r.cancha.local),
+        );
+      }
+
+      // Fetch pagos for all reservas
+      const reservaIds = results.map((r: any) => r.id);
+      let pagosData: any[] = [];
+      if (reservaIds.length > 0) {
+        const { data: pagos, error: pagosError } = await supabase
+          .from("pagos")
+          .select("*")
+          .in("reserva_id", reservaIds);
+
+        if (pagosError) throw pagosError;
+        pagosData = pagos || [];
+      }
+
+      // Add pagos and pagoStatus to each reserva
+      const resultsWithPagos = results.map((r: any) => {
+        const pagos = pagosData.filter((p: any) => p.reserva_id === r.id);
+
+        let pagoStatus: "no_registrado" | "incompleto" | "completo" =
+          "no_registrado";
+
+        if (pagos.length > 0) {
+          const hasCompleto = pagos.some((p: Pago) => p.completo === true);
+          pagoStatus = hasCompleto ? "completo" : "incompleto";
+        }
+
+        return {
+          ...r,
+          pagos,
+          pagoStatus,
+        };
+      });
+
+      // Sort: future/today first (descending - most future first), then past (descending - most recent first)
+      resultsWithPagos.sort((a, b) => {
+        const aDate = new Date(a.hora_inicio);
+        const bDate = new Date(b.hora_inicio);
+        const aIsFuture = aDate >= new Date(now);
+        const bIsFuture = bDate >= new Date(now);
+
+        if (aIsFuture && !bIsFuture) return -1;
+        if (!aIsFuture && bIsFuture) return 1;
+        // Most future first (descending), or most recent past first (descending)
+        return bDate.getTime() - aDate.getTime();
+      });
+
+      // Apply pagination after sorting
+      const paginatedResults = resultsWithPagos.slice(
+        offset,
+        offset + itemsPerPage,
+      );
+
+      setReservas(paginatedResults);
+      setTotalResults(resultsWithPagos.length);
+      setSearchMode(true);
+    } catch (error) {
+      console.error("Error searching reservas:", error);
+    } finally {
+      setLoadingReservas(false);
+    }
+  };
+
+  // Fetch reservations for selected date or search
   useEffect(() => {
-    fetchReservas();
-  }, [selectedDate, selectedCanchas, selectedLocations]);
+    if (searchMode && searchQuery.trim()) {
+      searchReservasByName();
+    } else if (!searchMode) {
+      fetchReservas();
+    }
+  }, [
+    selectedDate,
+    selectedCanchas,
+    selectedLocations,
+    searchMode,
+    searchQuery,
+    currentPage,
+  ]);
 
   // Fetch ALL reservations for selected date (for WhatsApp message)
   useEffect(() => {
@@ -275,7 +490,7 @@ export default function Dashboard() {
 
   const parseDateFromTimestamp = (timestamp: string): Date => {
     const match = timestamp.match(
-      /(\d{4})-(\d{2})-(\d{2}) (\d{2}):(\d{2}):(\d{2})/
+      /(\d{4})-(\d{2})-(\d{2}) (\d{2}):(\d{2}):(\d{2})/,
     );
     if (match) {
       return new Date(
@@ -284,7 +499,7 @@ export default function Dashboard() {
         parseInt(match[3]),
         parseInt(match[4]),
         parseInt(match[5]),
-        parseInt(match[6])
+        parseInt(match[6]),
       );
     }
     return new Date(timestamp);
@@ -362,13 +577,13 @@ export default function Dashboard() {
 
   const handlePrevMonth = () => {
     setCurrentMonth(
-      new Date(currentMonth.getFullYear(), currentMonth.getMonth() - 1)
+      new Date(currentMonth.getFullYear(), currentMonth.getMonth() - 1),
     );
   };
 
   const handleNextMonth = () => {
     setCurrentMonth(
-      new Date(currentMonth.getFullYear(), currentMonth.getMonth() + 1)
+      new Date(currentMonth.getFullYear(), currentMonth.getMonth() + 1),
     );
   };
 
@@ -376,7 +591,7 @@ export default function Dashboard() {
     setSelectedCanchas((prev) =>
       prev.includes(canchaId)
         ? prev.filter((id) => id !== canchaId)
-        : [...prev, canchaId]
+        : [...prev, canchaId],
     );
   };
 
@@ -384,7 +599,7 @@ export default function Dashboard() {
     setSelectedLocations((prev) =>
       prev.includes(location)
         ? prev.filter((loc) => loc !== location)
-        : [...prev, location]
+        : [...prev, location],
     );
   };
 
@@ -404,7 +619,7 @@ export default function Dashboard() {
             cantidad,
             precio
           )
-        `
+        `,
         )
         .eq("id", reservaId)
         .single();
@@ -477,7 +692,7 @@ export default function Dashboard() {
 
       if (!updateResult) {
         throw new Error(
-          "Update returned no data - RLS policy may be blocking the update"
+          "Update returned no data - RLS policy may be blocking the update",
         );
       }
 
@@ -485,7 +700,7 @@ export default function Dashboard() {
       const { data: verifyData, error: verifyError } = await supabase
         .from("reservas")
         .select(
-          "id, nombre_reserva, celular_reserva, correo_reserva, precio, hora_inicio, hora_fin"
+          "id, nombre_reserva, celular_reserva, correo_reserva, precio, hora_inicio, hora_fin",
         )
         .eq("id", selectedReserva.id)
         .single();
@@ -502,7 +717,7 @@ export default function Dashboard() {
         verifyData.precio !== updates.precio
       ) {
         throw new Error(
-          "Update failed: RLS policy may be blocking the update. Please check your Supabase RLS policies."
+          "Update failed: RLS policy may be blocking the update. Please check your Supabase RLS policies.",
         );
       }
 
@@ -516,7 +731,7 @@ export default function Dashboard() {
 
   const handleConfirmSinpe = async (
     reservaId: number,
-    _hasComprobante: boolean
+    _hasComprobante: boolean,
   ) => {
     if (!user) {
       console.error("No user found when trying to confirm SINPE");
@@ -560,7 +775,7 @@ export default function Dashboard() {
           error.code === "42703"
         ) {
           console.warn(
-            "confirmada_por column may not exist, retrying without it"
+            "confirmada_por column may not exist, retrying without it",
           );
           const { error: retryError } = await supabase
             .from("reservas")
@@ -663,8 +878,14 @@ export default function Dashboard() {
   const getAvailableHoursForCancha = (cancha: Cancha): number[] => {
     if (!configuracion) return [];
 
-    const aperturaStr = cancha.local === 1 ? configuracion.apertura_sabana : configuracion.apertura_guada;
-    const cierreStr = cancha.local === 1 ? configuracion.cierre_sabana : configuracion.cierre_guada;
+    const aperturaStr =
+      cancha.local === 1
+        ? configuracion.apertura_sabana
+        : configuracion.apertura_guada;
+    const cierreStr =
+      cancha.local === 1
+        ? configuracion.cierre_sabana
+        : configuracion.cierre_guada;
 
     const apertura = parseTimeToHour(aperturaStr);
     let cierre = parseTimeToHour(cierreStr);
@@ -685,7 +906,9 @@ export default function Dashboard() {
       .map((r) => parseHourFromTimestamp(r.hora_inicio));
 
     // Filter out reserved hours and only include hours from 3 PM (15:00) onwards
-    return allHours.filter((hour) => !reservedHours.includes(hour) && hour >= 15);
+    return allHours.filter(
+      (hour) => !reservedHours.includes(hour) && hour >= 15,
+    );
   };
 
   const generateWhatsAppMessage = (): string => {
@@ -711,12 +934,14 @@ export default function Dashboard() {
         const availableHours = getAvailableHoursForCancha(cancha);
         const fut = cancha.cantidad || "5";
         const precio = cancha.precio ? `₡${cancha.precio}` : "";
-        
+
         message += `\n🏟️ *${cancha.nombre}*\n`;
         message += `   FUT ${fut} | ${precio}\n`;
-        
+
         if (availableHours.length > 0) {
-          const hoursStr = availableHours.map((h) => formatHourAmPm(h)).join(", ");
+          const hoursStr = availableHours
+            .map((h) => formatHourAmPm(h))
+            .join(", ");
           message += `   ✅ ${hoursStr}\n`;
         } else {
           message += `   ❌ Sin disponibilidad\n`;
@@ -732,12 +957,14 @@ export default function Dashboard() {
         const availableHours = getAvailableHoursForCancha(cancha);
         const fut = cancha.cantidad || "5";
         const precio = cancha.precio ? `₡${cancha.precio}` : "";
-        
+
         message += `\n🏟️ *${cancha.nombre}*\n`;
         message += `   FUT ${fut} | ${precio}\n`;
-        
+
         if (availableHours.length > 0) {
-          const hoursStr = availableHours.map((h) => formatHourAmPm(h)).join(", ");
+          const hoursStr = availableHours
+            .map((h) => formatHourAmPm(h))
+            .join(", ");
           message += `   ✅ ${hoursStr}\n`;
         } else {
           message += `   ❌ Sin disponibilidad\n`;
@@ -819,14 +1046,14 @@ export default function Dashboard() {
     now.setHours(0, 0, 0, 0);
     const dateOnly = new Date(date);
     dateOnly.setHours(0, 0, 0, 0);
-    
+
     const diffTime = dateOnly.getTime() - now.getTime();
     const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
 
     if (diffDays === 0) return "Hoy";
     if (diffDays === 1) return "Mañana";
     if (diffDays > 1 && diffDays <= 7) return `En ${diffDays} días`;
-    
+
     // Format as date
     const day = date.getDate();
     const month = MONTHS_SPANISH[date.getMonth()];
@@ -937,7 +1164,10 @@ export default function Dashboard() {
                   {listaEspera.length > 0 && (
                     <ul role="list" className="space-y-6 mb-6">
                       {listaEspera.map((item, index) => (
-                        <li key={item.id} className="relative flex flex-col sm:flex-row gap-x-4">
+                        <li
+                          key={item.id}
+                          className="relative flex flex-col sm:flex-row gap-x-4"
+                        >
                           {/* Vertical line connector */}
                           {index < listaEspera.length - 1 && (
                             <div className="absolute top-0 -bottom-6 left-0 flex w-6 justify-center sm:flex">
@@ -953,8 +1183,10 @@ export default function Dashboard() {
 
                             {/* Content */}
                             <div className="flex-auto min-w-0">
-                              <p className="py-0.5 text-sm text-gray-900 break-words">{item.note}</p>
-                              
+                              <p className="py-0.5 text-sm text-gray-900 break-words">
+                                {item.note}
+                              </p>
+
                               {/* Date and delete button - mobile */}
                               <div className="flex items-center justify-between gap-2 mt-2 sm:hidden">
                                 <time
@@ -997,7 +1229,10 @@ export default function Dashboard() {
 
                   {/* New comment form */}
                   <div className="mt-6 pt-6 border-t border-gray-200">
-                    <form onSubmit={handleCreateListaEspera} className="space-y-4">
+                    <form
+                      onSubmit={handleCreateListaEspera}
+                      className="space-y-4"
+                    >
                       <div>
                         <label
                           htmlFor="lista-date"
@@ -1010,7 +1245,7 @@ export default function Dashboard() {
                           id="lista-date"
                           value={newListaDate}
                           onChange={(e) => setNewListaDate(e.target.value)}
-                          min={new Date().toISOString().split('T')[0]}
+                          min={new Date().toISOString().split("T")[0]}
                           required
                           className="block w-full rounded-md border border-gray-300 px-3 py-2.5 text-sm text-gray-900 placeholder:text-gray-400 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary"
                         />
@@ -1082,7 +1317,7 @@ export default function Dashboard() {
             </div>
             <div className="isolate mt-2 grid grid-cols-7 gap-px rounded-lg bg-gray-200 text-sm shadow-sm ring-1 ring-gray-200">
               {days.map((day, index) => {
-                const isSelected = isSameDay(selectedDate, day);
+                const isSelected = !searchMode && isSameDay(selectedDate, day);
                 const isTodayDate = isToday(day);
                 const isCurrentMonthDate = isCurrentMonth(day);
 
@@ -1090,7 +1325,12 @@ export default function Dashboard() {
                   <button
                     key={index}
                     type="button"
-                    onClick={() => setSelectedDate(new Date(day))}
+                    onClick={() => {
+                      setSelectedDate(new Date(day));
+                      setSearchMode(false);
+                      setSearchQuery("");
+                      setCurrentPage(1);
+                    }}
                     className={`py-1.5 ${
                       !isCurrentMonthDate
                         ? "bg-gray-50 text-gray-400"
@@ -1113,8 +1353,8 @@ export default function Dashboard() {
                             ? "bg-primary"
                             : "bg-primary"
                           : isTodayDate
-                          ? "bg-secondary/20"
-                          : ""
+                            ? "bg-secondary/20"
+                            : ""
                       }`}
                     >
                       {day.getDate()}
@@ -1134,6 +1374,55 @@ export default function Dashboard() {
 
           {/* Reservations List */}
           <div className="mt-4 lg:col-span-7 xl:col-span-8">
+            {/* Search Input */}
+            <div className="mb-6">
+              <label
+                htmlFor="search"
+                className="block  font-medium text-gray-900"
+              >
+                Buscar reservación
+              </label>
+              <div className="mt-2">
+                <div className="flex w-full lg:w-1/2 rounded-md bg-white ring-1 ring-inset ring-gray-300 focus-within:ring-2 focus-within:ring-primary">
+                  <input
+                    id="search"
+                    name="search"
+                    type="text"
+                    value={searchQuery}
+                    onChange={(e) => {
+                      setSearchQuery(e.target.value);
+                      setCurrentPage(1);
+                      if (e.target.value.trim()) {
+                        setSearchMode(true);
+                      }
+                    }}
+                    placeholder="Buscar por nombre..."
+                    className="block min-w-0 grow px-3 py-1.5 text-base text-gray-900 placeholder:text-gray-400 focus:outline-none sm:text-sm/6"
+                  />
+                  <div className="flex items-center gap-2 py-1.5 pr-1.5">
+                    {searchMode && (
+                      <button
+                        onClick={() => {
+                          setSearchQuery("");
+                          setSearchMode(false);
+                          setCurrentPage(1);
+                          setTotalResults(0);
+                        }}
+                        className="inline-flex items-center gap-1 text-xs text-gray-500 hover:text-gray-700 transition-colors"
+                        title="Cancelar búsqueda"
+                      >
+                        <XMarkIcon className="size-4" />
+                        Cancelar
+                      </button>
+                    )}
+                    {/* <kbd className="inline-flex items-center rounded border border-gray-200 px-1 font-sans text-xs text-gray-400">
+                      ⌘K
+                    </kbd> */}
+                  </div>
+                </div>
+              </div>
+            </div>
+
             {/* Filter Badges */}
             <div className="mb-6 flex flex-wrap gap-2">
               {/* Location filters */}
@@ -1170,8 +1459,8 @@ export default function Dashboard() {
                           ? "bg-green-800 text-white"
                           : "bg-blue-800 text-white"
                         : isSabana
-                        ? "bg-gray-200 text-green-800 hover:bg-gray-300"
-                        : "bg-gray-200 text-blue-800 hover:bg-gray-300"
+                          ? "bg-gray-200 text-green-800 hover:bg-gray-300"
+                          : "bg-gray-200 text-blue-800 hover:bg-gray-300"
                     }`}
                   >
                     {cancha.nombre}
@@ -1195,16 +1484,19 @@ export default function Dashboard() {
               <ol className="divide-y divide-gray-100 text-sm/6">
                 {reservas.map((reserva) => {
                   const isSabana = reserva.cancha.local === 1;
+                  const hasPagos = reserva.pagos && reserva.pagos.length > 0;
                   const sinpePendiente =
                     isSabana &&
                     reserva.sinpe_reserva === null &&
-                    !reserva.confirmada;
+                    !reserva.confirmada &&
+                    !hasPagos; // Don't show "Adelanto Pendiente" if pagos exist
                   const sinpeFaltaConfirmar =
                     isSabana &&
                     reserva.sinpe_reserva !== null &&
-                    !reserva.confirmada;
+                    !reserva.confirmada &&
+                    !hasPagos; // Don't show "Confirme Adelanto" if pagos exist
                   const sinpeConfirmado =
-                    isSabana && reserva.confirmada === true;
+                    isSabana && (reserva.confirmada === true || hasPagos); // Show confirmed if confirmada OR if pagos exist
 
                   return (
                     <li
@@ -1221,20 +1513,62 @@ export default function Dashboard() {
                           {reserva.nombre_reserva}
                         </h3>
                         <dl className="mt-2 flex flex-col text-gray-500 xl:flex-row">
-                          <div className="flex items-start gap-x-3">
-                            <dt className="mt-0.5">
-                              <span className="sr-only">Fecha</span>
-                              <CalendarIcon
-                                aria-hidden="true"
-                                className="size-5 text-gray-400"
-                              />
-                            </dt>
-                            <dd>
-                              <time dateTime={reserva.hora_inicio}>
-                                {formatDateTime(reserva.hora_inicio)}
-                              </time>
-                            </dd>
-                          </div>
+                          {searchMode && (
+                            <>
+                              <div className="flex items-start gap-x-3">
+                                <dt className="mt-0.5">
+                                  <span className="sr-only">Fecha</span>
+                                  <CalendarIcon
+                                    aria-hidden="true"
+                                    className="size-5 text-gray-400"
+                                  />
+                                </dt>
+                                <dd>
+                                  {parseDateFromTimestamp(
+                                    reserva.hora_inicio,
+                                  ).toLocaleDateString("es-CR", {
+                                    day: "numeric",
+                                    month: "short",
+                                    year: "numeric",
+                                  })}
+                                </dd>
+                              </div>
+                              <div className="mt-2 flex items-start gap-x-3 xl:mt-0 xl:ml-3.5 xl:border-l xl:border-gray-400/50 xl:pl-3.5">
+                                <dt className="mt-0.5">
+                                  <span className="sr-only">Hora</span>
+                                  <ClockIcon
+                                    aria-hidden="true"
+                                    className="size-5 text-gray-400"
+                                  />
+                                </dt>
+                                <dd>
+                                  {parseDateFromTimestamp(
+                                    reserva.hora_inicio,
+                                  ).toLocaleTimeString("es-CR", {
+                                    hour: "numeric",
+                                    minute: "2-digit",
+                                    hour12: true,
+                                  })}
+                                </dd>
+                              </div>
+                            </>
+                          )}
+                          {!searchMode && (
+                            <div className="flex items-start gap-x-3">
+                              <dt className="mt-0.5">
+                                <span className="sr-only">Fecha</span>
+                                <CalendarIcon
+                                  aria-hidden="true"
+                                  className="size-5 text-gray-400"
+                                />
+                              </dt>
+                              <dd>
+                                <time dateTime={reserva.hora_inicio}>
+                                  {formatDateTime(reserva.hora_inicio)}
+                                </time>
+                              </dd>
+                            </div>
+                          )}
                           <div className="mt-2 flex items-start gap-x-3 xl:mt-0 xl:ml-3.5 xl:border-l xl:border-gray-400/50 xl:pl-3.5">
                             <dt className="mt-0.5">
                               <span className="sr-only">Ubicación</span>
@@ -1263,29 +1597,65 @@ export default function Dashboard() {
                             </div>
                           )}
                         </dl>
-                        {/* SINPE Status */}
-                        {isSabana && (
-                          <div className="mt-2">
-                            {sinpePendiente ? (
-                              <span className="inline-flex items-center gap-1.5 rounded-lg bg-yellow-50 border border-yellow-200 px-3 py-1.5 text-xs font-semibold text-yellow-800 shadow-sm">
-                                <span className="size-1.5 rounded-full bg-yellow-500"></span>
-                                SINPE Pendiente
-                              </span>
-                            ) : sinpeFaltaConfirmar ? (
-                              <button
-                                onClick={() => handleConfirmarSinpe(reserva.id)}
-                                className="inline-flex items-center gap-1.5 rounded-lg bg-primary px-3 py-1.5 text-xs font-semibold text-white shadow-sm hover:bg-primary/90 transition-colors"
-                              >
-                                Falta Confirmar Sinpe
-                              </button>
-                            ) : sinpeConfirmado ? (
-                              <span className="inline-flex items-center gap-1.5 rounded-lg bg-primary/10 border border-primary/20 px-3 py-1.5 text-xs font-semibold text-primary shadow-sm">
-                                <span className="size-1.5 rounded-full bg-primary"></span>
-                                SINPE Confirmado
-                              </span>
-                            ) : null}
-                          </div>
-                        )}
+                        {/* SINPE Status, Payment Status & Fija Badge */}
+                        <div className="mt-2 flex flex-wrap gap-2">
+                          {isSabana && (
+                            <>
+                              {sinpePendiente ? (
+                                <span className="inline-flex items-center gap-1.5 rounded-md bg-yellow-100/75 px-3 py-2 text-xs font-semibold text-yellow-700">
+                                  <LuClockAlert className="size-3.5" />
+                                  Adelanto Pendiente
+                                </span>
+                              ) : sinpeFaltaConfirmar ? (
+                                <button
+                                  onClick={() =>
+                                    handleConfirmarSinpe(reserva.id)
+                                  }
+                                  className="inline-flex items-center gap-1.5 rounded-md bg-primary px-3 py-2 text-xs font-semibold text-white hover:bg-primary/90 transition-colors"
+                                >
+                                  Confirme Adelanto
+                                </button>
+                              ) : sinpeConfirmado ? (
+                                <span className="inline-flex items-center gap-1.5 rounded-md bg-purple-100/75 px-3 py-2 text-xs font-semibold text-purple-700">
+                                  <HiOutlineDocumentCheck className="size-3.5" />
+                                  Adelanto Confirmado
+                                </span>
+                              ) : null}
+                            </>
+                          )}
+                          {/* Payment Status Badge */}
+                          {(() => {
+                            if (reserva.pagoStatus === "completo") {
+                              return (
+                                <span className="inline-flex items-center gap-1.5 rounded-md bg-green-200/50 px-3 py-1.5 text-xs font-semibold text-green-700">
+                                  <IoMdCheckmark className="size-3.5" />
+                                  Pago completo
+                                </span>
+                              );
+                            } else if (reserva.pagoStatus === "incompleto") {
+                              return (
+                                <span className="inline-flex items-center gap-1.5 rounded-md bg-orange-100/75 px-3 py-1.5 text-xs font-semibold text-orange-700">
+                                  <IoWarningOutline className="size-3.5" />
+                                  Pago incompleto
+                                </span>
+                              );
+                            } else {
+                              return (
+                                <span className="inline-flex items-center gap-1.5 rounded-md bg-gray-200 px-3 py-1.5 text-xs font-semibold text-gray-800">
+                                  <LiaMoneyBillWaveSolid className="size-3.5" />
+                                  Pago pendiente
+                                </span>
+                              );
+                            }
+                          })()}
+                          {/* Reservación Fija Badge */}
+                          {reserva.reservacion_fija_id && (
+                            <span className="inline-flex items-center gap-1.5 rounded-md bg-blue-100/75 px-3 py-1.5 text-xs font-semibold text-blue-700">
+                              <GoLock className="size-3.5" />
+                              Fija
+                            </span>
+                          )}
+                        </div>
                       </div>
                       <Menu
                         as="div"
@@ -1343,6 +1713,101 @@ export default function Dashboard() {
                 })}
               </ol>
             )}
+
+            {/* Pagination */}
+            {searchMode && totalResults > 10 && (
+              <nav className="flex items-center justify-between border-t border-gray-200 px-4 sm:px-0 mt-6">
+                <div className="-mt-px flex w-0 flex-1">
+                  <button
+                    onClick={() =>
+                      setCurrentPage((prev) => Math.max(1, prev - 1))
+                    }
+                    disabled={currentPage === 1}
+                    className={`inline-flex items-center border-t-2 border-transparent pr-1 pt-4 text-sm font-medium ${
+                      currentPage === 1
+                        ? "text-gray-300 cursor-not-allowed"
+                        : "text-gray-500 hover:border-gray-300 hover:text-gray-700"
+                    }`}
+                  >
+                    <ArrowLongLeftIcon
+                      aria-hidden="true"
+                      className={`mr-3 size-5 ${currentPage === 1 ? "text-gray-300" : "text-gray-400"}`}
+                    />
+                    Anterior
+                  </button>
+                </div>
+                <div className="hidden md:-mt-px md:flex">
+                  {Array.from(
+                    { length: Math.ceil(totalResults / 10) },
+                    (_, i) => i + 1,
+                  ).map((pageNum) => {
+                    const totalPages = Math.ceil(totalResults / 10);
+
+                    // Show first page, last page, current page and adjacent pages
+                    if (
+                      pageNum === 1 ||
+                      pageNum === totalPages ||
+                      (pageNum >= currentPage - 1 && pageNum <= currentPage + 1)
+                    ) {
+                      return (
+                        <button
+                          key={pageNum}
+                          onClick={() => setCurrentPage(pageNum)}
+                          aria-current={
+                            pageNum === currentPage ? "page" : undefined
+                          }
+                          className={`inline-flex items-center border-t-2 px-4 pt-4 text-sm font-medium ${
+                            pageNum === currentPage
+                              ? "border-primary text-primary"
+                              : "border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700"
+                          }`}
+                        >
+                          {pageNum}
+                        </button>
+                      );
+                    } else if (
+                      pageNum === currentPage - 2 ||
+                      pageNum === currentPage + 2
+                    ) {
+                      return (
+                        <span
+                          key={pageNum}
+                          className="inline-flex items-center border-t-2 border-transparent px-4 pt-4 text-sm font-medium text-gray-500"
+                        >
+                          ...
+                        </span>
+                      );
+                    }
+                    return null;
+                  })}
+                </div>
+                <div className="-mt-px flex w-0 flex-1 justify-end">
+                  <button
+                    onClick={() =>
+                      setCurrentPage((prev) =>
+                        Math.min(Math.ceil(totalResults / 10), prev + 1),
+                      )
+                    }
+                    disabled={currentPage >= Math.ceil(totalResults / 10)}
+                    className={`inline-flex items-center border-t-2 border-transparent pl-1 pt-4 text-sm font-medium ${
+                      currentPage >= Math.ceil(totalResults / 10)
+                        ? "text-gray-300 cursor-not-allowed"
+                        : "text-gray-500 hover:border-gray-300 hover:text-gray-700"
+                    }`}
+                  >
+                    Siguiente
+                    <ArrowLongRightIcon
+                      aria-hidden="true"
+                      className={`ml-3 size-5 ${
+                        currentPage >= Math.ceil(totalResults / 10)
+                          ? "text-gray-300"
+                          : "text-gray-400"
+                      }`}
+                    />
+                  </button>
+                </div>
+              </nav>
+            )}
           </div>
         </div>
       </div>
@@ -1365,6 +1830,7 @@ export default function Dashboard() {
         open={createDrawerOpen}
         onClose={() => setCreateDrawerOpen(false)}
         defaultCanchaId={selectedCanchas[0] || 1}
+        defaultDate={selectedDate || undefined}
         onSuccess={handleReservationCreated}
       />
 

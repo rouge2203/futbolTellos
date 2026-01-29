@@ -15,6 +15,10 @@ import {
   XCircleIcon,
   ClipboardDocumentCheckIcon,
   FolderOpenIcon,
+  ArrowLongLeftIcon,
+  ArrowLongRightIcon,
+  ClockIcon,
+  XMarkIcon,
 } from "@heroicons/react/20/solid";
 import {
   Switch,
@@ -25,6 +29,10 @@ import {
 } from "@headlessui/react";
 import { RiBankLine } from "react-icons/ri";
 import { generateCierre } from "./utils/generateCierre";
+import { IoMdCheckmark } from "react-icons/io";
+import { IoWarningOutline } from "react-icons/io5";
+import { LiaMoneyBillWaveSolid } from "react-icons/lia";
+import { GoLock } from "react-icons/go";
 
 interface Cancha {
   id: number;
@@ -60,6 +68,7 @@ interface Reserva {
   pagos?: Pago[];
   pagoStatus?: "no_registrado" | "incompleto" | "completo";
   pago_checkeado?: boolean;
+  reservacion_fija_id?: number | null;
 }
 
 const MONTHS_SPANISH = [
@@ -100,6 +109,12 @@ export default function Pagos() {
   const [selectedPagoCheckeado, setSelectedPagoCheckeado] = useState<
     ("checkeados" | "no_checkeados")[]
   >([]);
+
+  // Search state
+  const [searchQuery, setSearchQuery] = useState("");
+  const [searchMode, setSearchMode] = useState(false);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [totalResults, setTotalResults] = useState(0);
 
   // Cierre dialog state
   const [cierreDialogOpen, setCierreDialogOpen] = useState(false);
@@ -146,14 +161,181 @@ export default function Pagos() {
     fetchCanchas();
   }, []);
 
+  // Search reservations by name
+  const searchReservasByName = async () => {
+    if (!searchQuery.trim()) {
+      setSearchMode(false);
+      setReservas([]);
+      setTotalResults(0);
+      return;
+    }
+
+    setLoadingReservas(true);
+    try {
+      const now = new Date().toISOString();
+      const itemsPerPage = 10;
+      const offset = (currentPage - 1) * itemsPerPage;
+
+      // Build base query
+      let query = supabase
+        .from("reservas")
+        .select(
+          `
+            id,
+            hora_inicio,
+            hora_fin,
+            nombre_reserva,
+            celular_reserva,
+            correo_reserva,
+            precio,
+            arbitro,
+            pago_checkeado,
+            reservacion_fija_id,
+            cancha:cancha_id (
+              id,
+              nombre,
+              img,
+              local
+            )
+          `,
+        )
+        .ilike("nombre_reserva", `%${searchQuery.trim()}%`);
+
+      // Apply cancha filter if selected
+      if (selectedCanchas.length > 0) {
+        query = query.in("cancha_id", selectedCanchas);
+      }
+
+      const { data, error } = await query;
+
+      if (error) throw error;
+
+      let results: any[] = (data || []).map((r: any) => ({
+        ...r,
+        cancha: Array.isArray(r.cancha) ? r.cancha[0] : r.cancha,
+      }));
+
+      // Filter by location if selected
+      if (selectedLocations.length > 0) {
+        results = results.filter(
+          (r: any) => r.cancha && selectedLocations.includes(r.cancha.local),
+        );
+      }
+
+      // Fetch pagos for all reservas
+      const reservaIds = results.map((r: any) => r.id);
+      let pagosData: any[] = [];
+      if (reservaIds.length > 0) {
+        const { data: pagos, error: pagosError } = await supabase
+          .from("pagos")
+          .select("*")
+          .in("reserva_id", reservaIds);
+
+        if (pagosError) throw pagosError;
+        pagosData = pagos || [];
+      }
+
+      // Group pagos by reserva_id
+      const pagosByReserva: Record<number, Pago[]> = {};
+      pagosData.forEach((pago: Pago) => {
+        if (!pagosByReserva[pago.reserva_id]) {
+          pagosByReserva[pago.reserva_id] = [];
+        }
+        pagosByReserva[pago.reserva_id].push(pago);
+      });
+
+      // Combine reservas with pagos and determine status
+      let reservasConPagos: Reserva[] = results.map((r: any) => {
+        const pagos = pagosByReserva[r.id] || [];
+        let pagoStatus: "no_registrado" | "incompleto" | "completo" =
+          "no_registrado";
+
+        if (pagos.length > 0) {
+          const hasCompleto = pagos.some((p: Pago) => p.completo === true);
+          pagoStatus = hasCompleto ? "completo" : "incompleto";
+        }
+
+        return {
+          ...r,
+          pagos,
+          pagoStatus,
+          pago_checkeado: r.pago_checkeado || false,
+        };
+      });
+
+      // Apply payment status filter
+      if (selectedPagoStatus.length > 0) {
+        reservasConPagos = reservasConPagos.filter((r) => {
+          const statusMap: Record<
+            "no_pagadas" | "incompletos" | "completos",
+            "no_registrado" | "incompleto" | "completo"
+          > = {
+            no_pagadas: "no_registrado",
+            incompletos: "incompleto",
+            completos: "completo",
+          };
+          return selectedPagoStatus.some(
+            (filterStatus) => r.pagoStatus === statusMap[filterStatus],
+          );
+        });
+      }
+
+      // Apply pago_checkeado filter (only in cierres mode)
+      if (cierresMode && selectedPagoCheckeado.length > 0) {
+        reservasConPagos = reservasConPagos.filter((r) => {
+          if (
+            selectedPagoCheckeado.includes("checkeados") &&
+            r.pago_checkeado
+          ) {
+            return true;
+          }
+          if (
+            selectedPagoCheckeado.includes("no_checkeados") &&
+            !r.pago_checkeado
+          ) {
+            return true;
+          }
+          return false;
+        });
+      }
+
+      // Sort: future/today first (descending - most future first), then past (descending - most recent first)
+      reservasConPagos.sort((a, b) => {
+        const aDate = new Date(a.hora_inicio);
+        const bDate = new Date(b.hora_inicio);
+        const aIsFuture = aDate >= new Date(now);
+        const bIsFuture = bDate >= new Date(now);
+
+        if (aIsFuture && !bIsFuture) return -1;
+        if (!aIsFuture && bIsFuture) return 1;
+        // Most future first (descending), or most recent past first (descending)
+        return bDate.getTime() - aDate.getTime();
+      });
+
+      // Apply pagination after sorting
+      const paginatedResults = reservasConPagos.slice(
+        offset,
+        offset + itemsPerPage,
+      );
+
+      setReservas(paginatedResults);
+      setTotalResults(reservasConPagos.length);
+      setSearchMode(true);
+    } catch (error) {
+      console.error("Error searching reservas:", error);
+    } finally {
+      setLoadingReservas(false);
+    }
+  };
+
   // Fetch reservations with pagos
   const fetchReservas = async () => {
     // In cierres mode, use selectedDates; otherwise use selectedDate
     const datesToFetch = cierresMode
       ? selectedDates
       : selectedDate
-      ? [selectedDate]
-      : [];
+        ? [selectedDate]
+        : [];
     if (datesToFetch.length === 0) {
       setReservas([]);
       return;
@@ -182,13 +364,14 @@ export default function Pagos() {
               precio,
               arbitro,
               pago_checkeado,
+              reservacion_fija_id,
               cancha:cancha_id (
                 id,
                 nombre,
                 img,
                 local
               )
-            `
+            `,
           )
           .gte("hora_inicio", startOfDay)
           .lte("hora_inicio", endOfDay)
@@ -208,7 +391,7 @@ export default function Pagos() {
       let filteredReservas: any[] = allReservasData;
       if (selectedLocations.length > 0) {
         filteredReservas = filteredReservas.filter(
-          (r: any) => r.cancha && selectedLocations.includes(r.cancha.local)
+          (r: any) => r.cancha && selectedLocations.includes(r.cancha.local),
         );
       }
 
@@ -267,7 +450,7 @@ export default function Pagos() {
             completos: "completo",
           };
           return selectedPagoStatus.some(
-            (filterStatus) => r.pagoStatus === statusMap[filterStatus]
+            (filterStatus) => r.pagoStatus === statusMap[filterStatus],
           );
         });
       }
@@ -294,7 +477,7 @@ export default function Pagos() {
       // Sort by hora_inicio
       finalReservas.sort(
         (a, b) =>
-          new Date(a.hora_inicio).getTime() - new Date(b.hora_inicio).getTime()
+          new Date(a.hora_inicio).getTime() - new Date(b.hora_inicio).getTime(),
       );
 
       setReservas(finalReservas);
@@ -305,9 +488,13 @@ export default function Pagos() {
     }
   };
 
-  // Fetch reservations for selected date(s)
+  // Fetch reservations for selected date(s) or search
   useEffect(() => {
-    fetchReservas();
+    if (searchMode && searchQuery.trim()) {
+      searchReservasByName();
+    } else if (!searchMode) {
+      fetchReservas();
+    }
   }, [
     selectedDate,
     selectedDates,
@@ -316,6 +503,9 @@ export default function Pagos() {
     selectedPagoStatus,
     cierresMode,
     selectedPagoCheckeado,
+    searchMode,
+    searchQuery,
+    currentPage,
   ]);
 
   const formatLocalDate = (d: Date): string => {
@@ -327,7 +517,7 @@ export default function Pagos() {
 
   const parseDateFromTimestamp = (timestamp: string): Date => {
     const match = timestamp.match(
-      /(\d{4})-(\d{2})-(\d{2}) (\d{2}):(\d{2}):(\d{2})/
+      /(\d{4})-(\d{2})-(\d{2}) (\d{2}):(\d{2}):(\d{2})/,
     );
     if (match) {
       return new Date(
@@ -336,7 +526,7 @@ export default function Pagos() {
         parseInt(match[3]),
         parseInt(match[4]),
         parseInt(match[5]),
-        parseInt(match[6])
+        parseInt(match[6]),
       );
     }
     return new Date(timestamp);
@@ -414,13 +604,13 @@ export default function Pagos() {
 
   const handlePrevMonth = () => {
     setCurrentMonth(
-      new Date(currentMonth.getFullYear(), currentMonth.getMonth() - 1)
+      new Date(currentMonth.getFullYear(), currentMonth.getMonth() - 1),
     );
   };
 
   const handleNextMonth = () => {
     setCurrentMonth(
-      new Date(currentMonth.getFullYear(), currentMonth.getMonth() + 1)
+      new Date(currentMonth.getFullYear(), currentMonth.getMonth() + 1),
     );
   };
 
@@ -428,7 +618,7 @@ export default function Pagos() {
     setSelectedCanchas((prev) =>
       prev.includes(canchaId)
         ? prev.filter((id) => id !== canchaId)
-        : [...prev, canchaId]
+        : [...prev, canchaId],
     );
   };
 
@@ -436,27 +626,27 @@ export default function Pagos() {
     setSelectedLocations((prev) =>
       prev.includes(location)
         ? prev.filter((loc) => loc !== location)
-        : [...prev, location]
+        : [...prev, location],
     );
   };
 
   const togglePagoStatusFilter = (
-    status: "no_pagadas" | "incompletos" | "completos"
+    status: "no_pagadas" | "incompletos" | "completos",
   ) => {
     setSelectedPagoStatus((prev) =>
       prev.includes(status)
         ? prev.filter((s) => s !== status)
-        : [...prev, status]
+        : [...prev, status],
     );
   };
 
   const togglePagoCheckeadoFilter = (
-    status: "checkeados" | "no_checkeados"
+    status: "checkeados" | "no_checkeados",
   ) => {
     setSelectedPagoCheckeado((prev) =>
       prev.includes(status)
         ? prev.filter((s) => s !== status)
-        : [...prev, status]
+        : [...prev, status],
     );
   };
 
@@ -503,7 +693,7 @@ export default function Pagos() {
               img,
               local
             )
-          `
+          `,
         )
         .eq("id", selectedReserva.id)
         .single();
@@ -556,7 +746,7 @@ export default function Pagos() {
               img,
               local
             )
-          `
+          `,
         )
         .eq("id", selectedReserva.id)
         .single();
@@ -626,7 +816,7 @@ export default function Pagos() {
   const formatDateRange = (): string => {
     if (cierresMode && selectedDates.length > 0) {
       const sortedDates = [...selectedDates].sort(
-        (a, b) => a.getTime() - b.getTime()
+        (a, b) => a.getTime() - b.getTime(),
       );
       if (sortedDates.length === 1) {
         const d = sortedDates[0];
@@ -887,9 +1077,11 @@ export default function Pagos() {
             </div>
             <div className="isolate mt-2 grid grid-cols-7 gap-px rounded-lg bg-gray-200 text-sm shadow-sm ring-1 ring-gray-200">
               {days.map((day, index) => {
-                const isSelected = cierresMode
-                  ? isDateSelected(day)
-                  : isSameDay(selectedDate, day);
+                const isSelected = searchMode
+                  ? false
+                  : cierresMode
+                    ? isDateSelected(day)
+                    : isSameDay(selectedDate, day);
                 const isTodayDate = isToday(day);
                 const isCurrentMonthDate = isCurrentMonth(day);
 
@@ -898,6 +1090,9 @@ export default function Pagos() {
                     key={index}
                     type="button"
                     onClick={() => {
+                      setSearchMode(false);
+                      setSearchQuery("");
+                      setCurrentPage(1);
                       if (cierresMode) {
                         toggleDateSelection(new Date(day));
                       } else {
@@ -926,8 +1121,8 @@ export default function Pagos() {
                             ? "bg-primary"
                             : "bg-primary"
                           : isTodayDate
-                          ? "bg-secondary/20"
-                          : ""
+                            ? "bg-secondary/20"
+                            : ""
                       }`}
                     >
                       {day.getDate()}
@@ -1028,6 +1223,52 @@ export default function Pagos() {
 
           {/* Reservations List */}
           <div className="mt-4 lg:col-span-7 xl:col-span-8">
+            {/* Search Input */}
+            <div className="mb-6">
+              <label
+                htmlFor="search"
+                className="block  font-medium text-gray-900"
+              >
+                Buscar reservación
+              </label>
+              <div className="mt-2">
+                <div className="flex w-full lg:w-1/2 rounded-md bg-white ring-1 ring-inset ring-gray-300 focus-within:ring-2 focus-within:ring-primary">
+                  <input
+                    id="search"
+                    name="search"
+                    type="text"
+                    value={searchQuery}
+                    onChange={(e) => {
+                      setSearchQuery(e.target.value);
+                      setCurrentPage(1);
+                      if (e.target.value.trim()) {
+                        setSearchMode(true);
+                      }
+                    }}
+                    placeholder="Buscar por nombre..."
+                    className="block min-w-0 grow px-3 py-1.5 text-base text-gray-900 placeholder:text-gray-400 focus:outline-none sm:text-sm/6"
+                  />
+                  <div className="flex items-center gap-2 py-1.5 pr-1.5">
+                    {searchMode && (
+                      <button
+                        onClick={() => {
+                          setSearchQuery("");
+                          setSearchMode(false);
+                          setCurrentPage(1);
+                          setTotalResults(0);
+                        }}
+                        className="inline-flex items-center gap-1 text-xs text-gray-500 hover:text-gray-700 transition-colors"
+                        title="Cancelar búsqueda"
+                      >
+                        <XMarkIcon className="size-4" />
+                        Cancelar
+                      </button>
+                    )}
+                  </div>
+                </div>
+              </div>
+            </div>
+
             {/* Filter Badges */}
             <div className="mb-6 flex flex-wrap gap-2">
               {/* Location filters */}
@@ -1064,8 +1305,8 @@ export default function Pagos() {
                           ? "bg-green-800 text-white"
                           : "bg-blue-800 text-white"
                         : isSabana
-                        ? "bg-gray-200 text-green-800 hover:bg-gray-300"
-                        : "bg-gray-200 text-blue-800 hover:bg-gray-300"
+                          ? "bg-gray-200 text-green-800 hover:bg-gray-300"
+                          : "bg-gray-200 text-blue-800 hover:bg-gray-300"
                     }`}
                   >
                     {cancha.nombre}
@@ -1122,23 +1363,23 @@ export default function Pagos() {
                   const getPagoBadge = () => {
                     if (reserva.pagoStatus === "completo") {
                       return (
-                        <span className="inline-flex items-center gap-1.5 rounded-lg bg-green-50 border border-green-200 px-3 py-1.5 text-xs font-semibold text-green-800 shadow-sm">
-                          <span className="size-1.5 rounded-full bg-green-500"></span>
-                          Pago registrado
+                        <span className="inline-flex items-center gap-1.5 rounded-md bg-green-200/50 px-3 py-1.5 text-xs font-semibold text-green-700">
+                          <IoMdCheckmark className="size-3.5" />
+                          Pago completo
                         </span>
                       );
                     } else if (reserva.pagoStatus === "incompleto") {
                       return (
-                        <span className="inline-flex items-center gap-1.5 rounded-lg bg-yellow-50 border border-yellow-200 px-3 py-1.5 text-xs font-semibold text-yellow-800 shadow-sm">
-                          <span className="size-1.5 rounded-full bg-yellow-500"></span>
+                        <span className="inline-flex items-center gap-1.5 rounded-md bg-yellow-100/75 px-3 py-1.5 text-xs font-semibold text-yellow-700">
+                          <IoWarningOutline className="size-3.5" />
                           Pago incompleto
                         </span>
                       );
                     } else {
                       return (
-                        <span className="inline-flex items-center gap-1.5 rounded-lg bg-red-50 border border-red-200 px-3 py-1.5 text-xs font-semibold text-red-800 shadow-sm">
-                          <span className="size-1.5 rounded-full bg-red-500"></span>
-                          Pago no registrado
+                        <span className="inline-flex items-center gap-1.5 rounded-md bg-red-100/75 px-3 py-1.5 text-xs font-semibold text-red-700">
+                          <LiaMoneyBillWaveSolid className="size-3.5" />
+                          Pago pendiente
                         </span>
                       );
                     }
@@ -1159,32 +1400,82 @@ export default function Pagos() {
                           {reserva.nombre_reserva}
                         </h3>
                         <dl className="mt-2 flex flex-col text-gray-500 xl:flex-row xl:items-center">
-                          <div className="flex items-center gap-x-2">
-                            <CalendarIcon
-                              aria-hidden="true"
-                              className="size-4 text-gray-400"
-                            />
-                            <time
-                              dateTime={reserva.hora_inicio}
-                              className="text-sm"
-                            >
-                              {formatDateTime(reserva.hora_inicio)}
-                            </time>
-                            <span className="text-gray-300">•</span>
-                            <MapPinIcon
-                              aria-hidden="true"
-                              className="size-4 text-gray-400"
-                            />
-                            <span className="text-sm">
-                              {reserva.cancha.nombre} -{" "}
-                              {getLocalName(reserva.cancha.local)}
-                            </span>
-                          </div>
-                          <div className="mt-1 xl:mt-0 xl:ml-3.5 xl:border-l xl:border-gray-400/50 xl:pl-3.5">
-                            <span className="font-semibold text-gray-900">
-                              ₡ {reserva.precio.toLocaleString()}
-                            </span>
-                          </div>
+                          {searchMode ? (
+                            <>
+                              <div className="flex items-center gap-x-2">
+                                <CalendarIcon
+                                  aria-hidden="true"
+                                  className="size-4 text-gray-400"
+                                />
+                                <span className="text-sm">
+                                  {parseDateFromTimestamp(
+                                    reserva.hora_inicio,
+                                  ).toLocaleDateString("es-CR", {
+                                    day: "numeric",
+                                    month: "short",
+                                    year: "numeric",
+                                  })}
+                                </span>
+                                <span className="text-gray-300">•</span>
+                                <ClockIcon
+                                  aria-hidden="true"
+                                  className="size-4 text-gray-400"
+                                />
+                                <span className="text-sm">
+                                  {parseDateFromTimestamp(
+                                    reserva.hora_inicio,
+                                  ).toLocaleTimeString("es-CR", {
+                                    hour: "numeric",
+                                    minute: "2-digit",
+                                    hour12: true,
+                                  })}
+                                </span>
+                                <span className="text-gray-300">•</span>
+                                <MapPinIcon
+                                  aria-hidden="true"
+                                  className="size-4 text-gray-400"
+                                />
+                                <span className="text-sm">
+                                  {reserva.cancha.nombre} -{" "}
+                                  {getLocalName(reserva.cancha.local)}
+                                </span>
+                              </div>
+                              <div className="mt-1 xl:mt-0 xl:ml-3.5 xl:border-l xl:border-gray-400/50 xl:pl-3.5">
+                                <span className="font-semibold text-gray-900">
+                                  ₡ {reserva.precio.toLocaleString()}
+                                </span>
+                              </div>
+                            </>
+                          ) : (
+                            <>
+                              <div className="flex items-center gap-x-2">
+                                <CalendarIcon
+                                  aria-hidden="true"
+                                  className="size-4 text-gray-400"
+                                />
+                                <time
+                                  dateTime={reserva.hora_inicio}
+                                  className="text-sm"
+                                >
+                                  {formatDateTime(reserva.hora_inicio)}
+                                </time>
+                                <span className="text-gray-300">•</span>
+                                <MapPinIcon
+                                  aria-hidden="true"
+                                  className="size-4 text-gray-400"
+                                />
+                                <span className="text-sm">
+                                  {reserva.cancha.nombre} -{" "}
+                                  {getLocalName(reserva.cancha.local)}
+                                </span>
+                              </div>
+                              <div className="mt-1 xl:mt-0 xl:ml-3.5 xl:border-l xl:border-gray-400/50 xl:pl-3.5">
+                                <span className="font-semibold text-gray-900">
+                                  ₡ {reserva.precio.toLocaleString()}
+                                </span>
+                              </div>
+                            </>
+                          )}
                         </dl>
                         {/* Payment Status */}
                         <div className="mt-2 flex flex-wrap gap-2">
@@ -1202,6 +1493,13 @@ export default function Pagos() {
                                 Pago no checkeado
                               </span>
                             ))}
+                          {/* Reservación Fija Badge */}
+                          {reserva.reservacion_fija_id && (
+                            <span className="inline-flex items-center gap-1.5 rounded-md bg-blue-100/75 px-3 py-1.5 text-xs font-semibold text-blue-700">
+                              <GoLock className="size-3.5" />
+                              Fija
+                            </span>
+                          )}
                         </div>
                       </div>
                       <div className="flex items-center">
@@ -1218,6 +1516,101 @@ export default function Pagos() {
                   );
                 })}
               </ol>
+            )}
+
+            {/* Pagination */}
+            {searchMode && totalResults > 10 && (
+              <nav className="flex items-center justify-between border-t border-gray-200 px-4 sm:px-0 mt-6">
+                <div className="-mt-px flex w-0 flex-1">
+                  <button
+                    onClick={() =>
+                      setCurrentPage((prev) => Math.max(1, prev - 1))
+                    }
+                    disabled={currentPage === 1}
+                    className={`inline-flex items-center border-t-2 border-transparent pr-1 pt-4 text-sm font-medium ${
+                      currentPage === 1
+                        ? "text-gray-300 cursor-not-allowed"
+                        : "text-gray-500 hover:border-gray-300 hover:text-gray-700"
+                    }`}
+                  >
+                    <ArrowLongLeftIcon
+                      aria-hidden="true"
+                      className={`mr-3 size-5 ${currentPage === 1 ? "text-gray-300" : "text-gray-400"}`}
+                    />
+                    Anterior
+                  </button>
+                </div>
+                <div className="hidden md:-mt-px md:flex">
+                  {Array.from(
+                    { length: Math.ceil(totalResults / 10) },
+                    (_, i) => i + 1,
+                  ).map((pageNum) => {
+                    const totalPages = Math.ceil(totalResults / 10);
+
+                    // Show first page, last page, current page and adjacent pages
+                    if (
+                      pageNum === 1 ||
+                      pageNum === totalPages ||
+                      (pageNum >= currentPage - 1 && pageNum <= currentPage + 1)
+                    ) {
+                      return (
+                        <button
+                          key={pageNum}
+                          onClick={() => setCurrentPage(pageNum)}
+                          aria-current={
+                            pageNum === currentPage ? "page" : undefined
+                          }
+                          className={`inline-flex items-center border-t-2 px-4 pt-4 text-sm font-medium ${
+                            pageNum === currentPage
+                              ? "border-primary text-primary"
+                              : "border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700"
+                          }`}
+                        >
+                          {pageNum}
+                        </button>
+                      );
+                    } else if (
+                      pageNum === currentPage - 2 ||
+                      pageNum === currentPage + 2
+                    ) {
+                      return (
+                        <span
+                          key={pageNum}
+                          className="inline-flex items-center border-t-2 border-transparent px-4 pt-4 text-sm font-medium text-gray-500"
+                        >
+                          ...
+                        </span>
+                      );
+                    }
+                    return null;
+                  })}
+                </div>
+                <div className="-mt-px flex w-0 flex-1 justify-end">
+                  <button
+                    onClick={() =>
+                      setCurrentPage((prev) =>
+                        Math.min(Math.ceil(totalResults / 10), prev + 1),
+                      )
+                    }
+                    disabled={currentPage >= Math.ceil(totalResults / 10)}
+                    className={`inline-flex items-center border-t-2 border-transparent pl-1 pt-4 text-sm font-medium ${
+                      currentPage >= Math.ceil(totalResults / 10)
+                        ? "text-gray-300 cursor-not-allowed"
+                        : "text-gray-500 hover:border-gray-300 hover:text-gray-700"
+                    }`}
+                  >
+                    Siguiente
+                    <ArrowLongRightIcon
+                      aria-hidden="true"
+                      className={`ml-3 size-5 ${
+                        currentPage >= Math.ceil(totalResults / 10)
+                          ? "text-gray-300"
+                          : "text-gray-400"
+                      }`}
+                    />
+                  </button>
+                </div>
+              </nav>
             )}
           </div>
         </div>

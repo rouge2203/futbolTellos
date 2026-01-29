@@ -26,6 +26,18 @@ interface Cancha {
   precio?: string;
 }
 
+interface Pago {
+  id: number;
+  reserva_id: number;
+  monto_sinpe: number;
+  monto_efectivo: number;
+  nota: string | null;
+  completo: boolean;
+  creado_por: string;
+  created_at?: string;
+  sinpe_pago: string | null;
+}
+
 interface Reserva {
   id: number;
   hora_inicio: string;
@@ -103,7 +115,7 @@ export default function ReservationDrawer({
   user,
 }: ReservationDrawerProps) {
   const [configuracion, setConfiguracion] = useState<Configuracion | null>(
-    null
+    null,
   );
   const [canchas, setCanchas] = useState<Cancha[]>([]);
 
@@ -132,6 +144,7 @@ export default function ReservationDrawer({
   const [updating, setUpdating] = useState(false);
   const [customAdelantoAmount, setCustomAdelantoAmount] = useState<number>(0);
   const [localConfirmed, setLocalConfirmed] = useState(false);
+  const [pagos, setPagos] = useState<Pago[]>([]);
 
   // Generate dates for today + 10 days
   const dates = Array.from({ length: 11 }, (_, i) => {
@@ -192,6 +205,20 @@ export default function ReservationDrawer({
       // Set default adelanto amount to 50% of precio
       setCustomAdelantoAmount(Math.ceil(reserva.precio / 2));
       setLocalConfirmed(reserva.confirmada || false);
+
+      // Fetch pagos for this reservation
+      const fetchPagos = async () => {
+        const { data, error } = await supabase
+          .from("pagos")
+          .select("*")
+          .eq("reserva_id", reserva.id);
+
+        if (!error && data) {
+          setPagos(data);
+        }
+      };
+
+      fetchPagos();
     }
   }, [reserva]);
 
@@ -204,7 +231,7 @@ export default function ReservationDrawer({
 
   const parseDateFromTimestamp = (timestamp: string): Date => {
     const match = timestamp.match(
-      /(\d{4})-(\d{2})-(\d{2}) (\d{2}):(\d{2}):(\d{2})/
+      /(\d{4})-(\d{2})-(\d{2}) (\d{2}):(\d{2}):(\d{2})/,
     );
     if (match) {
       return new Date(
@@ -213,7 +240,7 @@ export default function ReservationDrawer({
         parseInt(match[3]),
         parseInt(match[4]),
         parseInt(match[5]),
-        parseInt(match[6])
+        parseInt(match[6]),
       );
     }
     return new Date(timestamp);
@@ -279,7 +306,7 @@ export default function ReservationDrawer({
         const getCurrentHourCR = (): number => {
           const now = new Date();
           const crTime = new Date(
-            now.toLocaleString("en-US", { timeZone: "America/Costa_Rica" })
+            now.toLocaleString("en-US", { timeZone: "America/Costa_Rica" }),
           );
           return crTime.getHours();
         };
@@ -314,7 +341,7 @@ export default function ReservationDrawer({
         .neq("id", reserva.id); // Exclude current reservation
 
       const reserved = (reservasData || []).map((r) =>
-        parseHourFromTimestamp(r.hora_inicio)
+        parseHourFromTimestamp(r.hora_inicio),
       );
       setReservedHours(reserved);
     };
@@ -427,12 +454,17 @@ export default function ReservationDrawer({
           .eq("id", reserva.id)
           .single();
 
+        // Automatically mark as completo if adelanto amount equals the reservation price
+        const isCompleto = amount >= reserva.precio;
+
         const { error: pagoError } = await supabase.from("pagos").insert({
           reserva_id: reserva.id,
           monto_sinpe: amount,
           monto_efectivo: 0,
-          nota: "Adelanto SINPE confirmado",
-          completo: false,
+          nota: isCompleto
+            ? "Pago completo SINPE confirmado"
+            : "Adelanto SINPE confirmado",
+          completo: isCompleto,
           creado_por: username,
           sinpe_pago: reservaWithSinpe?.sinpe_reserva || null,
         });
@@ -444,7 +476,7 @@ export default function ReservationDrawer({
 
       // Refresh the list
       await onRefresh();
-      
+
       // Fetch updated reservation details to refresh the drawer
       const { data: updatedReserva, error: fetchError } = await supabase
         .from("reservas")
@@ -459,7 +491,7 @@ export default function ReservationDrawer({
             cantidad,
             precio
           )
-        `
+        `,
         )
         .eq("id", reserva.id)
         .single();
@@ -470,11 +502,11 @@ export default function ReservationDrawer({
         // Update the local reserva state to trigger re-render
         const updatedReservaWithCancha = {
           ...updatedReserva,
-          cancha: Array.isArray(updatedReserva.cancha) 
-            ? updatedReserva.cancha[0] 
+          cancha: Array.isArray(updatedReserva.cancha)
+            ? updatedReserva.cancha[0]
             : updatedReserva.cancha,
         };
-        
+
         // Re-initialize form with updated data
         setEditNombre(updatedReservaWithCancha.nombre_reserva);
         setEditCorreo(updatedReservaWithCancha.correo_reserva);
@@ -482,9 +514,13 @@ export default function ReservationDrawer({
         setEditPrecio(updatedReservaWithCancha.precio);
         setEditCanchaId(updatedReservaWithCancha.cancha.id);
 
-        const date = parseDateFromTimestamp(updatedReservaWithCancha.hora_inicio);
+        const date = parseDateFromTimestamp(
+          updatedReservaWithCancha.hora_inicio,
+        );
         setEditDate(date);
-        const hour = parseHourFromTimestamp(updatedReservaWithCancha.hora_inicio);
+        const hour = parseHourFromTimestamp(
+          updatedReservaWithCancha.hora_inicio,
+        );
         setEditHour(hour);
         setLocalConfirmed(true);
       }
@@ -552,7 +588,9 @@ export default function ReservationDrawer({
             className="w-16 h-16 animate-spin"
           />
           <p className="mt-4 text-white text-lg font-semibold">Futbol Tello</p>
-          <p className="mt-2 text-white/70 text-sm">Actualizando reservación...</p>
+          <p className="mt-2 text-white/70 text-sm">
+            Actualizando reservación...
+          </p>
         </div>
       )}
 
@@ -621,7 +659,8 @@ export default function ReservationDrawer({
                               Reservación Fija
                             </p>
                             <p className="mt-1 text-sm text-blue-800">
-                              Esta reservación pertenece a una Reservación Fija y se actualiza/elimina automáticamente.
+                              Esta reservación pertenece a una Reservación Fija
+                              y se actualiza/elimina automáticamente.
                             </p>
                             <div className="mt-3">
                               <Link
@@ -861,8 +900,8 @@ export default function ReservationDrawer({
                                                 isReserved
                                                   ? "bg-gray-100 border-gray-300 text-gray-400 cursor-not-allowed line-through"
                                                   : isSelected
-                                                  ? "bg-primary border-primary text-white"
-                                                  : "bg-white border-primary border-dashed text-gray-900 hover:bg-primary/10"
+                                                    ? "bg-primary border-primary text-white"
+                                                    : "bg-white border-primary border-dashed text-gray-900 hover:bg-primary/10"
                                               }`}
                                             >
                                               {formatHourAmPm(hour)}
@@ -871,7 +910,7 @@ export default function ReservationDrawer({
                                         })}
                                       </div>
                                       {availableHours.every((h) =>
-                                        reservedHours.includes(h)
+                                        reservedHours.includes(h),
                                       ) && (
                                         <p className="text-gray-500 text-sm text-center mt-4">
                                           No hay horarios disponibles para esta
@@ -1009,7 +1048,7 @@ export default function ReservationDrawer({
                                     <span>
                                       ₡
                                       {Math.ceil(
-                                        editPrecio / 2
+                                        editPrecio / 2,
                                       ).toLocaleString()}
                                     </span>
                                   </div>
@@ -1040,7 +1079,7 @@ export default function ReservationDrawer({
                                     <span className="font-medium text-gray-900">
                                       ₡
                                       {Math.ceil(
-                                        reserva.precio / 2
+                                        reserva.precio / 2,
                                       ).toLocaleString()}
                                     </span>
                                   </div>
@@ -1060,9 +1099,41 @@ export default function ReservationDrawer({
                           {isSabana && (
                             <div>
                               <h3 className="text-sm/6 font-medium text-gray-900 mb-3">
-                                Comprobante SINPE (adelanto)
+                                {pagos.length > 0
+                                  ? "Pagos registrados"
+                                  : "Comprobante SINPE (adelanto)"}
                               </h3>
-                              {reserva.sinpe_reserva ? (
+                              {pagos.length > 0 ? (
+                                // Show pagos total if any pagos exist
+                                <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+                                  <div className="space-y-2">
+                                    <div className="flex items-center gap-2 text-green-800">
+                                      <FaCheck className="text-green-600" />
+                                      <span className="text-sm font-semibold">
+                                        {pagos.length} pago
+                                        {pagos.length > 1 ? "s" : ""} registrado
+                                        {pagos.length > 1 ? "s" : ""}
+                                      </span>
+                                    </div>
+                                    <div className="text-2xl font-bold text-green-900">
+                                      ₡
+                                      {pagos
+                                        .reduce(
+                                          (total, pago) =>
+                                            total +
+                                            pago.monto_sinpe +
+                                            pago.monto_efectivo,
+                                          0,
+                                        )
+                                        .toLocaleString()}
+                                    </div>
+                                    <p className="text-xs text-green-700">
+                                      Total de pagos. Ver detalles en la sección
+                                      de Pagos.
+                                    </p>
+                                  </div>
+                                </div>
+                              ) : reserva.sinpe_reserva ? (
                                 <div className="space-y-3">
                                   <img
                                     src={reserva.sinpe_reserva}
@@ -1077,7 +1148,9 @@ export default function ReservationDrawer({
                                         <span className="text-sm font-medium">
                                           Confirmada por:{" "}
                                           {reserva.confirmada_por ||
-                                            (localConfirmed ? " Usted" : "Admin")}
+                                            (localConfirmed
+                                              ? " Usted"
+                                              : "Admin")}
                                         </span>
                                       </div>
                                     </div>
@@ -1085,44 +1158,46 @@ export default function ReservationDrawer({
                                   {mode === "edit" &&
                                     !(reserva.confirmada || localConfirmed) && (
                                       <div className="space-y-3">
-                                      <div>
-                                        <label
-                                          htmlFor="adelanto-amount"
-                                          className="block text-sm font-medium text-gray-900 mb-2"
-                                        >
-                                          Monto del adelanto
-                                        </label>
-                                        <input
-                                          id="adelanto-amount"
-                                          type="number"
-                                          value={customAdelantoAmount}
-                                          onChange={(e) =>
-                                            setCustomAdelantoAmount(
-                                              Number(e.target.value)
-                                            )
+                                        <div>
+                                          <label
+                                            htmlFor="adelanto-amount"
+                                            className="block text-sm font-medium text-gray-900 mb-2"
+                                          >
+                                            Monto del adelanto
+                                          </label>
+                                          <input
+                                            id="adelanto-amount"
+                                            type="number"
+                                            value={customAdelantoAmount}
+                                            onChange={(e) =>
+                                              setCustomAdelantoAmount(
+                                                Number(e.target.value),
+                                              )
+                                            }
+                                            className="block w-full rounded-md bg-white border border-gray-300 px-3 py-1.5 text-base text-gray-900 outline-1 -outline-offset-1 outline-gray-300 placeholder:text-gray-400 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-primary sm:text-sm/6"
+                                            placeholder="0"
+                                            min="0"
+                                            step="1000"
+                                          />
+                                          <p className="mt-1 text-xs text-gray-500">
+                                            Por defecto: ₡
+                                            {Math.ceil(
+                                              reserva.precio / 2,
+                                            ).toLocaleString()}{" "}
+                                            (50%)
+                                          </p>
+                                        </div>
+                                        <button
+                                          type="button"
+                                          onClick={() =>
+                                            setShowSinpeConfirm(true)
                                           }
-                                          className="block w-full rounded-md bg-white border border-gray-300 px-3 py-1.5 text-base text-gray-900 outline-1 -outline-offset-1 outline-gray-300 placeholder:text-gray-400 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-primary sm:text-sm/6"
-                                          placeholder="0"
-                                          min="0"
-                                          step="1000"
-                                        />
-                                        <p className="mt-1 text-xs text-gray-500">
-                                          Por defecto: ₡
-                                          {Math.ceil(
-                                            reserva.precio / 2
-                                          ).toLocaleString()}{" "}
-                                          (50%)
-                                        </p>
+                                          className="w-full rounded-md bg-primary px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-primary/90"
+                                        >
+                                          Confirmar comprobante
+                                        </button>
                                       </div>
-                                      <button
-                                        type="button"
-                                        onClick={() => setShowSinpeConfirm(true)}
-                                        className="w-full rounded-md bg-primary px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-primary/90"
-                                      >
-                                        Confirmar comprobante
-                                      </button>
-                                    </div>
-                                  )}
+                                    )}
                                 </div>
                               ) : (
                                 <div className="space-y-3">
@@ -1157,7 +1232,7 @@ export default function ReservationDrawer({
                                               value={customAdelantoAmount}
                                               onChange={(e) =>
                                                 setCustomAdelantoAmount(
-                                                  Number(e.target.value)
+                                                  Number(e.target.value),
                                                 )
                                               }
                                               className="block w-full rounded-md bg-white border border-gray-300 px-3 py-1.5 text-base text-gray-900 outline-1 -outline-offset-1 outline-gray-300 placeholder:text-gray-400 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-primary sm:text-sm/6"
@@ -1168,7 +1243,7 @@ export default function ReservationDrawer({
                                             <p className="mt-1 text-xs text-gray-500">
                                               Por defecto: ₡
                                               {Math.ceil(
-                                                reserva.precio / 2
+                                                reserva.precio / 2,
                                               ).toLocaleString()}{" "}
                                               (50%)
                                             </p>
@@ -1176,11 +1251,13 @@ export default function ReservationDrawer({
                                           <button
                                             type="button"
                                             onClick={() =>
-                                              setShowSinpeConfirm(true)
+                                              setShowSinpeNoComprobanteConfirm(
+                                                true,
+                                              )
                                             }
                                             className="w-full rounded-md bg-primary px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-primary/90"
                                           >
-                                            Confirmar comprobante
+                                            Confirmar sin comprobante
                                           </button>
                                         </div>
                                       )}
@@ -1370,7 +1447,8 @@ export default function ReservationDrawer({
               </DialogTitle>
               <p className="text-sm text-gray-600 mb-4">
                 ¿Está seguro de confirmar esta reservación sin comprobante
-                SINPE? Se creará un pago de ₡{customAdelantoAmount.toLocaleString()}.
+                SINPE? Se creará un pago de ₡
+                {customAdelantoAmount.toLocaleString()}.
               </p>
               <div className="flex gap-3">
                 <button
