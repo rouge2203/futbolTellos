@@ -40,6 +40,15 @@ interface CreateReservationDrawerProps {
 }
 
 const DAYS_SPANISH_SHORT = ["L", "M", "M", "J", "V", "S", "D"];
+const DAYS_SPANISH_FULL = [
+  "Domingo",
+  "Lunes",
+  "Martes",
+  "Miércoles",
+  "Jueves",
+  "Viernes",
+  "Sábado",
+];
 const MONTHS_SPANISH = [
   "Enero",
   "Febrero",
@@ -282,15 +291,7 @@ export default function CreateReservationDrawer({
       hourMapping.push({ displayHour, isNextDay });
     }
 
-    if (isToday()) {
-      const currentHour = getCurrentHourCR();
-      return hours.filter((hour, index) => {
-        const mapping = hourMapping[index];
-        if (mapping.isNextDay) return true;
-        return hour > currentHour;
-      });
-    }
-
+    // Show all available hours regardless of current time
     return hours;
   };
 
@@ -561,18 +562,8 @@ export default function CreateReservationDrawer({
                                               newMonth.setMonth(
                                                 newMonth.getMonth() - 1,
                                               );
-                                              // Don't go before current month
-                                              const today = new Date();
-                                              if (
-                                                newMonth.getFullYear() >
-                                                  today.getFullYear() ||
-                                                (newMonth.getFullYear() ===
-                                                  today.getFullYear() &&
-                                                  newMonth.getMonth() >=
-                                                    today.getMonth())
-                                              ) {
-                                                setDisplayedMonth(newMonth);
-                                              }
+                                              // Allow navigation to any month (past or future)
+                                              setDisplayedMonth(newMonth);
                                             }}
                                             className="-m-1.5 flex flex-none items-center justify-center p-1.5 text-gray-400 hover:text-gray-500"
                                           >
@@ -734,7 +725,7 @@ export default function CreateReservationDrawer({
                                                   ).getTime();
                                                 const isPast = dateOnly < today;
                                                 const isDisabled =
-                                                  isPast || !isCurrentMonth;
+                                                  !isCurrentMonth;
 
                                                 // Corner rounding classes
                                                 const isFirstCell = index === 0;
@@ -758,9 +749,12 @@ export default function CreateReservationDrawer({
                                                       }
                                                     }}
                                                     className={`py-1.5 focus:z-10 ${
-                                                      isCurrentMonth
+                                                      isCurrentMonth && !isPast
                                                         ? "bg-white hover:bg-gray-100"
-                                                        : "bg-gray-50"
+                                                        : isCurrentMonth &&
+                                                            isPast
+                                                          ? "bg-amber-50/50 hover:bg-amber-100/50"
+                                                          : "bg-gray-50"
                                                     } ${
                                                       !isSelected &&
                                                       !isCurrentMonth &&
@@ -770,8 +764,16 @@ export default function CreateReservationDrawer({
                                                     } ${
                                                       !isSelected &&
                                                       isCurrentMonth &&
-                                                      !isToday
+                                                      !isToday &&
+                                                      !isPast
                                                         ? "text-gray-900"
+                                                        : ""
+                                                    } ${
+                                                      !isSelected &&
+                                                      isCurrentMonth &&
+                                                      !isToday &&
+                                                      isPast
+                                                        ? "text-gray-500"
                                                         : ""
                                                     } ${
                                                       isSelected
@@ -810,8 +812,16 @@ export default function CreateReservationDrawer({
                                                           .split("T")[0]
                                                       }
                                                       className={`mx-auto flex size-7 items-center justify-center rounded-full ${
-                                                        isSelected && !isToday
+                                                        isSelected &&
+                                                        !isToday &&
+                                                        !isPast
                                                           ? "bg-gray-900"
+                                                          : ""
+                                                      } ${
+                                                        isSelected &&
+                                                        !isToday &&
+                                                        isPast
+                                                          ? "bg-amber-600/40"
                                                           : ""
                                                       } ${
                                                         isSelected && isToday
@@ -1001,7 +1011,12 @@ export default function CreateReservationDrawer({
                                           </span>
                                         </div>
                                         <span className="text-gray-900 font-medium">
-                                          {selectedDate.getDate()} de{" "}
+                                          {
+                                            DAYS_SPANISH_FULL[
+                                              selectedDate.getDay()
+                                            ]
+                                          }
+                                          , {selectedDate.getDate()} de{" "}
                                           {
                                             [
                                               "Ene",

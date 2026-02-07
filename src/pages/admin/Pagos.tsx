@@ -1388,95 +1388,101 @@ export default function Pagos() {
                   return (
                     <li
                       key={reserva.id}
-                      className="relative flex gap-x-6 py-6 xl:static"
+                      className="relative flex gap-x-6 py-6 xl:static md:px-2"
                     >
                       <img
                         alt={reserva.cancha.nombre}
                         src={reserva.cancha.img}
-                        className="size-14 flex-none rounded-full object-cover"
+                        className="size-14 flex-none rounded-full object-cover hover:cursor-pointer"
+                        onClick={() => handleVerPagos(reserva)}
                       />
                       <div className="flex-auto">
-                        <h3 className="pr-10 font-semibold text-gray-900 xl:pr-0">
-                          {reserva.nombre_reserva}
-                        </h3>
-                        <dl className="mt-2 flex flex-col text-gray-500 xl:flex-row xl:items-center">
-                          {searchMode ? (
-                            <>
-                              <div className="flex items-center gap-x-2">
-                                <CalendarIcon
-                                  aria-hidden="true"
-                                  className="size-4 text-gray-400"
-                                />
-                                <span className="text-sm">
-                                  {parseDateFromTimestamp(
-                                    reserva.hora_inicio,
-                                  ).toLocaleDateString("es-CR", {
-                                    day: "numeric",
-                                    month: "short",
-                                    year: "numeric",
-                                  })}
-                                </span>
-                                <span className="text-gray-300">•</span>
-                                <ClockIcon
-                                  aria-hidden="true"
-                                  className="size-4 text-gray-400"
-                                />
-                                <span className="text-sm">
-                                  {parseDateFromTimestamp(
-                                    reserva.hora_inicio,
-                                  ).toLocaleTimeString("es-CR", {
-                                    hour: "numeric",
-                                    minute: "2-digit",
-                                    hour12: true,
-                                  })}
-                                </span>
-                                <span className="text-gray-300">•</span>
-                                <MapPinIcon
-                                  aria-hidden="true"
-                                  className="size-4 text-gray-400"
-                                />
-                                <span className="text-sm">
-                                  {reserva.cancha.nombre} -{" "}
-                                  {getLocalName(reserva.cancha.local)}
-                                </span>
-                              </div>
-                              <div className="mt-1 xl:mt-0 xl:ml-3.5 xl:border-l xl:border-gray-400/50 xl:pl-3.5">
-                                <span className="font-semibold text-gray-900">
-                                  ₡ {reserva.precio.toLocaleString()}
-                                </span>
-                              </div>
-                            </>
-                          ) : (
-                            <>
-                              <div className="flex items-center gap-x-2">
-                                <CalendarIcon
-                                  aria-hidden="true"
-                                  className="size-4 text-gray-400"
-                                />
-                                <time
-                                  dateTime={reserva.hora_inicio}
-                                  className="text-sm"
-                                >
-                                  {formatDateTime(reserva.hora_inicio)}
-                                </time>
-                                <span className="text-gray-300">•</span>
-                                <MapPinIcon
-                                  aria-hidden="true"
-                                  className="size-4 text-gray-400"
-                                />
-                                <span className="text-sm">
-                                  {reserva.cancha.nombre} -{" "}
-                                  {getLocalName(reserva.cancha.local)}
-                                </span>
-                              </div>
-                              <div className="mt-1 xl:mt-0 xl:ml-3.5 xl:border-l xl:border-gray-400/50 xl:pl-3.5">
-                                <span className="font-semibold text-gray-900">
-                                  ₡ {reserva.precio.toLocaleString()}
-                                </span>
-                              </div>
-                            </>
-                          )}
-                        </dl>
+                        <div
+                          className="00 hover:cursor-pointer flex flex-col group"
+                          onClick={() => handleVerPagos(reserva)}
+                        >
+                          <h3 className="pr-10 font-semibold text-gray-900 xl:pr-0 group-hover:text-gray-600">
+                            {reserva.nombre_reserva}
+                          </h3>
+                          <dl className="mt-2 flex flex-col text-gray-500 xl:flex-row xl:items-center">
+                            {searchMode ? (
+                              <>
+                                <div className="flex items-center gap-x-2">
+                                  <CalendarIcon
+                                    aria-hidden="true"
+                                    className="size-4 text-gray-400"
+                                  />
+                                  <span className="text-sm">
+                                    {parseDateFromTimestamp(
+                                      reserva.hora_inicio,
+                                    ).toLocaleDateString("es-CR", {
+                                      day: "numeric",
+                                      month: "short",
+                                      year: "numeric",
+                                    })}
+                                  </span>
+                                  <span className="text-gray-300">•</span>
+                                  <ClockIcon
+                                    aria-hidden="true"
+                                    className="size-4 text-gray-400"
+                                  />
+                                  <span className="text-sm">
+                                    {parseDateFromTimestamp(
+                                      reserva.hora_inicio,
+                                    ).toLocaleTimeString("es-CR", {
+                                      hour: "numeric",
+                                      minute: "2-digit",
+                                      hour12: true,
+                                    })}
+                                  </span>
+                                  <span className="text-gray-300">•</span>
+                                  <MapPinIcon
+                                    aria-hidden="true"
+                                    className="size-4 text-gray-400"
+                                  />
+                                  <span className="text-sm">
+                                    {reserva.cancha.nombre} -{" "}
+                                    {getLocalName(reserva.cancha.local)}
+                                  </span>
+                                </div>
+                                <div className="mt-1 xl:mt-0 xl:ml-3.5 xl:border-l xl:border-gray-400/50 xl:pl-3.5">
+                                  <span className="font-semibold text-gray-900">
+                                    ₡ {reserva.precio.toLocaleString()}
+                                  </span>
+                                </div>
+                              </>
+                            ) : (
+                              <>
+                                <div className="flex items-center gap-x-2">
+                                  <CalendarIcon
+                                    aria-hidden="true"
+                                    className="size-4 text-gray-400"
+                                  />
+                                  <time
+                                    dateTime={reserva.hora_inicio}
+                                    className="text-sm"
+                                  >
+                                    {formatDateTime(reserva.hora_inicio)}
+                                  </time>
+                                  <span className="text-gray-300">•</span>
+                                  <MapPinIcon
+                                    aria-hidden="true"
+                                    className="size-4 text-gray-400"
+                                  />
+                                  <span className="text-sm">
+                                    {reserva.cancha.nombre} -{" "}
+                                    {getLocalName(reserva.cancha.local)}
+                                  </span>
+                                </div>
+                                <div className="mt-1 xl:mt-0 xl:ml-3.5 xl:border-l xl:border-gray-400/50 xl:pl-3.5">
+                                  <span className="font-semibold text-gray-900">
+                                    ₡ {reserva.precio.toLocaleString()}
+                                  </span>
+                                </div>
+                              </>
+                            )}
+                          </dl>
+                        </div>
                         {/* Payment Status */}
                         <div className="mt-2 flex flex-wrap gap-2">
                           {getPagoBadge()}

@@ -16,6 +16,7 @@ import {
 } from "@heroicons/react/20/solid";
 import { FaCheck, FaRegCalendarCheck, FaRegClock } from "react-icons/fa";
 import { GiWhistle } from "react-icons/gi";
+import SuccessNotification from "./SuccessNotification";
 
 interface Cancha {
   id: number;
@@ -142,6 +143,7 @@ export default function ReservationDrawer({
     useState(false);
   const [showSinpeSuccess, setShowSinpeSuccess] = useState(false);
   const [updating, setUpdating] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
   const [customAdelantoAmount, setCustomAdelantoAmount] = useState<number>(0);
   const [localConfirmed, setLocalConfirmed] = useState(false);
   const [pagos, setPagos] = useState<Pago[]>([]);
@@ -412,10 +414,18 @@ export default function ReservationDrawer({
   const handleConfirmSinpeNoComprobante = async () => {
     if (!reserva) return;
 
-    // Pass the custom adelanto amount to the parent handler
-    await handleConfirmSinpeWithAmount(customAdelantoAmount);
+    setSubmitting(true);
     setShowSinpeNoComprobanteConfirm(false);
-    setShowSinpeSuccess(true);
+
+    try {
+      // Pass the custom adelanto amount to the parent handler
+      await handleConfirmSinpeWithAmount(customAdelantoAmount);
+      setShowSinpeSuccess(true);
+    } catch (error) {
+      console.error("Error confirming SINPE:", error);
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   const handleConfirmSinpeWithAmount = async (amount: number) => {
@@ -590,6 +600,21 @@ export default function ReservationDrawer({
           <p className="mt-4 text-white text-lg font-semibold">Futbol Tello</p>
           <p className="mt-2 text-white/70 text-sm">
             Actualizando reservación...
+          </p>
+        </div>
+      )}
+
+      {/* Submitting Overlay */}
+      {submitting && (
+        <div className="fixed inset-0 z-[100] bg-black/80 backdrop-blur-sm flex flex-col items-center justify-center">
+          <img
+            src="/tellos-square.svg"
+            alt="Futbol Tello"
+            className="w-16 h-16 animate-spin"
+          />
+          <p className="mt-4 text-white text-lg font-semibold">Futbol Tello</p>
+          <p className="mt-2 text-white/70 text-sm">
+            Confirmando reservación...
           </p>
         </div>
       )}
@@ -1469,40 +1494,16 @@ export default function ReservationDrawer({
         </div>
       </Dialog>
 
-      {/* SINPE Success Dialog */}
-      <Dialog
-        open={showSinpeSuccess}
-        onClose={() => setShowSinpeSuccess(false)}
-        className="relative z-50"
-      >
-        <DialogBackdrop className="fixed inset-0 bg-black/80" />
-        <div className="fixed inset-0 z-50 w-screen overflow-y-auto">
-          <div className="flex min-h-full items-end justify-center p-4 text-center sm:items-center sm:p-0">
-            <DialogPanel className="relative transform w-full overflow-hidden rounded-lg bg-white px-4 pt-5 pb-4 text-left shadow-xl ring-1 ring-black/5 transition-all data-closed:translate-y-4 data-closed:opacity-0 data-enter:duration-300 data-enter:ease-out data-leave:duration-200 data-leave:ease-in sm:my-8 sm:w-full sm:max-w-sm sm:p-6 data-closed:sm:translate-y-0 data-closed:sm:scale-95">
-              <div className="flex items-center gap-3 mb-4">
-                <div className="shrink-0">
-                  <FaCheck className="text-primary text-2xl" />
-                </div>
-                <DialogTitle className="text-base font-semibold text-gray-900">
-                  Reservación confirmada
-                </DialogTitle>
-              </div>
-              <p className="text-sm text-gray-600 mb-4">
-                El SINPE ha sido confirmado exitosamente.
-              </p>
-              <button
-                onClick={() => {
-                  setShowSinpeSuccess(false);
-                  onRefresh();
-                }}
-                className="w-full rounded-md bg-primary px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-primary/90"
-              >
-                Cerrar
-              </button>
-            </DialogPanel>
-          </div>
-        </div>
-      </Dialog>
+      {/* SINPE Success Notification */}
+      <SuccessNotification
+        show={showSinpeSuccess}
+        onClose={() => {
+          setShowSinpeSuccess(false);
+          onRefresh();
+        }}
+        message="Reservación confirmada"
+        description="El SINPE ha sido confirmado exitosamente."
+      />
     </>
   );
 }

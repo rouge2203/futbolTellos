@@ -1501,20 +1501,67 @@ export default function Dashboard() {
                   return (
                     <li
                       key={reserva.id}
-                      className="relative flex gap-x-6 py-6 xl:static"
+                      className="relative flex gap-x-6 py-6 xl:static md:px-2 "
                     >
                       <img
                         alt={reserva.cancha.nombre}
                         src={reserva.cancha.img}
-                        className="size-14 flex-none rounded-full object-cover"
+                        className="size-14 flex-none rounded-full object-cover hover:cursor-pointer"
+                        onClick={() => handleVerReservacion(reserva.id)}
                       />
                       <div className="flex-auto">
-                        <h3 className="pr-10 font-semibold text-gray-900 xl:pr-0">
-                          {reserva.nombre_reserva}
-                        </h3>
-                        <dl className="mt-2 flex flex-col text-gray-500 xl:flex-row">
-                          {searchMode && (
-                            <>
+                        <div
+                          className=" flex flex-col hover:cursor-pointer group"
+                          onClick={() => handleVerReservacion(reserva.id)}
+                        >
+                          <h3
+                            className="pr-10 font-semibold text-gray-900 xl:pr-0 group-hover:text-gray-600 "
+                            onClick={() => handleVerReservacion(reserva.id)}
+                          >
+                            {reserva.nombre_reserva}
+                          </h3>
+                          <dl className="mt-2 flex flex-col text-gray-500 xl:flex-row">
+                            {searchMode && (
+                              <>
+                                <div className="flex items-start gap-x-3">
+                                  <dt className="mt-0.5">
+                                    <span className="sr-only">Fecha</span>
+                                    <CalendarIcon
+                                      aria-hidden="true"
+                                      className="size-5 text-gray-400"
+                                    />
+                                  </dt>
+                                  <dd>
+                                    {parseDateFromTimestamp(
+                                      reserva.hora_inicio,
+                                    ).toLocaleDateString("es-CR", {
+                                      day: "numeric",
+                                      month: "short",
+                                      year: "numeric",
+                                    })}
+                                  </dd>
+                                </div>
+                                <div className="mt-2 flex items-start gap-x-3 xl:mt-0 xl:ml-3.5 xl:border-l xl:border-gray-400/50 xl:pl-3.5">
+                                  <dt className="mt-0.5">
+                                    <span className="sr-only">Hora</span>
+                                    <ClockIcon
+                                      aria-hidden="true"
+                                      className="size-5 text-gray-400"
+                                    />
+                                  </dt>
+                                  <dd>
+                                    {parseDateFromTimestamp(
+                                      reserva.hora_inicio,
+                                    ).toLocaleTimeString("es-CR", {
+                                      hour: "numeric",
+                                      minute: "2-digit",
+                                      hour12: true,
+                                    })}
+                                  </dd>
+                                </div>
+                              </>
+                            )}
+                            {!searchMode && (
                               <div className="flex items-start gap-x-3">
                                 <dt className="mt-0.5">
                                   <span className="sr-only">Fecha</span>
@@ -1524,79 +1571,41 @@ export default function Dashboard() {
                                   />
                                 </dt>
                                 <dd>
-                                  {parseDateFromTimestamp(
-                                    reserva.hora_inicio,
-                                  ).toLocaleDateString("es-CR", {
-                                    day: "numeric",
-                                    month: "short",
-                                    year: "numeric",
-                                  })}
+                                  <time dateTime={reserva.hora_inicio}>
+                                    {formatDateTime(reserva.hora_inicio)}
+                                  </time>
                                 </dd>
                               </div>
-                              <div className="mt-2 flex items-start gap-x-3 xl:mt-0 xl:ml-3.5 xl:border-l xl:border-gray-400/50 xl:pl-3.5">
-                                <dt className="mt-0.5">
-                                  <span className="sr-only">Hora</span>
-                                  <ClockIcon
-                                    aria-hidden="true"
-                                    className="size-5 text-gray-400"
-                                  />
-                                </dt>
-                                <dd>
-                                  {parseDateFromTimestamp(
-                                    reserva.hora_inicio,
-                                  ).toLocaleTimeString("es-CR", {
-                                    hour: "numeric",
-                                    minute: "2-digit",
-                                    hour12: true,
-                                  })}
-                                </dd>
-                              </div>
-                            </>
-                          )}
-                          {!searchMode && (
-                            <div className="flex items-start gap-x-3">
+                            )}
+                            <div className="mt-2 flex items-start gap-x-3 xl:mt-0 xl:ml-3.5 xl:border-l xl:border-gray-400/50 xl:pl-3.5">
                               <dt className="mt-0.5">
-                                <span className="sr-only">Fecha</span>
-                                <CalendarIcon
+                                <span className="sr-only">Ubicación</span>
+                                <MapPinIcon
                                   aria-hidden="true"
                                   className="size-5 text-gray-400"
                                 />
                               </dt>
                               <dd>
-                                <time dateTime={reserva.hora_inicio}>
-                                  {formatDateTime(reserva.hora_inicio)}
-                                </time>
+                                {reserva.cancha.nombre} -{" "}
+                                {getLocalName(reserva.cancha.local)}
                               </dd>
                             </div>
-                          )}
-                          <div className="mt-2 flex items-start gap-x-3 xl:mt-0 xl:ml-3.5 xl:border-l xl:border-gray-400/50 xl:pl-3.5">
-                            <dt className="mt-0.5">
-                              <span className="sr-only">Ubicación</span>
-                              <MapPinIcon
-                                aria-hidden="true"
-                                className="size-5 text-gray-400"
-                              />
-                            </dt>
-                            <dd>
-                              {reserva.cancha.nombre} -{" "}
-                              {getLocalName(reserva.cancha.local)}
-                            </dd>
-                          </div>
-                          {reserva.arbitro && (
-                            <div className="mt-2 flex items-start gap-x-3 xl:mt-0 xl:ml-3.5 xl:border-l xl:border-gray-400/50 xl:pl-3.5">
-                              <dt className="mt-0.5">
-                                <span className="sr-only">Árbitro</span>
-                                <GiWhistle
-                                  aria-hidden="true"
-                                  className="size-5 text-primary"
-                                />
-                              </dt>
-                              <dd className="text-primary font-medium">
-                                Incluye árbitro
-                              </dd>
-                            </div>
-                          )}
-                        </dl>
+                            {reserva.arbitro && (
+                              <div className="mt-2 flex items-start gap-x-3 xl:mt-0 xl:ml-3.5 xl:border-l xl:border-gray-400/50 xl:pl-3.5">
+                                <dt className="mt-0.5">
+                                  <span className="sr-only">Árbitro</span>
+                                  <GiWhistle
+                                    aria-hidden="true"
+                                    className="size-5 text-primary"
+                                  />
+                                </dt>
+                                <dd className="text-primary font-medium">
+                                  Incluye árbitro
+                                </dd>
+                              </div>
+                            )}
+                          </dl>
+                        </div>
                         {/* SINPE Status, Payment Status & Fija Badge */}
                         <div className="mt-2 flex flex-wrap gap-2">
                           {isSabana && (
