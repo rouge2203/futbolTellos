@@ -238,30 +238,6 @@ export default function CreateReservationDrawer({
     return parseInt(timeStr.split(":")[0], 10);
   };
 
-  const getCurrentHourCR = (): number => {
-    const now = new Date();
-    const crTime = new Date(
-      now.toLocaleString("en-US", { timeZone: "America/Costa_Rica" }),
-    );
-    return crTime.getHours();
-  };
-
-  const isToday = (): boolean => {
-    const today = new Date();
-    const crToday = new Date(
-      today.toLocaleString("en-US", { timeZone: "America/Costa_Rica" }),
-    );
-    const crSelected = new Date(
-      selectedDate.toLocaleString("en-US", { timeZone: "America/Costa_Rica" }),
-    );
-
-    return (
-      crToday.getFullYear() === crSelected.getFullYear() &&
-      crToday.getMonth() === crSelected.getMonth() &&
-      crToday.getDate() === crSelected.getDate()
-    );
-  };
-
   const getAvailableHours = (): number[] => {
     if (!configuracion || !selectedCancha) return [];
 
