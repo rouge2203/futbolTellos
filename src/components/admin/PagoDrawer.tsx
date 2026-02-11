@@ -47,6 +47,16 @@ interface Reserva {
   pago_checkeado?: boolean;
 }
 
+const DAYS_SPANISH_FULL = [
+  "Domingo",
+  "Lunes",
+  "Martes",
+  "Miércoles",
+  "Jueves",
+  "Viernes",
+  "Sábado",
+];
+
 interface PagoDrawerProps {
   open: boolean;
   onClose: () => void;
@@ -349,16 +359,19 @@ export default function PagoDrawer({
                                   Fecha/Hora:
                                 </span>
                                 <span className="text-gray-900 font-medium text-right text-xs">
-                                  {new Date(reserva.hora_inicio).toLocaleString(
-                                    "es-CR",
-                                    {
-                                      month: "short",
-                                      day: "numeric",
-                                      year: "numeric",
-                                      hour: "2-digit",
-                                      minute: "2-digit",
-                                    }
-                                  )}
+                                  {(() => {
+                                    const d = new Date(reserva.hora_inicio);
+                                    return `${DAYS_SPANISH_FULL[d.getDay()]}, ${d.toLocaleString(
+                                      "es-CR",
+                                      {
+                                        month: "short",
+                                        day: "numeric",
+                                        year: "numeric",
+                                        hour: "2-digit",
+                                        minute: "2-digit",
+                                      }
+                                    )}`;
+                                  })()}
                                 </span>
                               </div>
                               <div className="flex justify-between items-start gap-2">

@@ -98,6 +98,15 @@ const MONTHS_SPANISH = [
 ];
 
 const DAYS_SPANISH = ["Dom", "Lun", "Mar", "Mié", "Jue", "Vie", "Sáb"];
+const DAYS_SPANISH_FULL = [
+  "Domingo",
+  "Lunes",
+  "Martes",
+  "Miércoles",
+  "Jueves",
+  "Viernes",
+  "Sábado",
+];
 
 const formatHourAmPm = (hour: number): string => {
   const ampm = hour >= 12 ? "PM" : "AM";
@@ -794,7 +803,7 @@ export default function ReservationDrawer({
                                     type="text"
                                     value={
                                       editDate
-                                        ? `${editDate.getDate()} de ${
+                                        ? `${DAYS_SPANISH_FULL[editDate.getDay()]}, ${editDate.getDate()} de ${
                                             MONTHS_SPANISH[editDate.getMonth()]
                                           } de ${editDate.getFullYear()}`
                                         : ""
@@ -818,7 +827,7 @@ export default function ReservationDrawer({
                               ) : (
                                 <div className="block w-full rounded-md bg-gray-50 border border-gray-300 px-3 py-1.5 text-base text-gray-900 sm:text-sm/6">
                                   {editDate
-                                    ? `${editDate.getDate()} de ${
+                                    ? `${DAYS_SPANISH_FULL[editDate.getDay()]}, ${editDate.getDate()} de ${
                                         MONTHS_SPANISH[editDate.getMonth()]
                                       } de ${editDate.getFullYear()}`
                                     : ""}

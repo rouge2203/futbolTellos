@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import AdminLayout from "../../components/admin/AdminLayout";
 import ReservationDrawer from "../../components/admin/ReservationDrawer";
 import CreateReservationDrawer from "../../components/admin/CreateReservationDrawer";
+import RetoDrawer from "../../components/admin/RetoDrawer";
 import SuccessNotification from "../../components/admin/SuccessNotification";
 import { supabase } from "../../lib/supabase";
 import { useAuth } from "../../contexts/AuthContext";
@@ -22,6 +23,8 @@ import {
 } from "@heroicons/react/20/solid";
 import { FaWhatsapp } from "react-icons/fa";
 import { GiWhistle } from "react-icons/gi";
+import { TbPlayFootball } from "react-icons/tb";
+import { MdOutlineScoreboard } from "react-icons/md";
 import { HiOutlineDocumentCheck } from "react-icons/hi2";
 import { LuClockAlert } from "react-icons/lu";
 import { IoMdCheckmark } from "react-icons/io";
@@ -67,6 +70,25 @@ interface Pago {
   sinpe_pago: string | null;
 }
 
+interface Reto {
+  id: number;
+  hora_inicio: string;
+  hora_fin: string;
+  local: string;
+  fut: number;
+  arbitro: boolean;
+  equipo1_nombre: string | null;
+  equipo1_encargado: string;
+  equipo1_celular: string;
+  equipo1_correo: string | null;
+  equipo2_nombre: string | null;
+  equipo2_encargado: string | null;
+  equipo2_celular: string | null;
+  cancha_id: number;
+  reserva_id: number | null;
+  cancha?: Cancha;
+}
+
 interface Reserva {
   id: number;
   hora_inicio: string;
@@ -83,6 +105,7 @@ interface Reserva {
   reservacion_fija_id: number | null;
   pagos?: Pago[];
   pagoStatus?: "no_registrado" | "incompleto" | "completo";
+  reto?: Reto;
 }
 
 interface ListaEspera {
@@ -133,6 +156,10 @@ export default function Dashboard() {
   // Create drawer state
   const [createDrawerOpen, setCreateDrawerOpen] = useState(false);
   const [showSuccessNotification, setShowSuccessNotification] = useState(false);
+
+  // Reto drawer state
+  const [retoDrawerOpen, setRetoDrawerOpen] = useState(false);
+  const [selectedReto, setSelectedReto] = useState<Reto | null>(null);
 
   // Configuracion and WhatsApp message state
   const [configuracion, setConfiguracion] = useState<Configuracion | null>(
@@ -274,22 +301,46 @@ export default function Dashboard() {
         );
       }
 
-      // Fetch pagos for all reservas
+      // Fetch pagos and retos for all reservas
       const reservaIds = filteredReservas.map((r: any) => r.id);
       let pagosData: any[] = [];
+      let retosData: any[] = [];
       if (reservaIds.length > 0) {
-        const { data: pagos, error: pagosError } = await supabase
-          .from("pagos")
-          .select("*")
-          .in("reserva_id", reservaIds);
+        const [pagosResult, retosResult] = await Promise.all([
+          supabase.from("pagos").select("*").in("reserva_id", reservaIds),
+          supabase
+            .from("retos")
+            .select(
+              `
+              *,
+              cancha:cancha_id (
+                id,
+                nombre,
+                img,
+                precio,
+                local,
+                cantidad
+              )
+            `,
+            )
+            .in("reserva_id", reservaIds),
+        ]);
 
-        if (pagosError) throw pagosError;
-        pagosData = pagos || [];
+        if (pagosResult.error) throw pagosResult.error;
+        pagosData = pagosResult.data || [];
+
+        if (!retosResult.error && retosResult.data) {
+          retosData = retosResult.data.map((r: any) => ({
+            ...r,
+            cancha: Array.isArray(r.cancha) ? r.cancha[0] : r.cancha,
+          }));
+        }
       }
 
-      // Add pagos and pagoStatus to each reserva
+      // Add pagos, pagoStatus, and reto to each reserva
       const reservasWithPagos = filteredReservas.map((r: any) => {
         const pagos = pagosData.filter((p: any) => p.reserva_id === r.id);
+        const reto = retosData.find((rt: any) => rt.reserva_id === r.id);
 
         let pagoStatus: "no_registrado" | "incompleto" | "completo" =
           "no_registrado";
@@ -303,6 +354,7 @@ export default function Dashboard() {
           ...r,
           pagos,
           pagoStatus,
+          reto: reto || undefined,
         };
       });
 
@@ -378,22 +430,46 @@ export default function Dashboard() {
         );
       }
 
-      // Fetch pagos for all reservas
+      // Fetch pagos and retos for all reservas
       const reservaIds = results.map((r: any) => r.id);
       let pagosData: any[] = [];
+      let retosData: any[] = [];
       if (reservaIds.length > 0) {
-        const { data: pagos, error: pagosError } = await supabase
-          .from("pagos")
-          .select("*")
-          .in("reserva_id", reservaIds);
+        const [pagosResult, retosResult] = await Promise.all([
+          supabase.from("pagos").select("*").in("reserva_id", reservaIds),
+          supabase
+            .from("retos")
+            .select(
+              `
+              *,
+              cancha:cancha_id (
+                id,
+                nombre,
+                img,
+                precio,
+                local,
+                cantidad
+              )
+            `,
+            )
+            .in("reserva_id", reservaIds),
+        ]);
 
-        if (pagosError) throw pagosError;
-        pagosData = pagos || [];
+        if (pagosResult.error) throw pagosResult.error;
+        pagosData = pagosResult.data || [];
+
+        if (!retosResult.error && retosResult.data) {
+          retosData = retosResult.data.map((r: any) => ({
+            ...r,
+            cancha: Array.isArray(r.cancha) ? r.cancha[0] : r.cancha,
+          }));
+        }
       }
 
-      // Add pagos and pagoStatus to each reserva
+      // Add pagos, pagoStatus, and reto to each reserva
       const resultsWithPagos = results.map((r: any) => {
         const pagos = pagosData.filter((p: any) => p.reserva_id === r.id);
+        const reto = retosData.find((rt: any) => rt.reserva_id === r.id);
 
         let pagoStatus: "no_registrado" | "incompleto" | "completo" =
           "no_registrado";
@@ -407,6 +483,7 @@ export default function Dashboard() {
           ...r,
           pagos,
           pagoStatus,
+          reto: reto || undefined,
         };
       });
 
@@ -436,6 +513,14 @@ export default function Dashboard() {
       console.error("Error searching reservas:", error);
     } finally {
       setLoadingReservas(false);
+    }
+  };
+
+  const refreshReservas = async () => {
+    if (searchMode && searchQuery.trim()) {
+      await searchReservasByName();
+    } else {
+      await fetchReservas();
     }
   };
 
@@ -1664,6 +1749,21 @@ export default function Dashboard() {
                               Fija
                             </span>
                           )}
+                          {/* Reto Badge */}
+                          {reserva.reto && (
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setSelectedReto(reserva.reto!);
+                                setRetoDrawerOpen(true);
+                              }}
+                              className="inline-flex items-center gap-1.5 rounded-md bg-red-100/75 px-3 py-1.5 text-xs font-semibold text-red-700 hover:bg-red-200/75 transition-colors cursor-pointer"
+                            >
+                              <MdOutlineScoreboard className="size-3.5" />
+                              Reto
+                            </button>
+                          )}
                         </div>
                       </div>
                       <Menu
@@ -1841,6 +1941,20 @@ export default function Dashboard() {
         defaultCanchaId={selectedCanchas[0] || 1}
         defaultDate={selectedDate || undefined}
         onSuccess={handleReservationCreated}
+      />
+
+      {/* Reto Drawer */}
+      <RetoDrawer
+        open={retoDrawerOpen}
+        onClose={() => {
+          setRetoDrawerOpen(false);
+          setSelectedReto(null);
+        }}
+        reto={selectedReto}
+        mode="view"
+        onReservaCreated={refreshReservas}
+        onRefresh={refreshReservas}
+        user={user}
       />
 
       {/* Success Notification */}
