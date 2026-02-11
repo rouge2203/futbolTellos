@@ -23,7 +23,6 @@ import {
 } from "@heroicons/react/20/solid";
 import { FaWhatsapp } from "react-icons/fa";
 import { GiWhistle } from "react-icons/gi";
-import { TbPlayFootball } from "react-icons/tb";
 import { MdOutlineScoreboard } from "react-icons/md";
 import { HiOutlineDocumentCheck } from "react-icons/hi2";
 import { LuClockAlert } from "react-icons/lu";
