@@ -63,7 +63,7 @@ export default function CreateReservaFijaDrawer({
   const [canchas, setCanchas] = useState<Cancha[]>([]);
   const [selectedCancha, setSelectedCancha] = useState<Cancha | null>(null);
   const [configuracion, setConfiguracion] = useState<Configuracion | null>(
-    null
+    null,
   );
   const [selectedDay, setSelectedDay] = useState<number>(1);
   const [selectedHour, setSelectedHour] = useState<number | null>(null);
@@ -71,7 +71,8 @@ export default function CreateReservaFijaDrawer({
   const [arbitro, setArbitro] = useState(false);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
-  const [reservedHoursByReservasFijas, setReservedHoursByReservasFijas] = useState<number[]>([]);
+  const [reservedHoursByReservasFijas, setReservedHoursByReservasFijas] =
+    useState<number[]>([]);
 
   // Step 2 states
   const [nombre, setNombre] = useState("");
@@ -87,8 +88,13 @@ export default function CreateReservaFijaDrawer({
 
   // Confirmation and conflict states
   const [showConfirmDialog, setShowConfirmDialog] = useState(false);
-  const [conflictDates, setConflictDates] = useState<Date[]>([]);
-  const [availableDatesToCreate, setAvailableDatesToCreate] = useState<Date[]>([]);
+  const [checkingConflicts, setCheckingConflicts] = useState(false);
+  const [conflictDates, setConflictDates] = useState<
+    { date: Date; nombreReserva: string }[]
+  >([]);
+  const [availableDatesToCreate, setAvailableDatesToCreate] = useState<Date[]>(
+    [],
+  );
 
   // Fetch canchas and configuracion
   useEffect(() => {
@@ -146,6 +152,9 @@ export default function CreateReservaFijaDrawer({
       setCorreo("");
       setCustomPrice(null);
       setShowPriceEdit(false);
+      setCheckingConflicts(false);
+      setConflictDates([]);
+      setAvailableDatesToCreate([]);
     }
   }, [open]);
 
@@ -267,8 +276,8 @@ export default function CreateReservaFijaDrawer({
     setStep(1);
   };
 
-  // Get next 4 weeks of dates for the selected day
-  const getNext4WeeksDates = (): Date[] => {
+  // Get next 8 weeks of dates for the selected day
+  const getNext8WeeksDates = (): Date[] => {
     const dates: Date[] = [];
     const today = new Date();
 
@@ -280,8 +289,8 @@ export default function CreateReservaFijaDrawer({
       currentDate.setDate(currentDate.getDate() + 1);
     }
 
-    // Add the next 4 occurrences
-    for (let i = 0; i < 4; i++) {
+    // Add the next 8 occurrences
+    for (let i = 0; i < 8; i++) {
       dates.push(new Date(currentDate));
       currentDate.setDate(currentDate.getDate() + 7);
     }
@@ -289,10 +298,12 @@ export default function CreateReservaFijaDrawer({
     return dates;
   };
 
-  const checkForConflicts = async (dates: Date[]): Promise<Date[]> => {
+  const checkForConflicts = async (
+    dates: Date[],
+  ): Promise<{ date: Date; nombreReserva: string }[]> => {
     if (!selectedCancha || selectedHour === null) return [];
 
-    const conflicts: Date[] = [];
+    const conflicts: { date: Date; nombreReserva: string }[] = [];
 
     for (const date of dates) {
       const dateStr = formatLocalDate(date);
@@ -310,17 +321,20 @@ export default function CreateReservaFijaDrawer({
 
       const { data: reservasData } = await supabase
         .from("reservas")
-        .select("hora_inicio")
+        .select("hora_inicio, nombre_reserva")
         .in("cancha_id", canchaIds)
         .gte("hora_inicio", startOfDay)
         .lte("hora_inicio", endOfDay);
 
-      const hours = (reservasData || []).map((r) =>
-        parseHourFromTimestamp(r.hora_inicio)
+      const conflictingReserva = (reservasData || []).find(
+        (r) => parseHourFromTimestamp(r.hora_inicio) === selectedHour,
       );
 
-      if (hours.includes(selectedHour)) {
-        conflicts.push(date);
+      if (conflictingReserva) {
+        conflicts.push({
+          date,
+          nombreReserva: conflictingReserva.nombre_reserva || "Sin nombre",
+        });
       }
     }
 
@@ -343,18 +357,29 @@ export default function CreateReservaFijaDrawer({
   };
 
   const handleConfirmar = async () => {
-    if (submitting || !selectedCancha || selectedHour === null || !nombre.trim())
+    if (
+      submitting ||
+      checkingConflicts ||
+      !selectedCancha ||
+      selectedHour === null ||
+      !nombre.trim()
+    )
       return;
 
-    const dates = getNext4WeeksDates();
-    const conflicts = await checkForConflicts(dates);
-    const availableDates = dates.filter(
-      (date) => !conflicts.some((c) => c.getTime() === date.getTime())
-    );
+    setCheckingConflicts(true);
+    try {
+      const dates = getNext8WeeksDates();
+      const conflicts = await checkForConflicts(dates);
+      const availableDates = dates.filter(
+        (date) => !conflicts.some((c) => c.date.getTime() === date.getTime()),
+      );
 
-    setConflictDates(conflicts);
-    setAvailableDatesToCreate(availableDates);
-    setShowConfirmDialog(true);
+      setConflictDates(conflicts);
+      setAvailableDatesToCreate(availableDates);
+      setShowConfirmDialog(true);
+    } finally {
+      setCheckingConflicts(false);
+    }
   };
 
   const handleProceedWithCreation = async () => {
@@ -366,10 +391,11 @@ export default function CreateReservaFijaDrawer({
     const day = date.getDate();
     const month = date.toLocaleString("es-ES", { month: "long" });
     const year = date.getFullYear();
-    const dayOfWeek = DAYS_OF_WEEK.find((d) => {
-      const targetDay = d.value === 7 ? 0 : d.value;
-      return date.getDay() === targetDay;
-    })?.label || "";
+    const dayOfWeek =
+      DAYS_OF_WEEK.find((d) => {
+        const targetDay = d.value === 7 ? 0 : d.value;
+        return date.getDay() === targetDay;
+      })?.label || "";
     return `${dayOfWeek} ${day} de ${month} de ${year}`;
   };
 
@@ -381,7 +407,7 @@ export default function CreateReservaFijaDrawer({
       const horaInicio = `${String(selectedHour).padStart(2, "0")}:00:00`;
       const horaFin = `${String((selectedHour! + 1) % 24).padStart(
         2,
-        "0"
+        "0",
       )}:00:00`;
 
       const { data: reservaFijaData, error: reservaFijaError } = await supabase
@@ -414,16 +440,19 @@ export default function CreateReservaFijaDrawer({
 
         const reservasToInsert = availableDates.map((date) => {
           const horaInicioTimestamp = formatLocalTimestamp(date, selectedHour!);
-          
+
           // Calculate end hour and date
           const endHour = (selectedHour! + 1) % 24;
           const endDate = new Date(date);
-          
+
           // If end hour wraps around (e.g., 23 -> 0), add one day
-          if (endHour < selectedHour! || (endHour === 0 && selectedHour! === 23)) {
+          if (
+            endHour < selectedHour! ||
+            (endHour === 0 && selectedHour! === 23)
+          ) {
             endDate.setDate(endDate.getDate() + 1);
           }
-          
+
           const horaFinTimestamp = formatLocalTimestamp(endDate, endHour);
 
           return {
@@ -463,7 +492,7 @@ export default function CreateReservaFijaDrawer({
 
   const availableHours = getAvailableHours();
   const canProceedToStep2 = selectedCancha && selectedHour !== null;
-  const canSubmit = nombre.trim() && !submitting;
+  const canSubmit = nombre.trim() && !submitting && !checkingConflicts;
 
   return (
     <>
@@ -478,6 +507,21 @@ export default function CreateReservaFijaDrawer({
           <p className="mt-4 text-white text-lg font-semibold">Futbol Tello</p>
           <p className="mt-2 text-white/70 text-sm">
             Creando reservación fija...
+          </p>
+        </div>
+      )}
+
+      {/* Checking Conflicts Overlay */}
+      {checkingConflicts && (
+        <div className="fixed inset-0 z-[100] bg-black/80 backdrop-blur-sm flex flex-col items-center justify-center">
+          <img
+            src="/tellos-square.svg"
+            alt="Futbol Tello"
+            className="w-16 h-16 animate-spin"
+          />
+          <p className="mt-4 text-white text-lg font-semibold">Futbol Tello</p>
+          <p className="mt-2 text-white/70 text-sm">
+            Verificando disponibilidad...
           </p>
         </div>
       )}
@@ -547,7 +591,7 @@ export default function CreateReservaFijaDrawer({
                                     value={selectedCancha?.id || ""}
                                     onChange={(e) => {
                                       const cancha = canchas.find(
-                                        (c) => c.id === Number(e.target.value)
+                                        (c) => c.id === Number(e.target.value),
                                       );
                                       if (cancha) {
                                         setSelectedCancha(cancha);
@@ -639,19 +683,24 @@ export default function CreateReservaFijaDrawer({
                                   <div className="grid grid-cols-4 gap-2">
                                     {availableHours.map((hour) => {
                                       const isSelected = selectedHour === hour;
-                                      const isOccupied = reservedHoursByReservasFijas.includes(hour);
+                                      const isOccupied =
+                                        reservedHoursByReservasFijas.includes(
+                                          hour,
+                                        );
                                       return (
                                         <button
                                           key={hour}
                                           type="button"
-                                          onClick={() => !isOccupied && setSelectedHour(hour)}
+                                          onClick={() =>
+                                            !isOccupied && setSelectedHour(hour)
+                                          }
                                           disabled={isOccupied}
                                           className={`py-3 text-base tracking-tight rounded-lg border transition-all font-medium ${
                                             isOccupied
                                               ? "bg-gray-100 border-gray-300 text-gray-400 cursor-not-allowed line-through"
                                               : isSelected
-                                              ? "bg-primary border-primary text-white"
-                                              : "bg-white border-primary border-dashed text-gray-900 hover:bg-primary/10"
+                                                ? "bg-primary border-primary text-white"
+                                                : "bg-white border-primary border-dashed text-gray-900 hover:bg-primary/10"
                                           }`}
                                         >
                                           {formatHourAmPm(hour)}
@@ -726,7 +775,7 @@ export default function CreateReservaFijaDrawer({
                                               value={customPrice || getPrice()}
                                               onChange={(e) =>
                                                 setCustomPrice(
-                                                  parseInt(e.target.value) || 0
+                                                  parseInt(e.target.value) || 0,
                                                 )
                                               }
                                               className="w-32 px-3 py-1 border border-gray-300 rounded-lg text-gray-900 font-bold text-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
@@ -759,7 +808,9 @@ export default function CreateReservaFijaDrawer({
                                               ₡ {getPrice().toLocaleString()}
                                             </span>
                                             <button
-                                              onClick={() => setShowPriceEdit(true)}
+                                              onClick={() =>
+                                                setShowPriceEdit(true)
+                                              }
                                               className="text-gray-400 hover:text-primary transition-colors"
                                             >
                                               <svg
@@ -813,7 +864,7 @@ export default function CreateReservaFijaDrawer({
                                         <span className="text-gray-900 font-medium">
                                           {
                                             DAYS_OF_WEEK.find(
-                                              (d) => d.value === selectedDay
+                                              (d) => d.value === selectedDay,
                                             )?.label
                                           }
                                         </span>
@@ -921,7 +972,7 @@ export default function CreateReservaFijaDrawer({
                                       <p className="text-sm text-blue-900">
                                         <strong>Nota:</strong> Se crearán
                                         automáticamente reservaciones para las
-                                        próximas 4 semanas.
+                                        próximas 8 semanas.
                                       </p>
                                     </div>
                                   </>
@@ -970,7 +1021,11 @@ export default function CreateReservaFijaDrawer({
                             disabled={!canSubmit}
                             className="inline-flex justify-center rounded-md bg-primary px-3 py-2 text-sm font-semibold text-white shadow-xs hover:bg-primary/90 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary disabled:bg-gray-700 disabled:cursor-not-allowed"
                           >
-                            {submitting ? "Creando..." : "Crear Reservación Fija"}
+                            {submitting
+                              ? "Creando..."
+                              : checkingConflicts
+                                ? "Verificando..."
+                                : "Crear Reservación Fija"}
                           </button>
                         </>
                       )}
@@ -1008,21 +1063,26 @@ export default function CreateReservaFijaDrawer({
                       reservaciones NO se crearán:
                     </p>
                     <ul className="list-disc list-inside text-sm text-yellow-800 space-y-1 mb-3">
-                      {conflictDates.map((date, index) => (
-                        <li key={index}>{formatConflictDate(date)}</li>
+                      {conflictDates.map((conflict, index) => (
+                        <li key={index}>
+                          {formatConflictDate(conflict.date)} -{" "}
+                          <span className="font-medium">
+                            {conflict.nombreReserva}
+                          </span>
+                        </li>
                       ))}
                     </ul>
                   </div>
                   <p className="text-sm text-gray-600 mb-4">
                     Se crearán <strong>{availableDatesToCreate.length}</strong>{" "}
-                    reservaciones para las fechas disponibles de las próximas 4
+                    reservaciones para las fechas disponibles de las próximas 8
                     semanas.
                   </p>
                 </>
               ) : (
                 <p className="text-sm text-gray-600 mb-4">
-                  Se crearán <strong>4 reservaciones</strong> automáticamente
-                  para las próximas 4 semanas.
+                  Se crearán <strong>8 reservaciones</strong> automáticamente
+                  para las próximas 8 semanas.
                 </p>
               )}
 
@@ -1076,7 +1136,8 @@ export default function CreateReservaFijaDrawer({
                       Reservación fija creada exitosamente
                     </p>
                     <p className="mt-1 text-sm text-gray-500">
-                      Se han generado las reservaciones para las próximas semanas.
+                      Se han generado las reservaciones para las próximas
+                      semanas.
                     </p>
                   </div>
                   <div className="ml-4 flex shrink-0">

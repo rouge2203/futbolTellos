@@ -8,10 +8,7 @@ import {
   DialogBackdrop,
 } from "@headlessui/react";
 import { XMarkIcon } from "@heroicons/react/24/outline";
-import {
-  PencilSquareIcon,
-  ChevronDownIcon,
-} from "@heroicons/react/20/solid";
+import { PencilSquareIcon, ChevronDownIcon } from "@heroicons/react/20/solid";
 import { FaRegClock } from "react-icons/fa";
 import { GiWhistle } from "react-icons/gi";
 
@@ -71,8 +68,18 @@ const DAYS_OF_WEEK = [
 ];
 
 const MONTHS_SPANISH = [
-  "Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio",
-  "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"
+  "Enero",
+  "Febrero",
+  "Marzo",
+  "Abril",
+  "Mayo",
+  "Junio",
+  "Julio",
+  "Agosto",
+  "Septiembre",
+  "Octubre",
+  "Noviembre",
+  "Diciembre",
 ];
 
 const formatHourAmPm = (timeStr: string): string => {
@@ -86,14 +93,14 @@ const formatHourAmPm = (timeStr: string): string => {
 
 const extractTimeFromTimestamp = (timestamp: string): string => {
   if (!timestamp) return "";
-  
+
   // Use regex to find HH:MM:SS pattern anywhere in the string
   // This handles various formats like "YYYY-MM-DD HH:MM:SS", "DD Mon YYYY HH:MM:SS", ISO formats, etc.
   const timeMatch = timestamp.match(/(\d{2}):(\d{2}):(\d{2})/);
   if (timeMatch) {
     return timeMatch[0]; // Returns "HH:MM:SS"
   }
-  
+
   // Fallback: try HH:MM pattern (without seconds)
   const shortTimeMatch = timestamp.match(/(\d{1,2}):(\d{2})/);
   if (shortTimeMatch) {
@@ -101,7 +108,7 @@ const extractTimeFromTimestamp = (timestamp: string): string => {
     const minutes = shortTimeMatch[2];
     return `${hours}:${minutes}:00`;
   }
-  
+
   return "";
 };
 
@@ -204,7 +211,7 @@ export default function ReservaFijaDrawer({
       // Get today's date at midnight (start of day)
       const today = new Date();
       today.setHours(0, 0, 0, 0);
-      const todayStr = today.toISOString().split('T')[0]; // YYYY-MM-DD format
+      const todayStr = today.toISOString().split("T")[0]; // YYYY-MM-DD format
 
       const { data, error } = await supabase
         .from("reservas")
@@ -246,7 +253,9 @@ export default function ReservaFijaDrawer({
 
       // If day or time changed, update all related reservas
       const dayChanged = editDia !== reservaFija.dia;
-      const timeChanged = editHoraInicio !== reservaFija.hora_inicio || editHoraFin !== reservaFija.hora_fin;
+      const timeChanged =
+        editHoraInicio !== reservaFija.hora_inicio ||
+        editHoraFin !== reservaFija.hora_fin;
 
       if (dayChanged || timeChanged) {
         // Get all related reservas
@@ -274,7 +283,12 @@ export default function ReservaFijaDrawer({
               const [hours, minutes, seconds] = editHoraInicio.split(":");
               const [hoursEnd, minutesEnd, secondsEnd] = editHoraFin.split(":");
 
-              const formatLocalTimestamp = (d: Date, h: string, m: string, s: string): string => {
+              const formatLocalTimestamp = (
+                d: Date,
+                h: string,
+                m: string,
+                s: string,
+              ): string => {
                 const year = d.getFullYear();
                 const month = String(d.getMonth() + 1).padStart(2, "0");
                 const day = String(d.getDate()).padStart(2, "0");
@@ -286,17 +300,31 @@ export default function ReservaFijaDrawer({
               const horaInicioHour = parseInt(hours, 10);
               const horaFinHour = parseInt(hoursEnd, 10);
               const endDate = new Date(newDate);
-              
+
               // If end hour is less than start hour (e.g., 23:00 -> 00:00), add one day
-              if (horaFinHour < horaInicioHour || (horaFinHour === horaInicioHour && parseInt(minutesEnd, 10) < parseInt(minutes, 10))) {
+              if (
+                horaFinHour < horaInicioHour ||
+                (horaFinHour === horaInicioHour &&
+                  parseInt(minutesEnd, 10) < parseInt(minutes, 10))
+              ) {
                 endDate.setDate(endDate.getDate() + 1);
               }
 
               await supabase
                 .from("reservas")
                 .update({
-                  hora_inicio: formatLocalTimestamp(newDate, hours, minutes, seconds),
-                  hora_fin: formatLocalTimestamp(endDate, hoursEnd, minutesEnd, secondsEnd),
+                  hora_inicio: formatLocalTimestamp(
+                    newDate,
+                    hours,
+                    minutes,
+                    seconds,
+                  ),
+                  hora_fin: formatLocalTimestamp(
+                    endDate,
+                    hoursEnd,
+                    minutesEnd,
+                    secondsEnd,
+                  ),
                   precio: editPrecio,
                   nombre_reserva: editNombre,
                   celular_reserva: editCelular || null,
@@ -327,7 +355,10 @@ export default function ReservaFijaDrawer({
             .from("reservas")
             .select("*")
             .eq("reservacion_fija_id", reservaFija.id)
-            .gte("hora_inicio", new Date().toISOString().split('T')[0] + ' 00:00:00')
+            .gte(
+              "hora_inicio",
+              new Date().toISOString().split("T")[0] + " 00:00:00",
+            )
             .order("hora_inicio", { ascending: true })
             .limit(1);
 
@@ -337,7 +368,9 @@ export default function ReservaFijaDrawer({
 
             if (djangoApiUrl) {
               const reservaUrl = `${window.location.origin}/reserva/${closestReserva.id}`;
-              const cancha = canchas.find((c) => c.id === reservaFija.cancha_id) || reservaFija.cancha;
+              const cancha =
+                canchas.find((c) => c.id === reservaFija.cancha_id) ||
+                reservaFija.cancha;
 
               const emailPayload = {
                 reserva_id: closestReserva.id,
@@ -351,7 +384,8 @@ export default function ReservaFijaDrawer({
                 correo_reserva: editCorreo,
                 precio: editPrecio,
                 arbitro: reservaFija.arbitro,
-                jugadores: parseInt(cancha?.cantidad?.toString() || "0", 10) * 2,
+                jugadores:
+                  parseInt(cancha?.cantidad?.toString() || "0", 10) * 2,
                 reserva_url: reservaUrl,
               };
 
@@ -375,7 +409,8 @@ export default function ReservaFijaDrawer({
       // Fetch updated reserva_fija data to refresh the drawer
       const { data: updatedReservaFija, error: fetchError } = await supabase
         .from("reservas_fijas")
-        .select(`
+        .select(
+          `
           *,
           cancha:cancha_id (
             id,
@@ -385,7 +420,8 @@ export default function ReservaFijaDrawer({
             cantidad,
             precio
           )
-        `)
+        `,
+        )
         .eq("id", reservaFija.id)
         .single();
 
@@ -437,7 +473,7 @@ export default function ReservaFijaDrawer({
       // Get today's date at midnight (start of day)
       const today = new Date();
       today.setHours(0, 0, 0, 0);
-      const todayStr = today.toISOString().split('T')[0]; // YYYY-MM-DD format
+      const todayStr = today.toISOString().split("T")[0]; // YYYY-MM-DD format
 
       // Delete only future related reservas (from today onwards)
       const { error: deleteReservasError } = await supabase
@@ -473,16 +509,21 @@ export default function ReservaFijaDrawer({
     const changes: string[] = [];
 
     if (editDia !== reservaFija.dia) {
-      const oldDay = DAYS_OF_WEEK.find((d) => d.value === reservaFija.dia)?.label;
+      const oldDay = DAYS_OF_WEEK.find(
+        (d) => d.value === reservaFija.dia,
+      )?.label;
       const newDay = DAYS_OF_WEEK.find((d) => d.value === editDia)?.label;
       changes.push(`Día cambiado de ${oldDay} a ${newDay}`);
     }
 
-    if (editHoraInicio !== reservaFija.hora_inicio || editHoraFin !== reservaFija.hora_fin) {
+    if (
+      editHoraInicio !== reservaFija.hora_inicio ||
+      editHoraFin !== reservaFija.hora_fin
+    ) {
       changes.push(
         `Hora cambiada de ${formatHourAmPm(reservaFija.hora_inicio)} - ${formatHourAmPm(
-          reservaFija.hora_fin
-        )} a ${formatHourAmPm(editHoraInicio)} - ${formatHourAmPm(editHoraFin)}`
+          reservaFija.hora_fin,
+        )} a ${formatHourAmPm(editHoraInicio)} - ${formatHourAmPm(editHoraFin)}`,
       );
     }
 
@@ -501,15 +542,13 @@ export default function ReservaFijaDrawer({
   if (!reservaFija) return null;
 
   const currentCancha =
-    canchas.find((c) => c.id === reservaFija.cancha_id) ||
-    reservaFija.cancha;
+    canchas.find((c) => c.id === reservaFija.cancha_id) || reservaFija.cancha;
 
   // Safety check: if no cancha data, don't render
   if (!currentCancha) {
     console.error("No cancha data available for reserva fija:", reservaFija);
     return null;
   }
-
 
   return (
     <>
@@ -631,7 +670,10 @@ export default function ReservaFijaDrawer({
                               </div>
                             ) : (
                               <div className="block w-full rounded-md bg-gray-50 border border-gray-300 px-3 py-1.5 text-base text-gray-900 sm:text-sm/6">
-                                {DAYS_OF_WEEK.find((d) => d.value === editDia)?.label}
+                                {
+                                  DAYS_OF_WEEK.find((d) => d.value === editDia)
+                                    ?.label
+                                }
                               </div>
                             )}
                           </div>
@@ -668,8 +710,10 @@ export default function ReservaFijaDrawer({
 
                                       // Automatically calculate hora_fin as hora_inicio + 1 hour
                                       if (newHoraInicio) {
-                                        const [hours, minutes] = newHoraInicio.split(":");
-                                        const nextHour = (parseInt(hours, 10) + 1) % 24;
+                                        const [hours, minutes] =
+                                          newHoraInicio.split(":");
+                                        const nextHour =
+                                          (parseInt(hours, 10) + 1) % 24;
                                         const horaFin = `${String(nextHour).padStart(2, "0")}:${minutes}`;
                                         setEditHoraFin(horaFin);
                                       }
@@ -684,7 +728,9 @@ export default function ReservaFijaDrawer({
                                   <input
                                     type="time"
                                     value={editHoraFin}
-                                    onChange={(e) => setEditHoraFin(e.target.value)}
+                                    onChange={(e) =>
+                                      setEditHoraFin(e.target.value)
+                                    }
                                     className="block w-full rounded-md bg-white border border-gray-300 px-3 py-1.5 text-base text-gray-900 outline-1 -outline-offset-1 outline-gray-300 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-primary sm:text-sm/6"
                                   />
                                 </div>
@@ -716,7 +762,9 @@ export default function ReservaFijaDrawer({
                                     id="reserva-nombre"
                                     type="text"
                                     value={editNombre}
-                                    onChange={(e) => setEditNombre(e.target.value)}
+                                    onChange={(e) =>
+                                      setEditNombre(e.target.value)
+                                    }
                                     className="block w-full rounded-md bg-white border border-gray-300 px-3 py-1.5 text-base text-gray-900 outline-1 -outline-offset-1 outline-gray-300 placeholder:text-gray-400 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-primary sm:text-sm/6"
                                   />
                                 </div>
@@ -726,14 +774,19 @@ export default function ReservaFijaDrawer({
                                   htmlFor="reserva-correo"
                                   className="block text-sm/6 font-medium text-gray-900"
                                 >
-                                  Correo <span className="text-gray-500 font-normal">(Opcional)</span>
+                                  Correo{" "}
+                                  <span className="text-gray-500 font-normal">
+                                    (Opcional)
+                                  </span>
                                 </label>
                                 <div className="mt-2">
                                   <input
                                     id="reserva-correo"
                                     type="email"
                                     value={editCorreo}
-                                    onChange={(e) => setEditCorreo(e.target.value)}
+                                    onChange={(e) =>
+                                      setEditCorreo(e.target.value)
+                                    }
                                     placeholder="correo@ejemplo.com"
                                     className="block w-full rounded-md bg-white border border-gray-300 px-3 py-1.5 text-base text-gray-900 outline-1 -outline-offset-1 outline-gray-300 placeholder:text-gray-400 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-primary sm:text-sm/6"
                                   />
@@ -744,14 +797,19 @@ export default function ReservaFijaDrawer({
                                   htmlFor="reserva-celular"
                                   className="block text-sm/6 font-medium text-gray-900"
                                 >
-                                  Celular <span className="text-gray-500 font-normal">(Opcional)</span>
+                                  Celular{" "}
+                                  <span className="text-gray-500 font-normal">
+                                    (Opcional)
+                                  </span>
                                 </label>
                                 <div className="mt-2">
                                   <input
                                     id="reserva-celular"
                                     type="tel"
                                     value={editCelular}
-                                    onChange={(e) => setEditCelular(e.target.value)}
+                                    onChange={(e) =>
+                                      setEditCelular(e.target.value)
+                                    }
                                     placeholder="12345678"
                                     className="block w-full rounded-md bg-white border border-gray-300 px-3 py-1.5 text-base text-gray-900 outline-1 -outline-offset-1 outline-gray-300 placeholder:text-gray-400 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-primary sm:text-sm/6"
                                   />
@@ -768,7 +826,9 @@ export default function ReservaFijaDrawer({
                               </h3>
                               <button
                                 type="button"
-                                onClick={() => setShowPrecioEdit(!showPrecioEdit)}
+                                onClick={() =>
+                                  setShowPrecioEdit(!showPrecioEdit)
+                                }
                                 className="relative inline-flex shrink-0 items-center justify-center rounded-md border border-gray-300 bg-white px-2 py-1 text-xs font-medium text-gray-700 hover:bg-gray-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
                               >
                                 <PencilSquareIcon
@@ -835,8 +895,9 @@ export default function ReservaFijaDrawer({
                             </h3>
                             <div className="bg-blue-50 border border-blue-200 rounded-xl p-3 mb-3">
                               <p className="text-xs text-blue-900">
-                                <strong>Nota:</strong> Siempre habrá reservaciones
-                                para esta reservación fija 4 semanas adelante.
+                                <strong>Nota:</strong> Siempre habrá
+                                reservaciones para esta reservación fija 8
+                                semanas adelante.
                               </p>
                             </div>
                             {loadingReservas ? (
@@ -870,13 +931,21 @@ export default function ReservaFijaDrawer({
                                       reservas.map((reserva) => (
                                         <tr key={reserva.id}>
                                           <td className="px-4 py-3 text-sm text-gray-900">
-                                            {formatReservaDate(reserva.hora_inicio)}
+                                            {formatReservaDate(
+                                              reserva.hora_inicio,
+                                            )}
                                           </td>
                                           <td className="px-4 py-3 text-sm text-gray-500">
                                             {formatHourAmPm(
-                                              extractTimeFromTimestamp(reserva.hora_inicio)
-                                            )} - {formatHourAmPm(
-                                              extractTimeFromTimestamp(reserva.hora_fin)
+                                              extractTimeFromTimestamp(
+                                                reserva.hora_inicio,
+                                              ),
+                                            )}{" "}
+                                            -{" "}
+                                            {formatHourAmPm(
+                                              extractTimeFromTimestamp(
+                                                reserva.hora_fin,
+                                              ),
                                             )}
                                           </td>
                                         </tr>
@@ -987,8 +1056,8 @@ export default function ReservaFijaDrawer({
               </DialogTitle>
               <p className="text-sm text-gray-600 mb-4">
                 Esta acción eliminará también todas las reservaciones
-                relacionadas ({reservas.length} reservaciones). Esta acción no se
-                puede deshacer.
+                relacionadas ({reservas.length} reservaciones). Esta acción no
+                se puede deshacer.
               </p>
               <div className="flex gap-3">
                 <button
