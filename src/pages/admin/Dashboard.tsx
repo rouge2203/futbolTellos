@@ -171,12 +171,14 @@ export default function Dashboard() {
 
   // Lista Espera state
   const [listaEspera, setListaEspera] = useState<ListaEspera[]>([]);
+  const [pastListaEspera, setPastListaEspera] = useState<ListaEspera[]>([]);
   const [loadingListaEspera, setLoadingListaEspera] = useState(false);
   const [newListaDate, setNewListaDate] = useState("");
   const [newListaNote, setNewListaNote] = useState("");
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [listaToDelete, setListaToDelete] = useState<number | null>(null);
   const [showListaEspera, setShowListaEspera] = useState(false);
+  const [showPastListaEspera, setShowPastListaEspera] = useState(false);
 
   // Fetch canchas and configuracion
   useEffect(() => {
@@ -217,18 +219,26 @@ export default function Dashboard() {
     setLoadingListaEspera(true);
     try {
       const today = new Date();
-      today.setHours(0, 0, 0, 0);
-      const todayStr = today.toISOString();
+      const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}-${String(today.getDate()).padStart(2, "0")}`;
 
-      const { data, error } = await supabase
-        .from("lista_espera")
-        .select("*")
-        .gte("date", todayStr)
-        .order("date", { ascending: true });
+      const [currentResult, pastResult] = await Promise.all([
+        supabase
+          .from("lista_espera")
+          .select("*")
+          .gte("date", todayStr)
+          .order("date", { ascending: true }),
+        supabase
+          .from("lista_espera")
+          .select("*")
+          .lt("date", todayStr)
+          .order("date", { ascending: false }),
+      ]);
 
-      if (error) throw error;
+      if (currentResult.error) throw currentResult.error;
+      if (pastResult.error) throw pastResult.error;
 
-      setListaEspera(data || []);
+      setListaEspera(currentResult.data || []);
+      setPastListaEspera(pastResult.data || []);
     } catch (error) {
       console.error("Error fetching lista espera:", error);
     } finally {
@@ -1126,19 +1136,19 @@ export default function Dashboard() {
   const formatRelativeTime = (dateStr: string): string => {
     const date = new Date(dateStr);
     const now = new Date();
-    // Reset time to midnight for accurate day comparison
     now.setHours(0, 0, 0, 0);
     const dateOnly = new Date(date);
     dateOnly.setHours(0, 0, 0, 0);
 
     const diffTime = dateOnly.getTime() - now.getTime();
-    const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+    const diffDays = Math.round(diffTime / (1000 * 60 * 60 * 24));
 
     if (diffDays === 0) return "Hoy";
     if (diffDays === 1) return "Mañana";
+    if (diffDays === -1) return "Ayer";
     if (diffDays > 1 && diffDays <= 7) return `En ${diffDays} días`;
+    if (diffDays < -1 && diffDays >= -7) return `Hace ${Math.abs(diffDays)} días`;
 
-    // Format as date
     const day = date.getDate();
     const month = MONTHS_SPANISH[date.getMonth()];
     return `${day} de ${month}`;
@@ -1222,7 +1232,7 @@ export default function Dashboard() {
             type="button"
           >
             <h3 className="text-base font-semibold text-gray-900">
-              Lista Espera
+              Lista de Espera
               {listaEspera.length > 0 && (
                 <span className="ml-2 inline-flex items-center justify-center px-2 py-0.5 text-xs font-medium text-primary bg-primary/10 rounded-full">
                   {listaEspera.length}
@@ -1309,6 +1319,62 @@ export default function Dashboard() {
                         </li>
                       ))}
                     </ul>
+                  )}
+
+                  {/* Past records toggle */}
+                  {pastListaEspera.length > 0 && (
+                    <div className="mt-4">
+                      <button
+                        onClick={() =>
+                          setShowPastListaEspera(!showPastListaEspera)
+                        }
+                        className="inline-flex items-center gap-1.5 text-xs text-gray-400 hover:text-gray-600 transition-colors"
+                        type="button"
+                      >
+                        <ClockIcon className="size-3.5" />
+                        {showPastListaEspera
+                          ? "Ocultar anteriores"
+                          : `Ver anteriores (${pastListaEspera.length})`}
+                        <ChevronDownIcon
+                          className={`size-3.5 transition-transform ${
+                            showPastListaEspera ? "rotate-180" : ""
+                          }`}
+                        />
+                      </button>
+
+                      {showPastListaEspera && (
+                        <ul
+                          role="list"
+                          className="mt-4 space-y-4"
+                        >
+                          {pastListaEspera.map((item) => (
+                            <li
+                              key={item.id}
+                              className="flex items-start justify-between gap-x-4 rounded-md bg-gray-100/60 px-3 py-2.5"
+                            >
+                              <div className="min-w-0 flex-1">
+                                <p className="text-sm text-gray-400 break-words">
+                                  {item.note}
+                                </p>
+                                <time
+                                  dateTime={item.date}
+                                  className="mt-1 block text-xs text-gray-300"
+                                >
+                                  {formatRelativeTime(item.date)}
+                                </time>
+                              </div>
+                              <button
+                                onClick={() => openDeleteDialog(item.id)}
+                                className="mt-0.5 flex-none text-gray-300 hover:text-red-500 p-1 transition-colors"
+                                title="Eliminar"
+                              >
+                                <TrashIcon className="size-3.5" />
+                              </button>
+                            </li>
+                          ))}
+                        </ul>
+                      )}
+                    </div>
                   )}
 
                   {/* New comment form */}
