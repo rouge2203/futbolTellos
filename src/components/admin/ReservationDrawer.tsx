@@ -7,6 +7,7 @@ import {
   DialogPanel,
   DialogTitle,
   DialogBackdrop,
+  Switch,
 } from "@headlessui/react";
 import { XMarkIcon } from "@heroicons/react/24/outline";
 import {
@@ -75,6 +76,7 @@ interface ReservationDrawerProps {
     celular_reserva: string;
     precio: number;
     cancha_id?: number;
+    arbitro?: boolean;
   }) => Promise<void>;
   onDelete: (id: number) => Promise<void>;
   onConfirmSinpe: (id: number, hasComprobante: boolean) => Promise<void>;
@@ -134,6 +136,7 @@ export default function ReservationDrawer({
   const [editCorreo, setEditCorreo] = useState("");
   const [editCelular, setEditCelular] = useState("");
   const [editPrecio, setEditPrecio] = useState<number>(0);
+  const [editArbitro, setEditArbitro] = useState(false);
   const [editDate, setEditDate] = useState<Date | null>(null);
   const [editHour, setEditHour] = useState<number | null>(null);
   const [editCanchaId, setEditCanchaId] = useState<number | null>(null);
@@ -201,6 +204,7 @@ export default function ReservationDrawer({
       setEditCorreo(reserva.correo_reserva);
       setEditCelular(reserva.celular_reserva);
       setEditPrecio(reserva.precio);
+      setEditArbitro(reserva.arbitro);
       setEditCanchaId(reserva.cancha.id);
 
       const date = parseDateFromTimestamp(reserva.hora_inicio);
@@ -387,6 +391,7 @@ export default function ReservationDrawer({
         correo_reserva: editCorreo,
         celular_reserva: editCelular,
         precio: editPrecio,
+        arbitro: editArbitro,
         ...(editCanchaId && editCanchaId !== reserva.cancha.id
           ? { cancha_id: editCanchaId }
           : {}),
@@ -1087,13 +1092,6 @@ export default function ReservationDrawer({
                                     </span>
                                   </div>
                                 )}
-                                {reserva.cancha.local === 2 &&
-                                  reserva.arbitro && (
-                                    <div className="flex items-center gap-2 text-sm text-gray-600">
-                                      <GiWhistle className="text-primary" />
-                                      <span>Árbitro incluido</span>
-                                    </div>
-                                  )}
                               </div>
                             ) : (
                               <div className="space-y-2">
@@ -1118,15 +1116,49 @@ export default function ReservationDrawer({
                                     </span>
                                   </div>
                                 )}
-                                {reserva.cancha.local === 2 &&
-                                  reserva.arbitro && (
-                                    <div className="flex items-center gap-2 text-sm text-gray-600">
-                                      <GiWhistle className="text-primary" />
-                                      <span>Árbitro incluido</span>
-                                    </div>
-                                  )}
                               </div>
                             )}
+
+                            {/* Referee Toggle */}
+                            <div className="mt-4 flex items-center justify-between rounded-lg border border-gray-200 bg-gray-50 px-4 py-3">
+                              <div className="flex items-center gap-2">
+                                <GiWhistle className="text-primary text-lg" />
+                                <div>
+                                  <span className="text-sm font-medium text-gray-900">
+                                    Árbitro
+                                  </span>
+                                  <p className="text-xs text-gray-500">
+                                    +₡5,000
+                                  </p>
+                                </div>
+                              </div>
+                              {mode === "edit" ? (
+                                <Switch
+                                  checked={editArbitro}
+                                  onChange={(checked: boolean) => {
+                                    setEditArbitro(checked);
+                                    if (checked && !editArbitro) {
+                                      setEditPrecio((prev) => prev + 5000);
+                                    } else if (!checked && editArbitro) {
+                                      setEditPrecio((prev) => prev - 5000);
+                                    }
+                                  }}
+                                  className="group relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent bg-gray-200 transition-colors duration-200 ease-in-out focus:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 data-checked:bg-primary"
+                                >
+                                  <span className="pointer-events-none inline-block size-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out group-data-checked:translate-x-5" />
+                                </Switch>
+                              ) : (
+                                <span
+                                  className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${
+                                    editArbitro
+                                      ? "bg-green-100 text-green-800"
+                                      : "bg-gray-100 text-gray-600"
+                                  }`}
+                                >
+                                  {editArbitro ? "Sí" : "No"}
+                                </span>
+                              )}
+                            </div>
                           </div>
 
                           {/* SINPE Section (Sabana only) */}

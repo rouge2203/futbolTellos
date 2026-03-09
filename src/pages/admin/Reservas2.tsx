@@ -312,6 +312,7 @@ export default function Reservas2() {
     celular_reserva: string;
     precio: number;
     cancha_id?: number;
+    arbitro?: boolean;
   }) => {
     if (!selectedReserva) return;
 
@@ -324,6 +325,10 @@ export default function Reservas2() {
         celular_reserva: updates.celular_reserva,
         precio: updates.precio,
       };
+
+      if (updates.arbitro !== undefined) {
+        updateData.arbitro = updates.arbitro;
+      }
 
       if (updates.cancha_id) {
         updateData.cancha_id = updates.cancha_id;
