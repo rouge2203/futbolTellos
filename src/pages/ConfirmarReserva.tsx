@@ -13,7 +13,7 @@ import { FaUsers } from "react-icons/fa6";
 import { FaRegCalendarCheck } from "react-icons/fa";
 import { IoWarning } from "react-icons/io5";
 import { GiWhistle } from "react-icons/gi";
-import { supabase } from "../lib/supabase";
+import { supabase, isReservaConflictError } from "../lib/supabase";
 
 interface Cancha {
   id: number;
@@ -186,8 +186,7 @@ function ConfirmarReserva() {
   const isFormValid =
     nombre.trim() && isValidCelular(celular) && isValidEmail(correo);
 
-  // For Sabana (local == 1), also require SINPE acknowledgment
-  const canSubmit = isFormValid && (cancha.local === 2 || sinpeAcknowledged);
+  const canSubmit = isFormValid && sinpeAcknowledged;
 
   const getLocalName = (local: number): string => {
     if (local === 1) return "Sabana";
@@ -314,7 +313,13 @@ function ConfirmarReserva() {
       setDialogOpen(true);
     } catch (error) {
       console.error("Error creating reservation:", error);
-      alert("Error al crear la reservación. Por favor intente de nuevo.");
+      if (isReservaConflictError(error)) {
+        alert(
+          "Esta hora ya está reservada en esta cancha. Por favor seleccione otra hora.",
+        );
+      } else {
+        alert("Error al crear la reservación. Por favor intente de nuevo.");
+      }
     } finally {
       setSubmitting(false);
     }
@@ -489,37 +494,23 @@ function ConfirmarReserva() {
         </div>
       )}
 
-      {/* Warning Banner - Only for Sabana (local == 1) */}
-      {cancha.local === 1 && (
-        <div className="px-4 mb-6">
-          <div className="bg-yellow-500/10 border border-yellow-500/30 rounded-xl px-4 py-4">
-            <div className="flex items-start gap-3">
-              <IoWarning className="text-yellow-500 text-xl shrink-0 mt-0.5" />
-              <p className="text-white/90 text-sm">
-                Tiene <strong className="text-yellow-500">2 horas</strong> para
-                realizar el SINPE y subir el comprobante para mantener su
-                reservación. Si no lo realiza, su reservación se cancelará
-                automáticamente.
-              </p>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Pay at field note - Only for Guadalupe (local == 2) */}
-      {cancha.local === 2 && (
-        <div className="px-4 mb-6">
-          <div className="bg-primary/10 border border-primary/30 rounded-xl px-4 py-4">
-            <p className="text-white/90 text-sm text-center">
-              💵 El pago se realiza directamente en la cancha
+      {/* Warning Banner */}
+      <div className="px-4 mb-6">
+        <div className="bg-yellow-500/10 border border-yellow-500/30 rounded-xl px-4 py-4">
+          <div className="flex items-start gap-3">
+            <IoWarning className="text-yellow-500 text-xl shrink-0 mt-0.5" />
+            <p className="text-white/90 text-sm">
+              Tiene <strong className="text-yellow-500">2 horas</strong> para
+              realizar el SINPE y subir el comprobante para mantener su
+              reservación. Si no lo realiza, su reservación se cancelará
+              automáticamente.
             </p>
           </div>
         </div>
-      )}
+      </div>
 
-      {/* SINPE Acknowledgment Toggle - Only for Sabana (local == 1) */}
-      {cancha.local === 1 && (
-        <div className="px-4 mb-6">
+      {/* SINPE Acknowledgment Toggle */}
+      <div className="px-4 mb-6">
           <div
             className={`flex items-center justify-between bg-white/5 rounded-xl p-4 ${
               sinpeAcknowledged ? "animate-none" : "animate-pulse"
@@ -551,8 +542,7 @@ function ConfirmarReserva() {
               />
             </div>
           </div>
-        </div>
-      )}
+      </div>
 
       {/* Contact Form */}
       <div className="px-4 mb-6 space-y-4">
@@ -675,13 +665,9 @@ function ConfirmarReserva() {
                   </DialogTitle>
                   <div className="mt-2">
                     <p className="text-sm text-gray-400">
-                      Su reservación ha sido registrada con éxito.
-                      {cancha.local === 1 && (
-                        <>
-                          Ahora puede subir su comprobante de SINPE en la
-                          siguiente página para confirmar el pago.
-                        </>
-                      )}
+                      Su reservación ha sido registrada con éxito. Ahora
+                      puede subir su comprobante de SINPE en la siguiente
+                      página para confirmar el pago.
                     </p>
                     {emailSent !== null && (
                       <p

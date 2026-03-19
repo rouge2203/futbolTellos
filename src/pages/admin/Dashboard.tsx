@@ -1,10 +1,12 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
+import { useSearchParams, useNavigate } from "react-router-dom";
 import AdminLayout from "../../components/admin/AdminLayout";
 import ReservationDrawer from "../../components/admin/ReservationDrawer";
 import CreateReservationDrawer from "../../components/admin/CreateReservationDrawer";
 import RetoDrawer from "../../components/admin/RetoDrawer";
+import PagoDrawer from "../../components/admin/PagoDrawer";
 import SuccessNotification from "../../components/admin/SuccessNotification";
-import { supabase } from "../../lib/supabase";
+import { supabase, isReservaConflictError } from "../../lib/supabase";
 import { useAuth } from "../../contexts/AuthContext";
 import {
   CalendarIcon,
@@ -132,6 +134,9 @@ const DAYS_SHORT = ["L", "M", "X", "J", "V", "S", "D"];
 
 export default function Dashboard() {
   const { user } = useAuth();
+  const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const deepLinkHandled = useRef(false);
   const [currentMonth, setCurrentMonth] = useState(new Date());
   const [selectedDate, setSelectedDate] = useState<Date | null>(new Date());
   const [reservas, setReservas] = useState<Reserva[]>([]);
@@ -159,6 +164,10 @@ export default function Dashboard() {
   // Reto drawer state
   const [retoDrawerOpen, setRetoDrawerOpen] = useState(false);
   const [selectedReto, setSelectedReto] = useState<Reto | null>(null);
+
+  // Pago drawer state
+  const [pagoDrawerOpen, setPagoDrawerOpen] = useState(false);
+  const [pagoReserva, setPagoReserva] = useState<Reserva | null>(null);
 
   // Configuracion and WhatsApp message state
   const [configuracion, setConfiguracion] = useState<Configuracion | null>(
@@ -355,8 +364,11 @@ export default function Dashboard() {
           "no_registrado";
 
         if (pagos.length > 0) {
-          const hasCompleto = pagos.some((p: Pago) => p.completo === true);
-          pagoStatus = hasCompleto ? "completo" : "incompleto";
+          const totalPagado = pagos.reduce(
+            (sum: number, p: Pago) => sum + p.monto_sinpe + p.monto_efectivo,
+            0,
+          );
+          pagoStatus = totalPagado >= r.precio ? "completo" : "incompleto";
         }
 
         return {
@@ -484,8 +496,11 @@ export default function Dashboard() {
           "no_registrado";
 
         if (pagos.length > 0) {
-          const hasCompleto = pagos.some((p: Pago) => p.completo === true);
-          pagoStatus = hasCompleto ? "completo" : "incompleto";
+          const totalPagado = pagos.reduce(
+            (sum: number, p: Pago) => sum + p.monto_sinpe + p.monto_efectivo,
+            0,
+          );
+          pagoStatus = totalPagado >= r.precio ? "completo" : "incompleto";
         }
 
         return {
@@ -747,6 +762,18 @@ export default function Dashboard() {
     await fetchReservaDetails(reservaId);
   };
 
+  // Deep-link: open drawer from URL query param ?reserva_id=xxx
+  useEffect(() => {
+    const reservaId = searchParams.get("reserva_id");
+    if (reservaId && !deepLinkHandled.current) {
+      deepLinkHandled.current = true;
+      setDrawerMode("edit");
+      fetchReservaDetails(reservaId as any).then(() => {
+        setSearchParams({}, { replace: true });
+      });
+    }
+  }, [searchParams]);
+
   const handleUpdateReserva = async (updates: {
     hora_inicio: string;
     hora_fin: string;
@@ -786,6 +813,11 @@ export default function Dashboard() {
         .single();
 
       if (updateError) {
+        if (isReservaConflictError(updateError)) {
+          throw new Error(
+            "Esta hora ya está reservada en esta cancha. Por favor seleccione otra hora.",
+          );
+        }
         throw updateError;
       }
 
@@ -1638,20 +1670,17 @@ export default function Dashboard() {
             ) : (
               <ol className="divide-y divide-gray-100 text-sm/6">
                 {reservas.map((reserva) => {
-                  const isSabana = reserva.cancha.local === 1;
                   const hasPagos = reserva.pagos && reserva.pagos.length > 0;
                   const sinpePendiente =
-                    isSabana &&
                     reserva.sinpe_reserva === null &&
                     !reserva.confirmada &&
-                    !hasPagos; // Don't show "Adelanto Pendiente" if pagos exist
+                    !hasPagos;
                   const sinpeFaltaConfirmar =
-                    isSabana &&
                     reserva.sinpe_reserva !== null &&
                     !reserva.confirmada &&
-                    !hasPagos; // Don't show "Confirme Adelanto" if pagos exist
+                    !hasPagos;
                   const sinpeConfirmado =
-                    isSabana && (reserva.confirmada === true || hasPagos); // Show confirmed if confirmada OR if pagos exist
+                    reserva.confirmada === true || hasPagos;
 
                   return (
                     <li
@@ -1763,30 +1792,26 @@ export default function Dashboard() {
                         </div>
                         {/* SINPE Status, Payment Status & Fija Badge */}
                         <div className="mt-2 flex flex-wrap gap-2">
-                          {isSabana && (
-                            <>
-                              {sinpePendiente ? (
-                                <span className="inline-flex items-center gap-1.5 rounded-md bg-yellow-100/75 px-3 py-2 text-xs font-semibold text-yellow-700">
-                                  <LuClockAlert className="size-3.5" />
-                                  Adelanto Pendiente
-                                </span>
-                              ) : sinpeFaltaConfirmar ? (
-                                <button
-                                  onClick={() =>
-                                    handleConfirmarSinpe(reserva.id)
-                                  }
-                                  className="inline-flex items-center gap-1.5 rounded-md bg-primary px-3 py-2 text-xs font-semibold text-white hover:bg-primary/90 transition-colors"
-                                >
-                                  Confirme Adelanto
-                                </button>
-                              ) : sinpeConfirmado ? (
-                                <span className="inline-flex items-center gap-1.5 rounded-md bg-purple-100/75 px-3 py-2 text-xs font-semibold text-purple-700">
-                                  <HiOutlineDocumentCheck className="size-3.5" />
-                                  Adelanto Confirmado
-                                </span>
-                              ) : null}
-                            </>
-                          )}
+                          {sinpePendiente ? (
+                            <span className="inline-flex items-center gap-1.5 rounded-md bg-yellow-100/75 px-3 py-2 text-xs font-semibold text-yellow-700">
+                              <LuClockAlert className="size-3.5" />
+                              Adelanto Pendiente
+                            </span>
+                          ) : sinpeFaltaConfirmar ? (
+                            <button
+                              onClick={() =>
+                                handleConfirmarSinpe(reserva.id)
+                              }
+                              className="inline-flex items-center gap-1.5 rounded-md bg-primary px-3 py-2 text-xs font-semibold text-white hover:bg-primary/90 transition-colors"
+                            >
+                              Confirme Adelanto
+                            </button>
+                          ) : sinpeConfirmado ? (
+                            <span className="inline-flex items-center gap-1.5 rounded-md bg-purple-100/75 px-3 py-2 text-xs font-semibold text-purple-700">
+                              <HiOutlineDocumentCheck className="size-3.5" />
+                              Adelanto Confirmado
+                            </span>
+                          ) : null}
                           {/* Payment Status Badge */}
                           {(() => {
                             if (reserva.pagoStatus === "completo") {
@@ -1819,22 +1844,83 @@ export default function Dashboard() {
                               Fija
                             </span>
                           )}
-                          {/* Reto Badge */}
+                          {/* Reto Badges */}
                           {reserva.reto && (
-                            <button
-                              type="button"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                setSelectedReto(reserva.reto!);
-                                setRetoDrawerOpen(true);
-                              }}
-                              className="inline-flex items-center gap-1.5 rounded-md bg-red-100/75 px-3 py-1.5 text-xs font-semibold text-red-700 hover:bg-red-200/75 transition-colors cursor-pointer"
-                            >
-                              <MdOutlineScoreboard className="size-3.5" />
-                              Reto
-                            </button>
+                            <>
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setSelectedReto(reserva.reto!);
+                                  setRetoDrawerOpen(true);
+                                }}
+                                className="inline-flex items-center gap-1.5 rounded-md bg-red-100/75 px-3 py-1.5 text-xs font-semibold text-red-700 hover:bg-red-200/75 transition-colors cursor-pointer"
+                              >
+                                <MdOutlineScoreboard className="size-3.5" />
+                                Reto
+                              </button>
+                              {reserva.reto.equipo2_encargado ? (
+                                <span className="inline-flex items-center rounded-md bg-blue-100/75 px-2.5 py-1 text-xs font-medium text-blue-700">
+                                  Rival asignado
+                                </span>
+                              ) : (
+                                <button
+                                  type="button"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    navigate("/admin/retos");
+                                  }}
+                                  className="inline-flex items-center rounded-md bg-orange-100/75 px-2.5 py-1 text-xs font-medium text-orange-700 hover:bg-orange-200/75 transition-colors cursor-pointer"
+                                >
+                                  Buscando rival →
+                                </button>
+                              )}
+                            </>
                           )}
                         </div>
+                        {/* Payment Amount Info */}
+                        {(() => {
+                          const totalPagado = (reserva.pagos || []).reduce(
+                            (sum, p) => sum + p.monto_sinpe + p.monto_efectivo,
+                            0,
+                          );
+                          const pendiente = reserva.precio - totalPagado;
+
+                          return (
+                            <div className="mt-2 flex items-center justify-between gap-3 rounded-lg bg-gray-50 border border-gray-200 px-3 py-2">
+                              {reserva.pagoStatus === "completo" ? (
+                                <span className="text-xs text-gray-500">
+                                  Pagado: <span className="font-semibold text-green-600">₡{totalPagado.toLocaleString()}</span>
+                                </span>
+                              ) : reserva.pagoStatus === "incompleto" ? (
+                                <div className="flex items-center gap-3 text-xs">
+                                  <span className="text-gray-500">
+                                    Pagado: <span className="font-semibold text-gray-700">₡{totalPagado.toLocaleString()}</span>
+                                  </span>
+                                  <span className="text-gray-300">|</span>
+                                  <span className="text-gray-500">
+                                    Pendiente: <span className="font-semibold text-orange-600">₡{pendiente.toLocaleString()}</span>
+                                  </span>
+                                </div>
+                              ) : (
+                                <span className="text-xs text-gray-500">
+                                  Por pagar: <span className="font-semibold text-gray-700">₡{reserva.precio.toLocaleString()}</span>
+                                </span>
+                              )}
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setPagoReserva(reserva);
+                                  setPagoDrawerOpen(true);
+                                }}
+                                className="shrink-0 rounded-md bg-white px-3 py-2 text-xs font-semibold text-primary shadow-sm ring-1 ring-inset ring-gray-200 hover:bg-gray-50 transition-colors"
+                              >
+                                {reserva.pagoStatus === "completo" ? "Ver pagos" : "Registrar pago"}
+                              </button>
+                            </div>
+                          );
+                        })()}
                       </div>
                       <Menu
                         as="div"
@@ -1884,6 +1970,16 @@ export default function Dashboard() {
                                 Cancelar reservación
                               </button>
                             </MenuItem>
+                            {reserva.reto && !reserva.reto.equipo2_encargado && (
+                              <MenuItem>
+                                <button
+                                  onClick={() => navigate("/admin/retos")}
+                                  className="block w-full text-left px-4 py-2 text-sm text-orange-700 data-focus:bg-orange-50 data-focus:text-orange-900 data-focus:outline-hidden"
+                                >
+                                  Asignar rival
+                                </button>
+                              </MenuItem>
+                            )}
                           </div>
                         </MenuItems>
                       </Menu>
@@ -2021,9 +2117,21 @@ export default function Dashboard() {
           setSelectedReto(null);
         }}
         reto={selectedReto}
-        mode="view"
+        mode={selectedReto?.equipo2_encargado ? "view" : "assign"}
         onReservaCreated={refreshReservas}
         onRefresh={refreshReservas}
+        user={user}
+      />
+
+      {/* Pago Drawer */}
+      <PagoDrawer
+        open={pagoDrawerOpen}
+        onClose={() => {
+          setPagoDrawerOpen(false);
+          setPagoReserva(null);
+        }}
+        reserva={pagoReserva}
+        onPagoCreated={refreshReservas}
         user={user}
       />
 

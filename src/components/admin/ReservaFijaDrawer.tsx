@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import type { User } from "@supabase/supabase-js";
-import { supabase } from "../../lib/supabase";
+import { supabase, isReservaConflictError } from "../../lib/supabase";
 import {
   Dialog,
   DialogPanel,
@@ -125,6 +126,7 @@ export default function ReservaFijaDrawer({
   onUpdate,
   onDelete,
 }: ReservaFijaDrawerProps) {
+  const navigate = useNavigate();
   const [canchas, setCanchas] = useState<Cancha[]>([]);
   const [reservas, setReservas] = useState<Reserva[]>([]);
   const [loadingReservas, setLoadingReservas] = useState(false);
@@ -265,11 +267,13 @@ export default function ReservaFijaDrawer({
           .eq("reservacion_fija_id", reservaFija.id);
 
         if (relatedReservas && relatedReservas.length > 0) {
+          let updatedCount = 0;
+          let conflictCount = 0;
+
           for (const reserva of relatedReservas) {
             const reservaDate = new Date(reserva.hora_inicio);
 
             if (dayChanged || timeChanged) {
-              // Calculate new date based on new day
               const targetDay = editDia === 7 ? 0 : editDia;
               const currentDay = reservaDate.getDay();
               const daysToAdd = (targetDay - currentDay + 7) % 7;
@@ -279,7 +283,6 @@ export default function ReservaFijaDrawer({
                 newDate.setDate(newDate.getDate() + daysToAdd);
               }
 
-              // Apply new time
               const [hours, minutes, seconds] = editHoraInicio.split(":");
               const [hoursEnd, minutesEnd, secondsEnd] = editHoraFin.split(":");
 
@@ -295,13 +298,10 @@ export default function ReservaFijaDrawer({
                 return `${year}-${month}-${day} ${h}:${m}:${s}`;
               };
 
-              // Calculate end date - if hora_fin is earlier than hora_inicio (wraps around midnight),
-              // it should be on the next day
               const horaInicioHour = parseInt(hours, 10);
               const horaFinHour = parseInt(hoursEnd, 10);
               const endDate = new Date(newDate);
 
-              // If end hour is less than start hour (e.g., 23:00 -> 00:00), add one day
               if (
                 horaFinHour < horaInicioHour ||
                 (horaFinHour === horaInicioHour &&
@@ -310,7 +310,7 @@ export default function ReservaFijaDrawer({
                 endDate.setDate(endDate.getDate() + 1);
               }
 
-              await supabase
+              const { error: rowError } = await supabase
                 .from("reservas")
                 .update({
                   hora_inicio: formatLocalTimestamp(
@@ -331,7 +331,21 @@ export default function ReservaFijaDrawer({
                   correo_reserva: editCorreo || null,
                 })
                 .eq("id", reserva.id);
+
+              if (rowError && isReservaConflictError(rowError)) {
+                conflictCount++;
+              } else if (rowError) {
+                throw rowError;
+              } else {
+                updatedCount++;
+              }
             }
+          }
+
+          if (conflictCount > 0) {
+            alert(
+              `Se actualizaron ${updatedCount} reservas. ${conflictCount} no se pudieron mover porque ya existe una reserva en esa hora.`,
+            );
           }
         }
       } else {
@@ -459,7 +473,13 @@ export default function ReservaFijaDrawer({
       }
     } catch (error) {
       console.error("Error updating reserva fija:", error);
-      alert("Error al actualizar la reservación fija");
+      if (isReservaConflictError(error)) {
+        alert(
+          "No se pudo actualizar: la nueva hora ya está reservada en esta cancha.",
+        );
+      } else {
+        alert("Error al actualizar la reservación fija");
+      }
     } finally {
       setUpdating(false);
     }
@@ -915,13 +935,15 @@ export default function ReservaFijaDrawer({
                                       <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">
                                         Hora
                                       </th>
+                                      <th className="px-4 py-2 text-right text-xs font-medium text-gray-500 uppercase">
+                                      </th>
                                     </tr>
                                   </thead>
                                   <tbody className="bg-white divide-y divide-gray-200">
                                     {reservas.length === 0 ? (
                                       <tr>
                                         <td
-                                          colSpan={2}
+                                          colSpan={3}
                                           className="px-4 py-3 text-sm text-gray-500 text-center"
                                         >
                                           No hay reservaciones generadas
@@ -947,6 +969,18 @@ export default function ReservaFijaDrawer({
                                                 reserva.hora_fin,
                                               ),
                                             )}
+                                          </td>
+                                          <td className="px-4 py-3 text-right">
+                                            <button
+                                              type="button"
+                                              onClick={() => {
+                                                onClose();
+                                                navigate(`/admin?reserva_id=${reserva.id}`);
+                                              }}
+                                              className="inline-flex items-center rounded-md bg-primary/10 px-2.5 py-1 text-xs font-medium text-primary hover:bg-primary/20 transition-colors"
+                                            >
+                                              Ver
+                                            </button>
                                           </td>
                                         </tr>
                                       ))

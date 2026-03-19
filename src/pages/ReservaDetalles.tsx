@@ -139,7 +139,7 @@ function ReservaDetalles() {
 
   // Check if deadline has passed
   useEffect(() => {
-    if (!reserva || !cancha || cancha.local !== 1) return;
+    if (!reserva || !cancha) return;
 
     const checkExpired = () => {
       const deadline = new Date(reserva.created_at);
@@ -496,10 +496,9 @@ function ReservaDetalles() {
         </div>
       </div>
 
-      {/* SINPE Section - Only for Sabana (local == 1) */}
-      {cancha.local === 1 && (
-        <>
-          {/* Warning Banner with Deadline - Only show if comprobante not uploaded */}
+      {/* SINPE Section */}
+      <>
+        {/* Warning Banner with Deadline - Only show if comprobante not uploaded */}
           {!reserva.sinpe_reserva && (
             <div className="px-4 mb-6">
               <div
@@ -687,19 +686,7 @@ function ReservaDetalles() {
               </div>
             )}
           </div>
-        </>
-      )}
-
-      {/* Pay at field note - Only for Guadalupe (local == 2) */}
-      {cancha.local === 2 && (
-        <div className="px-4 mb-6">
-          <div className="bg-primary/10 border border-primary/30 rounded-xl px-4 py-4">
-            <p className="text-white/90 text-sm text-center">
-              💵 El pago se realiza directamente en la cancha
-            </p>
-          </div>
-        </div>
-      )}
+      </>
 
       {/* Maps Links */}
       <div className="px-4 mb-6">

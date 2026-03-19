@@ -10,3 +10,8 @@ if (!supabaseUrl || !supabasePublishableKey) {
 }
 
 export const supabase = createClient(supabaseUrl, supabasePublishableKey);
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export function isReservaConflictError(error: any): boolean {
+  return error?.code === "23505";
+}

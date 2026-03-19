@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import type { User } from "@supabase/supabase-js";
 import { useNavigate } from "react-router-dom";
-import { supabase } from "../../lib/supabase";
+import { supabase, isReservaConflictError } from "../../lib/supabase";
 import {
   Dialog,
   DialogPanel,
@@ -187,9 +187,20 @@ export default function RetoDrawer({
     if (reto) {
       setLocalReto(reto);
       setEditCanchaId(reto.cancha_id);
-      setEditFut(reto.fut);
-      // Only set arbitro if cancha is Guadalupe (local == 2)
       const retoCancha = canchas.find((c) => c.id === reto.cancha_id);
+
+      if (reto.fut > 0) {
+        setEditFut(reto.fut);
+      } else if (retoCancha) {
+        if (retoCancha.id === 6) {
+          setEditFut(7);
+        } else {
+          setEditFut(parseInt(retoCancha.cantidad?.toString() || "0", 10) || 0);
+        }
+      } else {
+        setEditFut(reto.fut);
+      }
+
       setEditArbitro(retoCancha?.local === 2 ? reto.arbitro : false);
       setEquipo2Nombre(reto.equipo2_nombre || "");
       setEquipo2Encargado(reto.equipo2_encargado || "");
@@ -210,11 +221,13 @@ export default function RetoDrawer({
       setEditingEquipo2({ field: null, value: "" });
       setSavingField(null);
     }
-  }, [reto]);
+  }, [reto, canchas]);
+
+  const hasCanchaApartada = reto?.reserva_id !== null && reto?.reserva_id !== undefined;
 
   // Calculate total price based on cancha, FUT, and arbitro
   const calculateTotalPrice = (): number => {
-    if (!editCanchaId || !editFut) return 0;
+    if (!editCanchaId || editFut === null || editFut === undefined) return 0;
 
     const currentCancha = canchas.find((c) => c.id === editCanchaId);
     if (!currentCancha) return 0;
@@ -581,11 +594,17 @@ export default function RetoDrawer({
       await onReservaCreated();
     } catch (error) {
       console.error("Error creating reserva:", error);
-      const errorMessage =
-        error instanceof Error
-          ? error.message
-          : "Error al crear la reservación. Por favor intente de nuevo.";
-      alert(errorMessage);
+      if (isReservaConflictError(error)) {
+        alert(
+          "Esta hora ya está reservada en esta cancha. Por favor seleccione otra hora.",
+        );
+      } else {
+        const errorMessage =
+          error instanceof Error
+            ? error.message
+            : "Error al crear la reservación. Por favor intente de nuevo.";
+        alert(errorMessage);
+      }
     } finally {
       setCreating(false);
     }
@@ -646,6 +665,87 @@ export default function RetoDrawer({
       alert("Error al eliminar el reto");
     } finally {
       setDeleting(false);
+    }
+  };
+
+  const handleSaveRival = async () => {
+    if (!reto || !equipo2Encargado.trim() || !equipo2Celular.trim()) return;
+
+    setCreating(true);
+    try {
+      const { error } = await supabase
+        .from("retos")
+        .update({
+          equipo2_nombre: equipo2Nombre.trim() || null,
+          equipo2_encargado: equipo2Encargado.trim(),
+          equipo2_celular: equipo2Celular.trim(),
+        })
+        .eq("id", reto.id);
+
+      if (error) throw error;
+
+      await onRefresh();
+      onClose();
+    } catch (error) {
+      console.error("Error saving rival:", error);
+      alert("Error al guardar el rival. Por favor intente de nuevo.");
+    } finally {
+      setCreating(false);
+    }
+  };
+
+  const handleSaveRetoFields = async () => {
+    if (!reto || !editDate || editHour === null || !editCanchaId || editFut === null) return;
+
+    setCreating(true);
+    try {
+      const horaInicio = new Date(editDate);
+      horaInicio.setHours(editHour, 0, 0, 0);
+      const horaFin = new Date(horaInicio);
+      horaFin.setHours(horaFin.getHours() + 1);
+
+      const formatTs = (d: Date): string => {
+        const y = d.getFullYear();
+        const mo = String(d.getMonth() + 1).padStart(2, "0");
+        const da = String(d.getDate()).padStart(2, "0");
+        const h = String(d.getHours()).padStart(2, "0");
+        const mi = String(d.getMinutes()).padStart(2, "0");
+        const s = String(d.getSeconds()).padStart(2, "0");
+        return `${y}-${mo}-${da} ${h}:${mi}:${s}`;
+      };
+
+      const currentCancha = canchas.find((c) => c.id === editCanchaId);
+      const localStr = currentCancha?.local === 1 ? "Sabana" : "Guadalupe";
+
+      const updateData: Record<string, unknown> = {
+        cancha_id: editCanchaId,
+        hora_inicio: formatTs(horaInicio),
+        hora_fin: formatTs(horaFin),
+        fut: editFut,
+        arbitro: currentCancha?.local === 2 ? editArbitro : false,
+        local: localStr,
+      };
+
+      if (equipo2Encargado.trim()) {
+        updateData.equipo2_encargado = equipo2Encargado.trim();
+        updateData.equipo2_celular = equipo2Celular.trim() || null;
+        updateData.equipo2_nombre = equipo2Nombre.trim() || null;
+      }
+
+      const { error } = await supabase
+        .from("retos")
+        .update(updateData)
+        .eq("id", reto.id);
+
+      if (error) throw error;
+
+      await onRefresh();
+      onClose();
+    } catch (error) {
+      console.error("Error saving reto:", error);
+      alert("Error al guardar el reto. Por favor intente de nuevo.");
+    } finally {
+      setCreating(false);
     }
   };
 
@@ -836,7 +936,9 @@ export default function RetoDrawer({
                       <div className="mt-1">
                         <p className="text-sm text-white/80">
                           {mode === "assign"
-                            ? "Asigna un rival y crea la reservación."
+                            ? hasCanchaApartada
+                              ? "Asigna un rival a este reto."
+                              : "Asigna un rival y crea la reservación."
                             : "Información del reto cerrado."}
                         </p>
                       </div>
@@ -861,7 +963,7 @@ export default function RetoDrawer({
                                 {getLocalName(currentCancha.local)}
                               </p>
                             </div>
-                            {mode === "assign" && (
+                            {mode === "assign" && !hasCanchaApartada && (
                               <button
                                 type="button"
                                 onClick={() =>
@@ -878,7 +980,7 @@ export default function RetoDrawer({
                           </div>
 
                           {/* Cancha Selector */}
-                          {showCanchaSelector && mode === "assign" && (
+                          {showCanchaSelector && mode === "assign" && !hasCanchaApartada && (
                             <div className="space-y-4 rounded-lg bg-gray-50 p-4 border border-gray-200">
                               <label className="block text-sm/6 font-medium text-gray-900">
                                 Seleccionar Cancha
@@ -919,7 +1021,7 @@ export default function RetoDrawer({
                               Fecha
                             </label>
                             <div className="mt-2 flex items-center gap-2">
-                              {mode === "assign" ? (
+                              {mode === "assign" && !hasCanchaApartada ? (
                                 <>
                                   <input
                                     id="reto-date"
@@ -960,7 +1062,7 @@ export default function RetoDrawer({
                           </div>
 
                           {/* Date Selector */}
-                          {showDateSelector && mode === "assign" && (
+                          {showDateSelector && mode === "assign" && !hasCanchaApartada && (
                             <div className="space-y-4 rounded-lg bg-gray-50 p-4 border border-gray-200">
                               <h3 className="text-sm font-medium text-gray-900 flex items-center gap-2">
                                 <FaRegCalendarCheck className="text-primary" />
@@ -1005,7 +1107,7 @@ export default function RetoDrawer({
                               Hora
                             </label>
                             <div className="mt-2">
-                              {mode === "assign" ? (
+                              {mode === "assign" && !hasCanchaApartada ? (
                                 <div className="space-y-2">
                                   <div className="flex items-center gap-2">
                                     <input
@@ -1572,7 +1674,7 @@ export default function RetoDrawer({
                               <h3 className="text-sm/6 font-medium text-gray-900">
                                 FUT
                               </h3>
-                              {mode === "assign" && (
+                              {mode === "assign" && !hasCanchaApartada && (
                                 <button
                                   type="button"
                                   onClick={() => setShowFutEdit(!showFutEdit)}
@@ -1585,7 +1687,7 @@ export default function RetoDrawer({
                                 </button>
                               )}
                             </div>
-                            {showFutEdit && mode === "assign" ? (
+                            {showFutEdit && mode === "assign" && !hasCanchaApartada ? (
                               <div>
                                 <select
                                   value={editFut || ""}
@@ -1611,7 +1713,7 @@ export default function RetoDrawer({
                               <div className="flex items-center gap-2 text-sm text-gray-900">
                                 <TbRun className="text-primary" />
                                 <TbPlayFootball className="text-primary -ml-0.5" />
-                                {reto.fut}
+                                {editFut || displayReto.fut}
                               </div>
                             )}
                           </div>
@@ -1623,7 +1725,7 @@ export default function RetoDrawer({
                                 <h3 className="text-sm/6 font-medium text-gray-900">
                                   Árbitro
                                 </h3>
-                                {mode === "assign" ? (
+                                {mode === "assign" && !hasCanchaApartada ? (
                                   <label className="relative inline-flex items-center cursor-pointer">
                                     <input
                                       type="checkbox"
@@ -1664,7 +1766,7 @@ export default function RetoDrawer({
                                 <span className="text-gray-900 font-medium">
                                   ₡{" "}
                                   {(() => {
-                                    if (!editCanchaId || !editFut) return "0";
+                                    if (!editCanchaId || editFut === null || editFut === undefined) return "0";
                                     const currentCancha = canchas.find(
                                       (c) => c.id === editCanchaId
                                     );
@@ -1751,29 +1853,74 @@ export default function RetoDrawer({
                             {deleting ? "Eliminando..." : "Eliminar Reto"}
                           </button>
                         )}
-                        <button
-                          type="button"
-                          onClick={() => setShowCreateConfirm(true)}
-                          disabled={
-                            creating ||
-                            !equipo2Encargado.trim() ||
-                            !equipo2Celular.trim() ||
-                            editHour === null ||
-                            !editDate ||
-                            !editCanchaId ||
-                            !editFut
-                          }
-                          className="ml-4 inline-flex items-center justify-center gap-2 rounded-md bg-primary px-3 py-2 text-sm font-semibold text-white shadow-xs hover:bg-primary/90 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary disabled:bg-gray-700 disabled:cursor-not-allowed"
-                        >
-                          {creating ? (
-                            <>
-                              <ArrowPathIcon className="size-4 animate-spin" />
-                              Creando...
-                            </>
-                          ) : (
-                            "Crear Reservación"
-                          )}
-                        </button>
+                        {hasCanchaApartada ? (
+                          <button
+                            type="button"
+                            onClick={handleSaveRival}
+                            disabled={
+                              creating ||
+                              !equipo2Encargado.trim() ||
+                              !equipo2Celular.trim()
+                            }
+                            className="ml-4 inline-flex items-center justify-center gap-2 rounded-md bg-primary px-3 py-2 text-sm font-semibold text-white shadow-xs hover:bg-primary/90 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary disabled:bg-gray-700 disabled:cursor-not-allowed"
+                          >
+                            {creating ? (
+                              <>
+                                <ArrowPathIcon className="size-4 animate-spin" />
+                                Guardando...
+                              </>
+                            ) : (
+                              "Guardar"
+                            )}
+                          </button>
+                        ) : (
+                          <>
+                          <button
+                            type="button"
+                            onClick={handleSaveRetoFields}
+                            disabled={
+                              creating ||
+                              editHour === null ||
+                              !editDate ||
+                              !editCanchaId ||
+                              editFut === null
+                            }
+                            className="ml-4 inline-flex items-center justify-center gap-2 rounded-md bg-white px-3 py-2 text-sm font-semibold text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 hover:bg-gray-50 disabled:bg-gray-100 disabled:text-gray-400 disabled:cursor-not-allowed"
+                          >
+                            {creating ? (
+                              <>
+                                <ArrowPathIcon className="size-4 animate-spin" />
+                                Guardando...
+                              </>
+                            ) : (
+                              "Guardar"
+                            )}
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setShowCreateConfirm(true)}
+                            disabled={
+                              creating ||
+                              !equipo2Encargado.trim() ||
+                              !equipo2Celular.trim() ||
+                              editHour === null ||
+                              !editDate ||
+                              !editCanchaId ||
+                              editFut === null
+                            }
+                            className="ml-4 inline-flex items-center justify-center gap-2 rounded-md bg-primary px-3 py-2 text-sm font-semibold text-white shadow-xs hover:bg-primary/90 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary disabled:bg-gray-700 disabled:cursor-not-allowed"
+                          >
+                            {creating ? (
+                              <>
+                                <ArrowPathIcon className="size-4 animate-spin" />
+                                Creando...
+                              </>
+                            ) : (
+                              "Crear Reservación"
+                            )}
+                          </button>
+                          </>
+                        )}
                       </>
                     ) : (
                       <button

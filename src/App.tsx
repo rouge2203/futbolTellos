@@ -11,7 +11,6 @@ import ConfirmarReserva from "./pages/ConfirmarReserva";
 import ReservaDetalles from "./pages/ReservaDetalles";
 import ReservasHoy from "./pages/ReservasHoy";
 import Retos from "./pages/Retos";
-import CrearReto from "./pages/CrearReto";
 import NotFound from "./pages/NotFound";
 import Login from "./pages/Login";
 
@@ -89,15 +88,6 @@ function App() {
             </Layout>
           }
         />
-        <Route
-          path="/crear-reto"
-          element={
-            <Layout>
-              <CrearReto />
-            </Layout>
-          }
-        />
-
         {/* Login - No Layout */}
         <Route path="/login" element={<Login />} />
 

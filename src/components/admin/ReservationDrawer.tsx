@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import type { User } from "@supabase/supabase-js";
 import { supabase } from "../../lib/supabase";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import {
   Dialog,
   DialogPanel,
@@ -40,6 +40,17 @@ interface Pago {
   sinpe_pago: string | null;
 }
 
+interface Reto {
+  id: number;
+  equipo1_nombre: string | null;
+  equipo1_encargado: string;
+  equipo1_celular: string;
+  equipo1_correo: string | null;
+  equipo2_nombre: string | null;
+  equipo2_encargado: string | null;
+  equipo2_celular: string | null;
+}
+
 interface Reserva {
   id: number;
   hora_inicio: string;
@@ -54,6 +65,7 @@ interface Reserva {
   arbitro: boolean;
   cancha: Cancha;
   reservacion_fija_id: number | null;
+  reto?: Reto | null;
 }
 
 interface Configuracion {
@@ -126,10 +138,13 @@ export default function ReservationDrawer({
   onRefresh,
   user,
 }: ReservationDrawerProps) {
+  const navigate = useNavigate();
   const [configuracion, setConfiguracion] = useState<Configuracion | null>(
     null,
   );
   const [canchas, setCanchas] = useState<Cancha[]>([]);
+  const [convertToReto, setConvertToReto] = useState(false);
+  const [retoData, setRetoData] = useState<Reto | null>(null);
 
   // Form state for editing
   const [editNombre, setEditNombre] = useState("");
@@ -173,7 +188,10 @@ export default function ReservationDrawer({
       try {
         const [configResult, canchasResult] = await Promise.all([
           supabase.from("configuracion").select("*").limit(1).single(),
-          supabase.from("canchas").select("id, nombre, img, local").order("id"),
+          supabase
+            .from("canchas")
+            .select("id, nombre, img, local, cantidad, precio")
+            .order("id"),
         ]);
 
         if (configResult.error) throw configResult.error;
@@ -221,7 +239,8 @@ export default function ReservationDrawer({
       setCustomAdelantoAmount(Math.ceil(reserva.precio / 2));
       setLocalConfirmed(reserva.confirmada || false);
 
-      // Fetch pagos for this reservation
+      setConvertToReto(false);
+
       const fetchPagos = async () => {
         const { data, error } = await supabase
           .from("pagos")
@@ -233,7 +252,23 @@ export default function ReservationDrawer({
         }
       };
 
+      const fetchRetoData = async () => {
+        if (reserva.reto) {
+          setRetoData(reserva.reto);
+        } else {
+          const { data } = await supabase
+            .from("retos")
+            .select(
+              "id, equipo1_nombre, equipo1_encargado, equipo1_celular, equipo1_correo, equipo2_nombre, equipo2_encargado, equipo2_celular",
+            )
+            .eq("reserva_id", reserva.id)
+            .maybeSingle();
+          setRetoData(data || null);
+        }
+      };
+
       fetchPagos();
+      fetchRetoData();
     }
   }, [reserva]);
 
@@ -384,6 +419,9 @@ export default function ReservationDrawer({
         return `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`;
       };
 
+      const finalCanchaId = editCanchaId || reserva.cancha.id;
+      const updatedCancha = canchas.find((c) => c.id === finalCanchaId) || reserva.cancha;
+
       await onUpdate({
         hora_inicio: formatLocalTimestamp(horaInicio),
         hora_fin: formatLocalTimestamp(horaFin),
@@ -397,10 +435,80 @@ export default function ReservationDrawer({
           : {}),
       });
 
+      if (retoData) {
+        const localStr = updatedCancha.local === 1 ? "Sabana" : "Guadalupe";
+        const retoUpdate: Record<string, unknown> = {
+          hora_inicio: formatLocalTimestamp(horaInicio),
+          hora_fin: formatLocalTimestamp(horaFin),
+          cancha_id: finalCanchaId,
+          local: localStr,
+          arbitro: updatedCancha.local === 2 ? editArbitro : false,
+          equipo1_encargado: editNombre,
+          equipo1_celular: editCelular,
+          equipo1_correo: editCorreo || null,
+        };
+        if (updatedCancha.id !== 6) {
+          retoUpdate.fut = parseInt(updatedCancha.cantidad || "0", 10);
+        }
+
+        await supabase
+          .from("retos")
+          .update(retoUpdate)
+          .eq("id", retoData.id);
+      }
+
+      // Recalculate pago completo flags based on new price
+      if (editPrecio !== reserva.precio) {
+        const { data: allPagos } = await supabase
+          .from("pagos")
+          .select("id, monto_sinpe, monto_efectivo")
+          .eq("reserva_id", reserva.id)
+          .order("created_at", { ascending: true });
+
+        if (allPagos && allPagos.length > 0) {
+          let runningTotal = 0;
+          for (const pago of allPagos) {
+            runningTotal += pago.monto_sinpe + pago.monto_efectivo;
+            const shouldBeCompleto = runningTotal >= editPrecio;
+            await supabase
+              .from("pagos")
+              .update({ completo: shouldBeCompleto })
+              .eq("id", pago.id);
+          }
+        }
+      }
+
+      if (convertToReto && !retoData) {
+        const localStr = currentCancha.local === 1 ? "Sabana" : "Guadalupe";
+        const futValue = parseInt(currentCancha.cantidad || "0", 10);
+        const { data: newReto } = await supabase
+          .from("retos")
+          .insert({
+            hora_inicio: formatLocalTimestamp(horaInicio),
+            hora_fin: formatLocalTimestamp(horaFin),
+            local: localStr,
+            fut: futValue,
+            arbitro: editArbitro,
+            equipo1_nombre: null,
+            equipo1_encargado: editNombre,
+            equipo1_celular: editCelular,
+            equipo1_correo: editCorreo || null,
+            cancha_id: currentCancha.id,
+            reserva_id: reserva.id,
+          })
+          .select(
+            "id, equipo1_nombre, equipo1_encargado, equipo1_celular, equipo1_correo, equipo2_nombre, equipo2_encargado, equipo2_celular",
+          )
+          .single();
+
+        if (newReto) {
+          setRetoData(newReto);
+          setConvertToReto(false);
+        }
+      }
+
       setShowUpdateConfirm(false);
-      // Refresh the table first
       await onRefresh();
-      // Don't close the drawer - keep it open
     } catch (error) {
       console.error("Error updating reserva:", error);
       alert("Error al actualizar la reservación");
@@ -599,8 +707,6 @@ export default function ReservationDrawer({
   const currentCancha =
     canchas.find((c) => c.id === (editCanchaId || reserva.cancha.id)) ||
     reserva.cancha;
-  const isSabana = currentCancha.local === 1;
-
   return (
     <>
       {/* Updating Overlay */}
@@ -1038,6 +1144,94 @@ export default function ReservationDrawer({
                             </div>
                           </div>
 
+                          {/* Reto Section */}
+                          {retoData ? (
+                            <div>
+                              <h3 className="text-sm/6 font-medium text-gray-900 mb-3">
+                                Información del Reto
+                              </h3>
+                              <div className="space-y-3 rounded-lg border border-gray-200 bg-gray-50 p-4">
+                                <div>
+                                  <p className="text-xs text-gray-500">
+                                    Equipo 1
+                                  </p>
+                                  <p className="text-sm font-medium text-gray-900">
+                                    {retoData.equipo1_nombre || "Sin nombre"}
+                                  </p>
+                                  <p className="text-sm text-gray-600">
+                                    {retoData.equipo1_encargado} ·{" "}
+                                    {retoData.equipo1_celular}
+                                  </p>
+                                </div>
+                                <div className="border-t border-gray-200 pt-3">
+                                  <p className="text-xs text-gray-500">
+                                    Equipo 2
+                                  </p>
+                                  {retoData.equipo2_encargado ? (
+                                    <>
+                                      <p className="text-sm font-medium text-gray-900">
+                                        {retoData.equipo2_nombre ||
+                                          "Sin nombre"}
+                                      </p>
+                                      <p className="text-sm text-gray-600">
+                                        {retoData.equipo2_encargado} ·{" "}
+                                        {retoData.equipo2_celular}
+                                      </p>
+                                      <span className="mt-1 inline-flex items-center rounded-full bg-blue-100 px-2.5 py-0.5 text-xs font-medium text-blue-800">
+                                        Rival asignado
+                                      </span>
+                                    </>
+                                  ) : (
+                                    <>
+                                      <span className="inline-flex items-center rounded-full bg-orange-100 px-2.5 py-0.5 text-xs font-medium text-orange-800">
+                                        Buscando rival
+                                      </span>
+                                      <button
+                                        type="button"
+                                        onClick={() => {
+                                          onClose();
+                                          navigate("/admin/retos");
+                                        }}
+                                        className="mt-2 block text-sm font-medium text-primary hover:text-primary/80"
+                                      >
+                                        Asignar rival →
+                                      </button>
+                                    </>
+                                  )}
+                                </div>
+                              </div>
+                            </div>
+                          ) : mode === "edit" ? (
+                            <div className="border-t border-gray-200 pt-4">
+                              <div className="flex items-center justify-between">
+                                <div>
+                                  <label className="text-sm font-medium text-gray-900">
+                                    Convertir en Reto 🔥
+                                  </label>
+                                </div>
+                                <button
+                                  type="button"
+                                  role="switch"
+                                  aria-checked={convertToReto}
+                                  onClick={() =>
+                                    setConvertToReto(!convertToReto)
+                                  }
+                                  className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out ${convertToReto ? "bg-primary" : "bg-gray-200"}`}
+                                >
+                                  <span
+                                    className={`pointer-events-none inline-block size-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${convertToReto ? "translate-x-5" : "translate-x-0"}`}
+                                  />
+                                </button>
+                              </div>
+                              {convertToReto && (
+                                <p className="mt-2 text-xs text-gray-500">
+                                  Al guardar, se creará un reto vinculado a esta
+                                  reserva. Debes buscarle un rival.
+                                </p>
+                              )}
+                            </div>
+                          ) : null}
+
                           {/* Price Information */}
                           <div>
                             <div className="flex items-center justify-between mb-3">
@@ -1081,17 +1275,15 @@ export default function ReservationDrawer({
                                     step="1000"
                                   />
                                 </div>
-                                {isSabana && (
-                                  <div className="flex justify-between text-sm text-gray-600">
-                                    <span>Adelanto esperado (50%):</span>
-                                    <span>
-                                      ₡
-                                      {Math.ceil(
-                                        editPrecio / 2,
-                                      ).toLocaleString()}
-                                    </span>
-                                  </div>
-                                )}
+                                <div className="flex justify-between text-sm text-gray-600">
+                                  <span>Adelanto esperado (50%):</span>
+                                  <span>
+                                    ₡
+                                    {Math.ceil(
+                                      editPrecio / 2,
+                                    ).toLocaleString()}
+                                  </span>
+                                </div>
                               </div>
                             ) : (
                               <div className="space-y-2">
@@ -1100,22 +1292,26 @@ export default function ReservationDrawer({
                                     Precio total:
                                   </span>
                                   <span className="font-medium text-gray-900">
-                                    ₡{reserva.precio.toLocaleString()}
+                                    ₡
+                                    {(mode === "edit"
+                                      ? editPrecio
+                                      : reserva.precio
+                                    ).toLocaleString()}
                                   </span>
                                 </div>
-                                {isSabana && (
-                                  <div className="flex justify-between text-sm">
-                                    <span className="text-gray-600">
-                                      Adelanto esperado (50%):
-                                    </span>
-                                    <span className="font-medium text-gray-900">
-                                      ₡
-                                      {Math.ceil(
-                                        reserva.precio / 2,
-                                      ).toLocaleString()}
-                                    </span>
-                                  </div>
-                                )}
+                                <div className="flex justify-between text-sm">
+                                  <span className="text-gray-600">
+                                    Adelanto esperado (50%):
+                                  </span>
+                                  <span className="font-medium text-gray-900">
+                                    ₡
+                                    {Math.ceil(
+                                      (mode === "edit"
+                                        ? editPrecio
+                                        : reserva.precio) / 2,
+                                    ).toLocaleString()}
+                                  </span>
+                                </div>
                               </div>
                             )}
 
@@ -1161,9 +1357,8 @@ export default function ReservationDrawer({
                             </div>
                           </div>
 
-                          {/* SINPE Section (Sabana only) */}
-                          {isSabana && (
-                            <div>
+                          {/* SINPE Section */}
+                          <div>
                               <h3 className="text-sm/6 font-medium text-gray-900 mb-3">
                                 {pagos.length > 0
                                   ? "Pagos registrados"
@@ -1331,8 +1526,7 @@ export default function ReservationDrawer({
                                   )}
                                 </div>
                               )}
-                            </div>
-                          )}
+                          </div>
                         </div>
                         <div className="pt-4 pb-6">
                           <div className="flex text-sm">

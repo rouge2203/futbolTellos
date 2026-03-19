@@ -3,7 +3,7 @@ import AdminLayout from "../../components/admin/AdminLayout";
 import ReservationDrawer from "../../components/admin/ReservationDrawer";
 import CreateReservationDrawer from "../../components/admin/CreateReservationDrawer";
 import SuccessNotification from "../../components/admin/SuccessNotification";
-import { supabase } from "../../lib/supabase";
+import { supabase, isReservaConflictError } from "../../lib/supabase";
 import { useAuth } from "../../contexts/AuthContext";
 import {
   ChevronDownIcon,
@@ -339,7 +339,14 @@ export default function Reservas2() {
         .update(updateData)
         .eq("id", selectedReserva.id);
 
-      if (error) throw error;
+      if (error) {
+        if (isReservaConflictError(error)) {
+          throw new Error(
+            "Esta hora ya está reservada en esta cancha. Por favor seleccione otra hora.",
+          );
+        }
+        throw error;
+      }
 
       await fetchReservas();
       if (selectedReserva) {
@@ -843,17 +850,14 @@ export default function Reservas2() {
                         reserva.hora_inicio,
                         reserva.hora_fin
                       );
-                      const isSabana = reserva.cancha.local === 1;
                       const sinpePendiente =
-                        isSabana &&
                         reserva.sinpe_reserva === null &&
                         !reserva.confirmada;
                       const sinpeFaltaConfirmar =
-                        isSabana &&
                         reserva.sinpe_reserva !== null &&
                         !reserva.confirmada;
                       const sinpeConfirmado =
-                        isSabana && reserva.confirmada === true;
+                        reserva.confirmada === true;
                       const isConfirmed = reserva.confirmada === true;
 
                       return (
@@ -921,25 +925,23 @@ export default function Reservas2() {
                             )}
 
                             {/* SINPE Status Badges - Absolute positioned in bottom right */}
-                            {isSabana && (
-                              <div className="absolute bottom-2 right-2">
-                                {sinpePendiente ? (
-                                  <span className="inline-flex items-center gap-1 rounded-full bg-yellow-50 border border-yellow-200 px-1.5 py-0.5 text-[9px] font-semibold text-yellow-800 shadow-sm">
-                                    <span className="size-1 rounded-full bg-yellow-500"></span>
-                                    SINPE Pendiente
-                                  </span>
-                                ) : sinpeFaltaConfirmar ? (
-                                  <span className="inline-flex items-center gap-1 rounded-full bg-primary/20 border border-primary/40 px-1.5 py-0.5 text-[9px] font-semibold text-primary shadow-sm">
-                                    Falta Confirmar
-                                  </span>
-                                ) : sinpeConfirmado ? (
-                                  <span className="inline-flex items-center gap-1 rounded-full bg-primary/10 border border-primary/20 px-1.5 py-0.5 text-[9px] font-semibold text-primary shadow-sm">
-                                    <span className="size-1 rounded-full bg-primary"></span>
-                                    SINPE Confirmado
-                                  </span>
-                                ) : null}
-                              </div>
-                            )}
+                            <div className="absolute bottom-2 right-2">
+                              {sinpePendiente ? (
+                                <span className="inline-flex items-center gap-1 rounded-full bg-yellow-50 border border-yellow-200 px-1.5 py-0.5 text-[9px] font-semibold text-yellow-800 shadow-sm">
+                                  <span className="size-1 rounded-full bg-yellow-500"></span>
+                                  SINPE Pendiente
+                                </span>
+                              ) : sinpeFaltaConfirmar ? (
+                                <span className="inline-flex items-center gap-1 rounded-full bg-primary/20 border border-primary/40 px-1.5 py-0.5 text-[9px] font-semibold text-primary shadow-sm">
+                                  Falta Confirmar
+                                </span>
+                              ) : sinpeConfirmado ? (
+                                <span className="inline-flex items-center gap-1 rounded-full bg-primary/10 border border-primary/20 px-1.5 py-0.5 text-[9px] font-semibold text-primary shadow-sm">
+                                  <span className="size-1 rounded-full bg-primary"></span>
+                                  SINPE Confirmado
+                                </span>
+                              ) : null}
+                            </div>
                           </button>
                         </li>
                       );

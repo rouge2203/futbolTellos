@@ -10,7 +10,7 @@ import {
   ChevronLeftIcon,
   ChevronRightIcon,
 } from "@heroicons/react/24/outline";
-import { supabase } from "../../lib/supabase";
+import { supabase, isReservaConflictError } from "../../lib/supabase";
 import { FaRegCalendarCheck, FaRegClock } from "react-icons/fa";
 import { TbPlayFootball, TbRun } from "react-icons/tb";
 import { GiWhistle } from "react-icons/gi";
@@ -103,6 +103,7 @@ export default function CreateReservationDrawer({
   const [nombre, setNombre] = useState("");
   const [celular, setCelular] = useState("");
   const [correo, setCorreo] = useState("");
+  const [isReto, setIsReto] = useState(false);
 
   // Fetch canchas and configuracion
   useEffect(() => {
@@ -162,6 +163,7 @@ export default function CreateReservationDrawer({
       setNombre("");
       setCelular("");
       setCorreo("");
+      setIsReto(false);
     }
   }, [open, defaultDate]);
 
@@ -353,6 +355,27 @@ export default function CreateReservationDrawer({
 
       if (error) throw error;
 
+      if (isReto && data) {
+        const localStr = selectedCancha.local === 1 ? "Sabana" : "Guadalupe";
+        const futValue = isSpecialCancha
+          ? selectedPlayers || parseInt(selectedCancha.cantidad, 10)
+          : parseInt(selectedCancha.cantidad, 10);
+
+        await supabase.from("retos").insert({
+          hora_inicio: formatLocalTimestamp(horaInicio),
+          hora_fin: formatLocalTimestamp(horaFin),
+          local: localStr,
+          fut: futValue,
+          arbitro: arbitro,
+          equipo1_nombre: null,
+          equipo1_encargado: nombre.trim(),
+          equipo1_celular: celular || null,
+          equipo1_correo: correo || null,
+          cancha_id: selectedCancha.id,
+          reserva_id: data.id,
+        });
+      }
+
       // Send email if correo is provided
       if (correo && correo.trim()) {
         try {
@@ -397,7 +420,13 @@ export default function CreateReservationDrawer({
       onClose();
     } catch (error) {
       console.error("Error creating reservation:", error);
-      alert("Error al crear la reservación. Por favor intente de nuevo.");
+      if (isReservaConflictError(error)) {
+        alert(
+          "Esta hora ya está reservada en esta cancha. Por favor seleccione otra hora.",
+        );
+      } else {
+        alert("Error al crear la reservación. Por favor intente de nuevo.");
+      }
     } finally {
       setSubmitting(false);
     }
@@ -1099,6 +1128,29 @@ export default function CreateReservationDrawer({
                                             className="block w-full rounded-md bg-white border border-gray-300 px-3 py-1.5 text-base text-gray-900 outline-1 -outline-offset-1 outline-gray-300 placeholder:text-gray-500 focus:outline-2 focus:-outline-offset-2 focus:outline-primary sm:text-sm/6"
                                           />
                                         </div>
+                                      </div>
+
+                                      {/* Es Reto Toggle */}
+                                      <div className="border-t border-gray-200 pt-4">
+                                        <div className="flex items-center justify-between">
+                                          <div>
+                                            <label className="text-sm font-medium text-gray-900">Es Reto</label>
+                                          </div>
+                                          <button
+                                            type="button"
+                                            role="switch"
+                                            aria-checked={isReto}
+                                            onClick={() => setIsReto(!isReto)}
+                                            className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out ${isReto ? "bg-primary" : "bg-gray-200"}`}
+                                          >
+                                            <span className={`pointer-events-none inline-block size-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${isReto ? "translate-x-5" : "translate-x-0"}`} />
+                                          </button>
+                                        </div>
+                                        {isReto && (
+                                          <p className="mt-2 text-xs text-gray-500">
+                                            Se creará la reserva y un reto. Debes buscarle un rival.
+                                          </p>
+                                        )}
                                       </div>
                                     </div>
                                   </>

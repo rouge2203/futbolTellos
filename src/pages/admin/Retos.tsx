@@ -1,7 +1,8 @@
 import { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
 import AdminLayout from "../../components/admin/AdminLayout";
+
 import RetoDrawer from "../../components/admin/RetoDrawer";
+import CreateRetoDrawer from "../../components/admin/CreateRetoDrawer";
 import SuccessNotification from "../../components/admin/SuccessNotification";
 import { supabase } from "../../lib/supabase";
 import { useAuth } from "../../contexts/AuthContext";
@@ -66,7 +67,7 @@ const calculatePricePerTeam = (
   canchaPrecio: number,
   arbitro: boolean,
   local: string,
-  fut: number
+  fut: number,
 ): number => {
   // For FUT 7/8/9, use fixed prices per team
   let basePrice: number;
@@ -107,7 +108,6 @@ const getLocalName = (local: string): string => {
 
 export default function Retos() {
   const { user } = useAuth();
-  const navigate = useNavigate();
   const [openRetos, setOpenRetos] = useState<Reto[]>([]);
   const [closedRetos, setClosedRetos] = useState<Reto[]>([]);
   const [loading, setLoading] = useState(true);
@@ -118,6 +118,7 @@ export default function Retos() {
   const [drawerMode, setDrawerMode] = useState<"assign" | "view">("assign");
   const [selectedReto, setSelectedReto] = useState<Reto | null>(null);
   const [showSuccessNotification, setShowSuccessNotification] = useState(false);
+  const [createDrawerOpen, setCreateDrawerOpen] = useState(false);
 
   useEffect(() => {
     fetchRetos();
@@ -126,7 +127,7 @@ export default function Retos() {
   const fetchRetos = async () => {
     setLoading(true);
     try {
-      // Fetch open retos (reserva_id IS NULL)
+      // Fetch open retos (no rival assigned yet)
       const { data: openData, error: openError } = await supabase
         .from("retos")
         .select(
@@ -140,14 +141,14 @@ export default function Retos() {
             local,
             cantidad
           )
-        `
+        `,
         )
-        .is("reserva_id", null)
+        .is("equipo2_encargado", null)
         .order("hora_inicio", { ascending: false });
 
       if (openError) throw openError;
 
-      // Fetch closed retos (reserva_id IS NOT NULL)
+      // Fetch closed retos (rival assigned)
       const { data: closedData, error: closedError } = await supabase
         .from("retos")
         .select(
@@ -161,9 +162,9 @@ export default function Retos() {
             local,
             cantidad
           )
-        `
+        `,
         )
-        .not("reserva_id", "is", null)
+        .not("equipo2_encargado", "is", null)
         .order("hora_inicio", { ascending: false });
 
       if (closedError) throw closedError;
@@ -260,7 +261,7 @@ export default function Retos() {
                 </button>
               </nav>
               <button
-                onClick={() => navigate("/retos")}
+                onClick={() => setCreateDrawerOpen(true)}
                 className="rounded-md bg-primary px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-primary/90 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
               >
                 Crear Reto
@@ -344,7 +345,7 @@ export default function Retos() {
                       canchaPrecio,
                       reto.arbitro,
                       reto.local,
-                      reto.fut
+                      reto.fut,
                     );
 
                     const expired = activeTab === "open" && isRetoExpired(reto);
@@ -361,11 +362,31 @@ export default function Retos() {
                                 {reto.equipo1_encargado}
                               </div>
                             </div>
-                            {expired && (
-                              <span className="inline-flex items-center rounded-full bg-red-100 px-2.5 py-0.5 text-xs font-medium text-red-800">
-                                Expirado
-                              </span>
-                            )}
+                            <div className="flex flex-wrap gap-1.5">
+                              {expired && (
+                                <span className="inline-flex items-center rounded-md bg-red-100/75 px-2.5 py-1 text-xs font-semibold text-red-700">
+                                  Expirado
+                                </span>
+                              )}
+                              {reto.reserva_id !== null ? (
+                                <span className="inline-flex items-center rounded-md bg-green-100/75 px-2.5 py-1 text-xs font-medium text-green-700">
+                                  Cancha apartada
+                                </span>
+                              ) : (
+                                <span className="inline-flex items-center rounded-md bg-yellow-100/75 px-2.5 py-1 text-xs font-medium text-yellow-700">
+                                  Cancha sin apartar
+                                </span>
+                              )}
+                              {reto.equipo2_encargado ? (
+                                <span className="inline-flex items-center rounded-md bg-blue-100/75 px-2.5 py-1 text-xs font-medium text-blue-700">
+                                  Rival asignado
+                                </span>
+                              ) : (
+                                <span className="inline-flex items-center rounded-md bg-orange-100/75 px-2.5 py-1 text-xs font-medium text-orange-700">
+                                  Buscando rival
+                                </span>
+                              )}
+                            </div>
                           </div>
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
@@ -408,11 +429,11 @@ export default function Retos() {
                                 onClick={() => handleAsignarRival(reto)}
                                 className="text-white bg-primary hover:bg-primary/80 rounded-lg px-4 py-2"
                               >
-                                Asignar rival
+                                Ver reto
                               </button>
                               <button
-                                onClick={() => handleAsignarRival(reto)}
-                                className="text-primary bg-gray-100 hover:bg-gray-200 rounded-lg p-2"
+                                onClick={() => handleDeleteReto(reto.id)}
+                                className="text-red-600 bg-red-50 hover:bg-red-100 rounded-lg p-2"
                               >
                                 <TbTrash className="size-5" />
                               </button>
@@ -448,12 +469,22 @@ export default function Retos() {
         user={user}
       />
 
+      {/* Create Reto Drawer */}
+      <CreateRetoDrawer
+        open={createDrawerOpen}
+        onClose={() => setCreateDrawerOpen(false)}
+        onSuccess={() => {
+          fetchRetos();
+          setShowSuccessNotification(true);
+        }}
+      />
+
       {/* Success Notification */}
       <SuccessNotification
         show={showSuccessNotification}
         onClose={() => setShowSuccessNotification(false)}
-        message="Reserva creada"
-        description="La reservación se ha creado exitosamente y el reto ha sido cerrado."
+        message="Reto creado"
+        description="El reto se ha creado exitosamente."
       />
     </AdminLayout>
   );

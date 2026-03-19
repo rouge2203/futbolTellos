@@ -7,7 +7,7 @@ import {
   DialogBackdrop,
 } from "@headlessui/react";
 import { XMarkIcon } from "@heroicons/react/24/outline";
-import { supabase } from "../../lib/supabase";
+import { supabase, isReservaConflictError } from "../../lib/supabase";
 import { FaRegClock } from "react-icons/fa";
 import { GiWhistle } from "react-icons/gi";
 import { TbPlayFootball, TbRun } from "react-icons/tb";
@@ -468,14 +468,29 @@ export default function CreateReservaFijaDrawer({
           };
         });
 
-        const { error: reservasError } = await supabase
-          .from("reservas")
-          .insert(reservasToInsert);
+        let created = 0;
+        let skippedConflict = 0;
 
-        if (reservasError) throw reservasError;
+        for (const reserva of reservasToInsert) {
+          const { error: insertError } = await supabase
+            .from("reservas")
+            .insert(reserva);
+
+          if (insertError && isReservaConflictError(insertError)) {
+            skippedConflict++;
+            continue;
+          }
+          if (insertError) throw insertError;
+          created++;
+        }
+
+        if (skippedConflict > 0) {
+          alert(
+            `Reservación fija creada. Se crearon ${created} reservas y se omitieron ${skippedConflict} por conflicto con reservas existentes.`,
+          );
+        }
       }
 
-      // Success - show notification
       setShowSuccessNotification(true);
       setTimeout(() => {
         setShowSuccessNotification(false);
@@ -484,7 +499,15 @@ export default function CreateReservaFijaDrawer({
       }, 2000);
     } catch (error) {
       console.error("Error creating reserva fija:", error);
-      alert("Error al crear la reservación fija. Por favor intente de nuevo.");
+      if (isReservaConflictError(error)) {
+        alert(
+          "No se pudo crear la reservación fija porque todas las fechas tienen conflictos con reservas existentes.",
+        );
+      } else {
+        alert(
+          "Error al crear la reservación fija. Por favor intente de nuevo.",
+        );
+      }
     } finally {
       setSubmitting(false);
     }
@@ -747,7 +770,7 @@ export default function CreateReservaFijaDrawer({
                                           className="font-medium text-gray-900 flex items-center gap-2"
                                         >
                                           <GiWhistle className="text-primary text-lg" />
-                                          Contratar árbitro
+                                          Contratar árbitro (todas las semanas)
                                         </label>
                                         <p className="text-gray-600 text-sm">
                                           + ₡5,000 al precio total

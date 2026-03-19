@@ -1,5 +1,4 @@
 import { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
 import { supabase } from "../lib/supabase";
 import {
   Dialog,
@@ -11,7 +10,6 @@ import { FaWhatsapp } from "react-icons/fa";
 import { MdLocationOn } from "react-icons/md";
 import { TbPlayFootball, TbRun, TbSoccerField } from "react-icons/tb";
 import { GiWhistle } from "react-icons/gi";
-import { FaRegCalendarCheck } from "react-icons/fa";
 import { FaRegClock } from "react-icons/fa";
 
 interface Cancha {
@@ -102,7 +100,6 @@ const formatDateTime = (timestamp: string): { date: string; time: string } => {
 };
 
 function Retos() {
-  const navigate = useNavigate();
   const [openRetos, setOpenRetos] = useState<Reto[]>([]);
   const [proximosRetos, setProximosRetos] = useState<Reto[]>([]);
   const [loading, setLoading] = useState(true);
@@ -129,7 +126,7 @@ function Retos() {
       const todayStr = crToday.toISOString().split("T")[0];
       const startOfDay = `${todayStr} 00:00:00`;
 
-      // Fetch open retos (reserva_id IS NULL)
+      // Fetch open retos (no rival assigned yet)
       const { data: openData, error: openError } = await supabase
         .from("retos")
         .select(
@@ -142,12 +139,12 @@ function Retos() {
           )
         `
         )
-        .is("reserva_id", null)
+        .is("equipo2_encargado", null)
         .order("hora_inicio", { ascending: true });
 
       if (openError) throw openError;
 
-      // Fetch próximos retos (reserva_id IS NOT NULL, future dates)
+      // Fetch próximos retos (rival assigned, future dates)
       const { data: proximosData, error: proximosError } = await supabase
         .from("retos")
         .select(
@@ -160,7 +157,7 @@ function Retos() {
           )
         `
         )
-        .not("reserva_id", "is", null)
+        .not("equipo2_encargado", "is", null)
         .gte("hora_inicio", startOfDay)
         .order("hora_inicio", { ascending: true });
 
@@ -185,9 +182,8 @@ function Retos() {
     const { date, time } = formatDateTime(reto.hora_inicio);
     const equipo1 = reto.equipo1_nombre || "Equipo buscando reto";
 
-    // Only show vs if there's a segundo equipo
     const matchText =
-      reto.reserva_id && reto.equipo2_nombre
+      reto.equipo2_encargado && reto.equipo2_nombre
         ? `${equipo1} vs ${reto.equipo2_nombre}`
         : equipo1;
 
@@ -213,12 +209,12 @@ function Retos() {
     return (
       <div className="min-h-screen bg-bg flex flex-col items-center justify-center gap-4 px-4">
         <div className="text-red-400 text-lg text-center">{error}</div>
-        <button
-          onClick={() => navigate("/")}
+        <a
+          href="/"
           className="px-4 py-2 bg-primary text-white rounded-lg"
         >
           Volver al inicio
-        </button>
+        </a>
       </div>
     );
   }
@@ -228,24 +224,16 @@ function Retos() {
       {/* Header */}
       <div className="mb-6">
         <h1 className="text-3xl font-bold text-white mb-4">Retos</h1>
-        <div className="bg-primary/10 border border-primary/30 rounded-xl px-4 py-4 mb-4">
+        <div className="bg-primary/10 border border-primary/30 rounded-xl px-4 py-4">
           <p className="text-white/90 text-sm">
             <span>
               Le ayudaremos a encontrar un rival. Revise los retos abiertos, tal
-              vez ya tenga un rival esperando. Si no, cree uno en el lugar y
-              hora de su preferencia, y nosotros intentaremos conseguirle un
-              oponente.
+              vez ya tenga un rival esperando. Contacte por WhatsApp para más
+              información.
             </span>
             <strong className="text-secondary"> No garantizado.</strong>
           </p>
         </div>
-        <button
-          onClick={() => navigate("/crear-reto")}
-          className="w-full sm:w-auto px-6 py-3 bg-primary text-white rounded-lg font-medium flex items-center justify-center gap-2 hover:bg-primary/90 transition-colors"
-        >
-          <FaRegCalendarCheck className="text-lg" />
-          Crear Reto
-        </button>
       </div>
 
       {/* Open Retos Section */}
@@ -443,8 +431,7 @@ function Retos() {
                             Encargado: {selectedReto.equipo1_encargado}
                           </p>
                         </div>
-                        {/* Only show equipo2 if reserva_id is not null (it's a confirmed reto) */}
-                        {selectedReto.reserva_id && (
+                        {selectedReto.equipo2_encargado && (
                           <div className="border-t border-white/10 pt-2">
                             <p className="text-white/60 text-sm">Equipo 2</p>
                             <p className="text-white font-medium">
