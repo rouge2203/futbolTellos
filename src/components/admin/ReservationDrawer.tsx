@@ -1201,35 +1201,6 @@ export default function ReservationDrawer({
                                 </div>
                               </div>
                             </div>
-                          ) : mode === "edit" ? (
-                            <div className="border-t border-gray-200 pt-4">
-                              <div className="flex items-center justify-between">
-                                <div>
-                                  <label className="text-sm font-medium text-gray-900">
-                                    Convertir en Reto 🔥
-                                  </label>
-                                </div>
-                                <button
-                                  type="button"
-                                  role="switch"
-                                  aria-checked={convertToReto}
-                                  onClick={() =>
-                                    setConvertToReto(!convertToReto)
-                                  }
-                                  className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out ${convertToReto ? "bg-primary" : "bg-gray-200"}`}
-                                >
-                                  <span
-                                    className={`pointer-events-none inline-block size-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${convertToReto ? "translate-x-5" : "translate-x-0"}`}
-                                  />
-                                </button>
-                              </div>
-                              {convertToReto && (
-                                <p className="mt-2 text-xs text-gray-500">
-                                  Al guardar, se creará un reto vinculado a esta
-                                  reserva. Debes buscarle un rival.
-                                </p>
-                              )}
-                            </div>
                           ) : null}
 
                           {/* Price Information */}
@@ -1355,6 +1326,34 @@ export default function ReservationDrawer({
                                 </span>
                               )}
                             </div>
+
+                            {/* Convert to Reto toggle (edit mode only, when no reto exists) */}
+                            {!retoData && mode === "edit" && (
+                              <div className="mt-4 flex items-center justify-between rounded-lg border border-gray-200 bg-gray-50 px-4 py-3">
+                                <label className="text-sm font-medium text-gray-900">
+                                  Convertir en Reto 🔥
+                                </label>
+                                <button
+                                  type="button"
+                                  role="switch"
+                                  aria-checked={convertToReto}
+                                  onClick={() =>
+                                    setConvertToReto(!convertToReto)
+                                  }
+                                  className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out ${convertToReto ? "bg-primary" : "bg-gray-200"}`}
+                                >
+                                  <span
+                                    className={`pointer-events-none inline-block size-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${convertToReto ? "translate-x-5" : "translate-x-0"}`}
+                                  />
+                                </button>
+                              </div>
+                            )}
+                            {convertToReto && !retoData && mode === "edit" && (
+                              <p className="mt-2 text-xs text-gray-500">
+                                Al guardar, se creará un reto vinculado a esta
+                                reserva. Debes buscarle un rival.
+                              </p>
+                            )}
                           </div>
 
                           {/* SINPE Section */}

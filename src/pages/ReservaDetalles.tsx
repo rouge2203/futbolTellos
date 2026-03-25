@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useNavigate, useParams, useLocation } from "react-router-dom";
 import { IoArrowBack } from "react-icons/io5";
 import { MdLocationOn, MdContentCopy } from "react-icons/md";
@@ -82,9 +82,9 @@ function ReservaDetalles() {
   const [isExpired, setIsExpired] = useState(false);
 
   // File upload states
-  const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [uploading, setUploading] = useState(false);
   const [uploadError, setUploadError] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Fetch reservation data from database
   useEffect(() => {
@@ -295,53 +295,31 @@ function ReservaDetalles() {
     return null;
   };
 
-  const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (!file) return;
-
-    const validationError = validateFile(file);
-    if (validationError) {
-      setUploadError(validationError);
-      setSelectedFile(null);
-      return;
-    }
-
-    setUploadError(null);
-    setSelectedFile(file);
-  };
-
-  const handleUploadComprobante = async () => {
-    if (!selectedFile || !reserva) return;
+  const uploadFile = async (file: File): Promise<void> => {
+    if (!reserva) return;
 
     setUploading(true);
     setUploadError(null);
 
     try {
-      // Generate unique filename
-      const fileExt = selectedFile.name.split(".").pop();
+      const fileExt = file.name.split(".").pop();
       const fileName = `reserva_${reserva.id}_${Date.now()}.${fileExt}`;
 
-      // Upload to Supabase Storage
-      const { error: uploadError } = await supabase.storage
+      const { error: storageError } = await supabase.storage
         .from("Sinpes")
-        .upload(fileName, selectedFile, {
+        .upload(fileName, file, {
           cacheControl: "3600",
           upsert: false,
         });
 
-      if (uploadError) throw uploadError;
+      if (storageError) throw storageError;
 
-      // Get public URL
       const { data: urlData } = supabase.storage
         .from("Sinpes")
         .getPublicUrl(fileName);
 
       const publicUrl = urlData.publicUrl;
 
-      console.log("Public URL:", publicUrl);
-      console.log("Updating reserva ID:", reserva.id);
-
-      // Update reserva with the file URL
       const { data: updateData, error: updateError } = await supabase
         .from("reservas")
         .update({ sinpe_reserva: publicUrl })
@@ -349,22 +327,48 @@ function ReservaDetalles() {
         .select()
         .single();
 
-      console.log("Update result:", updateData, updateError);
-
       if (updateError) throw updateError;
+      if (!updateData) throw new Error("No se pudo actualizar la reserva");
 
-      if (!updateData) {
-        throw new Error("No se pudo actualizar la reserva");
-      }
-
-      // Refresh reserva data
       setReserva({ ...reserva, sinpe_reserva: publicUrl });
-      setSelectedFile(null);
     } catch (err) {
       console.error("Error uploading file:", err);
       setUploadError("Error al subir el archivo. Por favor intente de nuevo.");
     } finally {
       setUploading(false);
+    }
+  };
+
+  const deleteFromStorage = async (url: string): Promise<void> => {
+    try {
+      const urlParts = url.split("/");
+      const fileName = urlParts[urlParts.length - 1];
+      await supabase.storage.from("Sinpes").remove([fileName]);
+    } catch (err) {
+      console.warn("Could not delete old file from storage:", err);
+    }
+  };
+
+  const handleFileSelect = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    const validationError = validateFile(file);
+    if (validationError) {
+      setUploadError(validationError);
+      return;
+    }
+
+    setUploadError(null);
+
+    if (reserva?.sinpe_reserva) {
+      await deleteFromStorage(reserva.sinpe_reserva);
+    }
+
+    await uploadFile(file);
+
+    if (fileInputRef.current) {
+      fileInputRef.current.value = "";
     }
   };
 
@@ -617,15 +621,42 @@ function ReservaDetalles() {
                 )}
 
                 {/* Show uploaded image preview */}
-                <div>
+                <div className="relative">
                   <p className="text-white/60 text-xs mb-2">
                     Comprobante subido:
                   </p>
+                  {uploading && (
+                    <div className="absolute inset-0 z-10 bg-black/70 rounded-lg flex flex-col items-center justify-center">
+                      <img
+                        src="/tellos-square.svg"
+                        alt="Cargando"
+                        className="w-12 h-12 animate-spin"
+                      />
+                      <p className="mt-3 text-white text-sm font-medium">
+                        Subiendo comprobante...
+                      </p>
+                    </div>
+                  )}
                   <img
                     src={reserva.sinpe_reserva}
                     alt="Comprobante SINPE"
                     className="w-full max-h-64 object-contain rounded-lg border border-white/10"
                   />
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept="image/*"
+                    onChange={handleFileSelect}
+                    className="hidden"
+                  />
+                  <button
+                    onClick={() => fileInputRef.current?.click()}
+                    disabled={uploading}
+                    className="w-full mt-3 py-2.5 rounded-lg font-medium flex items-center justify-center gap-2 bg-white/10 text-white hover:bg-white/15 transition-colors text-sm disabled:opacity-50"
+                  >
+                    <FiUpload className="text-base" />
+                    Cambiar comprobante
+                  </button>
                 </div>
               </div>
             ) : (
@@ -635,54 +666,42 @@ function ReservaDetalles() {
                   Subir comprobante
                 </h3>
 
-                {/* File input area */}
-                <label className="relative block w-full rounded-lg border-2 border-dashed border-white/15 p-8 text-center hover:border-white/25 focus:outline-2 focus:outline-offset-2 focus:outline-primary transition-colors cursor-pointer">
-                  <input
-                    type="file"
-                    accept="image/*"
-                    onChange={handleFileSelect}
-                    className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
-                  />
-                  <FiUpload className="mx-auto size-12 text-gray-500" />
-                  <span className="mt-2 block text-sm font-semibold text-white">
-                    {selectedFile
-                      ? selectedFile.name
-                      : "Subir imagen del comprobante SINPE"}
-                  </span>
-                  <span className="mt-1 block text-xs text-gray-500">
-                    {selectedFile
-                      ? `${(selectedFile.size / 1024 / 1024).toFixed(2)} MB`
-                      : "Toque para seleccionar o tomar foto (máx. 20MB)"}
-                  </span>
-                </label>
+                {uploading ? (
+                  <div className="w-full rounded-lg border-2 border-dashed border-white/15 p-8 flex flex-col items-center justify-center">
+                    <img
+                      src="/tellos-square.svg"
+                      alt="Cargando"
+                      className="w-14 h-14 animate-spin"
+                    />
+                    <p className="mt-4 text-white text-sm font-semibold">
+                      Subiendo comprobante...
+                    </p>
+                    <p className="mt-1 text-white/50 text-xs">
+                      Esto puede tomar unos segundos
+                    </p>
+                  </div>
+                ) : (
+                  <label className="relative block w-full rounded-lg border-2 border-dashed border-white/15 p-8 text-center hover:border-white/25 focus:outline-2 focus:outline-offset-2 focus:outline-primary transition-colors cursor-pointer">
+                    <input
+                      ref={fileInputRef}
+                      type="file"
+                      accept="image/*"
+                      onChange={handleFileSelect}
+                      className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                    />
+                    <FiUpload className="mx-auto size-12 text-gray-500" />
+                    <span className="mt-2 block text-sm font-semibold text-white">
+                      Subir imagen del comprobante SINPE
+                    </span>
+                    <span className="mt-1 block text-xs text-gray-500">
+                      Toque para seleccionar o tomar foto (máx. 20MB)
+                    </span>
+                  </label>
+                )}
 
-                {/* Error message */}
                 {uploadError && (
                   <p className="text-red-400 text-sm mt-2">{uploadError}</p>
                 )}
-
-                {/* Upload button */}
-                <button
-                  onClick={handleUploadComprobante}
-                  disabled={!selectedFile || uploading}
-                  className={`w-full mt-4 py-3 rounded-lg font-medium flex items-center justify-center gap-2 transition-colors ${
-                    selectedFile && !uploading
-                      ? "bg-primary text-white border border-dotted animate-pulse"
-                      : "bg-gray-700 text-gray-400 cursor-not-allowed"
-                  }`}
-                >
-                  {uploading ? (
-                    <>
-                      <div className="animate-spin rounded-full h-5 w-5 border-t-2 border-b-2 border-white"></div>
-                      Subiendo...
-                    </>
-                  ) : (
-                    <>
-                      <FiUpload className="text-lg" />
-                      Subir Imagen
-                    </>
-                  )}
-                </button>
               </div>
             )}
           </div>

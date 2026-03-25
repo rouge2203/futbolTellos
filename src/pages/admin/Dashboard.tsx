@@ -22,6 +22,7 @@ import {
   ArrowLongRightIcon,
   ClockIcon,
   XMarkIcon,
+  InformationCircleIcon,
 } from "@heroicons/react/20/solid";
 import { FaWhatsapp } from "react-icons/fa";
 import { GiWhistle } from "react-icons/gi";
@@ -107,6 +108,8 @@ interface Reserva {
   pagos?: Pago[];
   pagoStatus?: "no_registrado" | "incompleto" | "completo";
   reto?: Reto;
+  whatsapp_enviado?: boolean | null;
+  whatsapp_confirmada?: boolean | null;
 }
 
 interface ListaEspera {
@@ -286,6 +289,8 @@ export default function Dashboard() {
             precio,
             arbitro,
             reservacion_fija_id,
+            whatsapp_enviado,
+            whatsapp_confirmada,
             cancha:cancha_id (
               id,
               nombre,
@@ -419,6 +424,8 @@ export default function Dashboard() {
             precio,
             arbitro,
             reservacion_fija_id,
+            whatsapp_enviado,
+            whatsapp_confirmada,
             cancha:cancha_id (
               id,
               nombre,
@@ -1876,6 +1883,31 @@ export default function Dashboard() {
                                 </button>
                               )}
                             </>
+                          )}
+                          {/* WhatsApp Confirmation Badge */}
+                          {reserva.whatsapp_confirmada ? (
+                            <span className="inline-flex items-center gap-1.5 rounded-md bg-green-100/75 px-3 py-1.5 text-xs font-semibold text-green-700">
+                              <FaWhatsapp className="size-3.5" />
+                              Reservación confirmada
+                            </span>
+                          ) : reserva.whatsapp_enviado ? (
+                            <span className="relative group inline-flex items-center gap-1.5 rounded-md bg-yellow-100/75 px-3 py-1.5 text-xs font-semibold text-yellow-700">
+                              <FaWhatsapp className="size-3.5" />
+                              Pendiente de confirmar
+                              <InformationCircleIcon className="size-3.5 text-yellow-500" />
+                              <span className="pointer-events-none absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-56 rounded-lg bg-gray-900 px-3 py-2 text-xs font-normal text-white opacity-0 group-hover:opacity-100 transition-opacity shadow-lg z-20">
+                                Mensaje de confirmación enviado por WhatsApp. Se envía 24 horas antes de la reserva, pendiente de respuesta.
+                              </span>
+                            </span>
+                          ) : (
+                            <span className="relative group inline-flex items-center gap-1.5 rounded-md bg-gray-100 px-3 py-1.5 text-xs font-semibold text-gray-500">
+                              <FaWhatsapp className="size-3.5" />
+                              Pendiente de confirmar
+                              <InformationCircleIcon className="size-3.5 text-gray-400" />
+                              <span className="pointer-events-none absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-56 rounded-lg bg-gray-900 px-3 py-2 text-xs font-normal text-white opacity-0 group-hover:opacity-100 transition-opacity shadow-lg z-20">
+                                Se enviará un mensaje de confirmación por WhatsApp 24 horas antes de la hora de la reserva.
+                              </span>
+                            </span>
                           )}
                         </div>
                         {/* Payment Amount Info */}
