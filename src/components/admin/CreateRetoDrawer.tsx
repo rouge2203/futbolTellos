@@ -606,7 +606,7 @@ export default function CreateRetoDrawer({
                                       <div>
                                         <label htmlFor="celular-reto" className="block text-sm/6 font-medium text-gray-900">Celular *</label>
                                         <div className="mt-2">
-                                          <input id="celular-reto" type="tel" placeholder="8888-8888" value={celular} onChange={(e) => setCelular(e.target.value)}
+                                          <input id="celular-reto" type="tel" placeholder="88888888" value={celular} onChange={(e) => setCelular(e.target.value)}
                                             className="block w-full rounded-md bg-white border border-gray-300 px-3 py-1.5 text-base text-gray-900 outline-1 -outline-offset-1 outline-gray-300 placeholder:text-gray-500 focus:outline-2 focus:-outline-offset-2 focus:outline-primary sm:text-sm/6" />
                                         </div>
                                       </div>

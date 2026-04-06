@@ -1097,7 +1097,7 @@ export default function CreateReservationDrawer({
                                             id="celular-create"
                                             name="celular-create"
                                             type="tel"
-                                            placeholder="8888-8888"
+                                            placeholder="88888888"
                                             value={celular}
                                             onChange={(e) =>
                                               setCelular(e.target.value)
@@ -1134,7 +1134,9 @@ export default function CreateReservationDrawer({
                                       <div className="border-t border-gray-200 pt-4">
                                         <div className="flex items-center justify-between">
                                           <div>
-                                            <label className="text-sm font-medium text-gray-900">Es Reto</label>
+                                            <label className="text-sm font-medium text-gray-900">
+                                              Es Reto
+                                            </label>
                                           </div>
                                           <button
                                             type="button"
@@ -1143,12 +1145,15 @@ export default function CreateReservationDrawer({
                                             onClick={() => setIsReto(!isReto)}
                                             className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out ${isReto ? "bg-primary" : "bg-gray-200"}`}
                                           >
-                                            <span className={`pointer-events-none inline-block size-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${isReto ? "translate-x-5" : "translate-x-0"}`} />
+                                            <span
+                                              className={`pointer-events-none inline-block size-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${isReto ? "translate-x-5" : "translate-x-0"}`}
+                                            />
                                           </button>
                                         </div>
                                         {isReto && (
                                           <p className="mt-2 text-xs text-gray-500">
-                                            Se creará la reserva y un reto. Debes buscarle un rival.
+                                            Se creará la reserva y un reto.
+                                            Debes buscarle un rival.
                                           </p>
                                         )}
                                       </div>

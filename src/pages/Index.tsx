@@ -109,7 +109,9 @@ function Index() {
           // Then sort by id ascending within each location
           return a.id - b.id;
         })
-      : canchas.filter((cancha) => cancha.local === filter).sort((a, b) => a.id - b.id);
+      : canchas
+          .filter((cancha) => cancha.local === filter)
+          .sort((a, b) => a.id - b.id);
 
   // Separate canchas by location for desktop view, sorted by id ascending
   const sabanaCanchas = canchas
@@ -149,7 +151,7 @@ function Index() {
 
   const goToPreviousHero = () => {
     setCurrentHeroIndex((prev) =>
-      prev === 0 ? bannerImages.length - 1 : prev - 1
+      prev === 0 ? bannerImages.length - 1 : prev - 1,
     );
   };
 
@@ -228,9 +230,12 @@ function Index() {
         {/* Mobile: Sabana and Guadalupe in a row */}
         <div className="flex gap-2 sm:hidden">
           <button
+            type="button"
+            aria-pressed={filter === 1}
+            aria-label="Filtrar por zona Sabana"
             onClick={() => setFilter(filter === 1 ? null : 1)}
-            className={`px-3 py-3 rounded-md tracking-tight text-white text-xl font-bold transition-colors flex items-center justify-center gap-0.5 flex-1 border-primary  border border-dashed ${
-              filter === 1 ? "bg-primary" : "bg-transparent  "
+            className={`px-3 py-3 rounded-md tracking-tight text-white text-xl font-bold flex items-center justify-center gap-0.5 flex-1 border border-dashed border-primary cursor-pointer touch-manipulation select-none transition-all duration-150 active:scale-[0.98] active:opacity-90 ${
+              filter === 1 ? "bg-primary shadow-md" : "bg-primary/20 shadow-sm"
             }`}
           >
             {filter === 1 ? (
@@ -241,9 +246,12 @@ function Index() {
             <span className="truncate">SABANA</span>
           </button>
           <button
+            type="button"
+            aria-pressed={filter === 2}
+            aria-label="Filtrar por zona Guadalupe"
             onClick={() => setFilter(filter === 2 ? null : 2)}
-            className={`px-3 py-3 rounded-md tracking-tight  text-white text-xl font-bold transition-colors flex items-center justify-center gap-0.5 flex-1 border-primary border border-dashed ${
-              filter === 2 ? "bg-primary" : "bg-transparent  "
+            className={`px-3 py-3 rounded-md tracking-tight text-white text-xl font-bold flex items-center justify-center gap-0.5 flex-1 border border-dashed border-primary cursor-pointer touch-manipulation select-none transition-all duration-150 active:scale-[0.98] active:opacity-90 ${
+              filter === 2 ? "bg-primary shadow-md" : "bg-primary/20 shadow-sm"
             }`}
           >
             {filter === 2 ? (
@@ -257,8 +265,10 @@ function Index() {
 
         {/* Mobile: Busca un reto button - full width below filters */}
         <button
+          type="button"
+          aria-label="Ir a retos"
           onClick={() => navigate("/retos")}
-          className="sm:hidden px-3 py-3 rounded-md tracking-tight text-white text-base font-bold transition-colors flex items-center justify-center gap-0.5 w-full border-red-600/50 border border-dashed bg-transparent hover:bg-red-600/20"
+          className="sm:hidden px-3 py-3 rounded-md tracking-tight text-white text-base font-bold flex items-center justify-center gap-0.5 w-full border border-dashed border-red-500/25 bg-red-600/5 shadow-sm cursor-pointer touch-manipulation select-none transition-all duration-150 active:scale-[0.98] active:opacity-90"
         >
           <span className="truncate">ENCUENTRA UN RETO</span>
           <span className="text-base">🔥</span>

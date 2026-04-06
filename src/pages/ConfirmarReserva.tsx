@@ -182,9 +182,12 @@ function ConfirmarReserva() {
     return emailRegex.test(email);
   };
 
-  // Check if form is valid
+  const correoTrimmed = correo.trim();
+  const emailOk = !correoTrimmed || isValidEmail(correoTrimmed);
+
+  // Check if form is valid (celular required; correo optional but validated when present)
   const isFormValid =
-    nombre.trim() && isValidCelular(celular) && isValidEmail(correo);
+    Boolean(nombre.trim()) && isValidCelular(celular) && emailOk;
 
   const canSubmit = isFormValid && sinpeAcknowledged;
 
@@ -208,9 +211,12 @@ function ConfirmarReserva() {
 
   const handleConfirmar = async () => {
     if (submitting) return;
+    if (!canSubmit) return;
 
     setSubmitting(true);
     setEmailSent(null); // Reset email status
+
+    const correoForDb = correo.trim() || null;
 
     try {
       // Build hora_inicio timestamp (format as local time, not UTC)
@@ -242,7 +248,7 @@ function ConfirmarReserva() {
           hora_fin: formatLocalTimestamp(horaFin),
           nombre_reserva: nombre,
           celular_reserva: celular,
-          correo_reserva: correo,
+          correo_reserva: correoForDb,
           cancha_id: cancha.id,
           precio: finalPrice,
           arbitro: effectiveArbitro,
@@ -256,10 +262,10 @@ function ConfirmarReserva() {
       setReservaId(data.id);
       reservaCreatedAtRef.current = data.created_at;
 
-      // Call Django endpoint to send confirmation email
+      // Call Django endpoint to send confirmation email (only when correo provided)
       try {
         const djangoApiUrl = import.meta.env.VITE_DJANGO_API_URL || "";
-        if (djangoApiUrl) {
+        if (correoForDb && djangoApiUrl) {
           const reservaUrl = `${window.location.origin}/reserva/${data.id}`;
 
           // Format datetime strings for Django endpoint
@@ -275,7 +281,7 @@ function ConfirmarReserva() {
             cancha_local: cancha.local,
             nombre_reserva: nombre,
             celular_reserva: celular,
-            correo_reserva: correo,
+            correo_reserva: correoForDb,
             precio: finalPrice,
             arbitro: effectiveArbitro,
             jugadores: getPlayerCount() * 2,
@@ -290,7 +296,7 @@ function ConfirmarReserva() {
                 "Content-Type": "application/json",
               },
               body: JSON.stringify(emailPayload),
-            }
+            },
           );
 
           if (response.ok) {
@@ -300,6 +306,8 @@ function ConfirmarReserva() {
             console.error("Error sending email:", response.statusText);
             setEmailSent(false);
           }
+        } else if (!correoForDb) {
+          setEmailSent(null);
         } else {
           console.warn("Django API URL not configured");
           setEmailSent(false);
@@ -511,6 +519,7 @@ function ConfirmarReserva() {
 
       {/* SINPE Acknowledgment Toggle */}
       <div className="px-4 mb-6">
+        <div className="relative">
           <div
             className={`flex items-center justify-between bg-white/5 rounded-xl p-4 ${
               sinpeAcknowledged ? "animate-none" : "animate-pulse"
@@ -542,6 +551,7 @@ function ConfirmarReserva() {
               />
             </div>
           </div>
+        </div>
       </div>
 
       {/* Contact Form */}
@@ -575,16 +585,18 @@ function ConfirmarReserva() {
             htmlFor="celular"
             className="block text-sm/6 font-medium text-white"
           >
-            Celular
+            Celular <span className="text-red-400">*</span>
           </label>
           <div className="mt-2">
             <input
               id="celular"
               name="celular"
               type="tel"
-              placeholder="8888-8888"
+              placeholder="88888888"
               value={celular}
               onChange={(e) => setCelular(e.target.value)}
+              autoComplete="tel"
+              aria-required="true"
               className="block w-full rounded-md bg-white/5 px-3 py-1.5 text-base text-white outline-1 -outline-offset-1 outline-white/10 placeholder:text-gray-500 focus:outline-2 focus:-outline-offset-2 focus:outline-primary sm:text-sm/6"
             />
           </div>
@@ -596,7 +608,8 @@ function ConfirmarReserva() {
             htmlFor="correo"
             className="block text-sm/6 font-medium text-white"
           >
-            Correo electrónico
+            Correo electrónico{" "}
+            <span className="font-normal text-gray-500">(opcional)</span>
           </label>
           <div className="mt-2">
             <input
@@ -665,9 +678,9 @@ function ConfirmarReserva() {
                   </DialogTitle>
                   <div className="mt-2">
                     <p className="text-sm text-gray-400">
-                      Su reservación ha sido registrada con éxito. Ahora
-                      puede subir su comprobante de SINPE en la siguiente
-                      página para confirmar el pago.
+                      Su reservación ha sido registrada con éxito. Ahora puede
+                      subir su comprobante de SINPE en la siguiente página para
+                      confirmar el pago.
                     </p>
                     {emailSent !== null && (
                       <p

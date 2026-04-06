@@ -956,7 +956,7 @@ export default function CreateReservaFijaDrawer({
                                             id="celular-create"
                                             name="celular-create"
                                             type="tel"
-                                            placeholder="8888-8888"
+                                            placeholder="88888888"
                                             value={celular}
                                             onChange={(e) =>
                                               setCelular(e.target.value)

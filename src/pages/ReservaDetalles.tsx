@@ -65,6 +65,14 @@ const formatHourAmPm = (hour: number): string => {
   return `${hour12}:00 ${ampm}`;
 };
 
+const formatTimeAmPm = (d: Date): string => {
+  const h = d.getHours();
+  const m = d.getMinutes();
+  const ampm = h >= 12 ? "PM" : "AM";
+  const h12 = h % 12 || 12;
+  return `${h12}:${String(m).padStart(2, "0")} ${ampm}`;
+};
+
 function ReservaDetalles() {
   const navigate = useNavigate();
   const location = useLocation();
@@ -110,7 +118,7 @@ function ReservaDetalles() {
               local,
               precio
             )
-          `
+          `,
           )
           .eq("id", id)
           .single();
@@ -127,7 +135,7 @@ function ReservaDetalles() {
       } catch (err) {
         console.error("Error fetching reserva:", err);
         setError(
-          "No se encuentra esta reserva. Es posible que haya sido cancelada o haya pasado el tiempo limite para realizar el adelanto."
+          "No se encuentra esta reserva. Es posible que haya sido cancelada o haya pasado el tiempo limite para realizar el adelanto.",
         );
       } finally {
         setLoading(false);
@@ -153,14 +161,12 @@ function ReservaDetalles() {
     return () => clearInterval(interval);
   }, [reserva, cancha]);
 
-  // Calculate deadline time (2 hours from created_at)
+  // Calculate deadline time (2 hours from created_at), 12h + AM/PM
   const getDeadlineTime = (): string => {
     if (!reserva?.created_at) return "";
     const deadline = new Date(reserva.created_at);
     deadline.setHours(deadline.getHours() + 2);
-    const hours = deadline.getHours().toString().padStart(2, "0");
-    const minutes = deadline.getMinutes().toString().padStart(2, "0");
-    return `${hours}:${minutes}`;
+    return formatTimeAmPm(deadline);
   };
 
   // Loading state
@@ -205,7 +211,7 @@ function ReservaDetalles() {
   const parseDateFromTimestamp = (timestamp: string): Date => {
     // For local format "2025-12-24 08:00:00", parse manually to avoid timezone issues
     const match = timestamp.match(
-      /(\d{4})-(\d{2})-(\d{2}) (\d{2}):(\d{2}):(\d{2})/
+      /(\d{4})-(\d{2})-(\d{2}) (\d{2}):(\d{2}):(\d{2})/,
     );
     if (match) {
       return new Date(
@@ -214,7 +220,7 @@ function ReservaDetalles() {
         parseInt(match[3]),
         parseInt(match[4]),
         parseInt(match[5]),
-        parseInt(match[6])
+        parseInt(match[6]),
       );
     }
     // Fallback
@@ -349,7 +355,9 @@ function ReservaDetalles() {
     }
   };
 
-  const handleFileSelect = async (event: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileSelect = async (
+    event: React.ChangeEvent<HTMLInputElement>,
+  ) => {
     const file = event.target.files?.[0];
     if (!file) return;
 
@@ -503,208 +511,204 @@ function ReservaDetalles() {
       {/* SINPE Section */}
       <>
         {/* Warning Banner with Deadline - Only show if comprobante not uploaded */}
-          {!reserva.sinpe_reserva && (
-            <div className="px-4 mb-6">
-              <div
-                className={`${
-                  isExpired
-                    ? "bg-red-500/10 border-red-500/30"
-                    : "bg-yellow-500/10 border-yellow-500/30"
-                } border rounded-xl px-4 py-4`}
-              >
+        {!reserva.sinpe_reserva && (
+          <div className="px-4 mb-6">
+            <div
+              className={`${
+                isExpired
+                  ? "bg-red-500/10 border-red-500/30"
+                  : "bg-yellow-500/10 border-yellow-500/30"
+              } border rounded-xl px-4 py-4`}
+            >
+              <div className="flex items-start gap-3">
+                <IoWarning
+                  className={`${
+                    isExpired ? "text-red-500" : "text-yellow-500"
+                  } text-xl shrink-0 mt-0.5`}
+                />
+                <div>
+                  <p className="text-white/90 text-sm">
+                    {isExpired ? (
+                      <>
+                        <strong className="text-red-500">
+                          Tiempo expirado.
+                        </strong>{" "}
+                        Su reserva puede ser cancelada en cualquier momento si
+                        no ha subido el comprobante.
+                      </>
+                    ) : (
+                      <>
+                        Tiene hasta las{" "}
+                        <strong className="text-yellow-500">
+                          {deadlineTime}
+                        </strong>{" "}
+                        para realizar el SINPE y subir el comprobante o su
+                        reserva podría ser cancelada.
+                      </>
+                    )}
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* SINPE Info */}
+        <div className="px-4 mb-6">
+          <h3 className="text-white font-medium mb-3">Datos de SINPE Móvil</h3>
+          <div className="bg-white/5 rounded-xl p-4 space-y-3">
+            <div className="flex items-center justify-between">
+              <span className="text-white/80 text-sm">A nombre de</span>
+              <span className="text-white font-medium tracking-tighter">
+                Kathia Salas
+              </span>
+            </div>
+            <div className="border-t border-white/10" />
+            <div className="flex items-center justify-between">
+              <span className="text-white/80 text-sm">Número de SINPE</span>
+              <span className="text-white font-medium tracking-tighter">
+                8616-7000
+              </span>
+            </div>
+            <div className="border-t border-white/10" />
+            <div className="flex items-center justify-between">
+              <span className="text-white/80 text-sm">
+                Monto de adelanto (50%)
+              </span>
+              <span className="text-white font-bold text-lg  tracking-tight">
+                ₡ {sinpeAmount.toLocaleString()}
+              </span>
+            </div>
+          </div>
+        </div>
+
+        {/* Upload Comprobante or Confirmation Status */}
+        <div className="px-4 mb-6">
+          {/* If comprobante already uploaded */}
+          {reserva.sinpe_reserva ? (
+            <div className="space-y-4">
+              {/* Comprobante received message */}
+              <div className="bg-green-500/10 border border-green-500/30 rounded-xl px-4 py-4">
                 <div className="flex items-start gap-3">
-                  <IoWarning
-                    className={`${
-                      isExpired ? "text-red-500" : "text-yellow-500"
-                    } text-xl shrink-0 mt-0.5`}
-                  />
+                  <FaCheck className="text-green-500 text-lg shrink-0 mt-0.5" />
                   <div>
-                    <p className="text-white/90 text-sm">
-                      {isExpired ? (
-                        <>
-                          <strong className="text-red-500">
-                            Tiempo expirado.
-                          </strong>{" "}
-                          Su reserva puede ser cancelada en cualquier momento si
-                          no ha subido el comprobante.
-                        </>
-                      ) : (
-                        <>
-                          Tiene hasta las{" "}
-                          <strong className="text-yellow-500">
-                            {deadlineTime}
-                          </strong>{" "}
-                          para realizar el SINPE y subir el comprobante o su
-                          reserva será cancelada automáticamente.
-                        </>
-                      )}
+                    <p className="text-white font-medium">
+                      Comprobante recibido
+                    </p>
+                    <p className="text-white/70 text-sm mt-1">
+                      Hemos recibido tu comprobante. Un encargado verificará tu
+                      pago.
                     </p>
                   </div>
                 </div>
               </div>
-            </div>
-          )}
 
-          {/* SINPE Info */}
-          <div className="px-4 mb-6">
-            <h3 className="text-white font-medium mb-3">
-              Datos de SINPE Móvil
-            </h3>
-            <div className="bg-white/5 rounded-xl p-4 space-y-3">
-              <div className="flex items-center justify-between">
-                <span className="text-white/80 text-sm">A nombre de</span>
-                <span className="text-white font-medium tracking-tighter">
-                  Jose Tello Ferrer
-                </span>
-              </div>
-              <div className="border-t border-white/10" />
-              <div className="flex items-center justify-between">
-                <span className="text-white/80 text-sm">Número de SINPE</span>
-                <span className="text-white font-medium tracking-tighter">
-                  8616-7000
-                </span>
-              </div>
-              <div className="border-t border-white/10" />
-              <div className="flex items-center justify-between">
-                <span className="text-white/80 text-sm">
-                  Monto de adelanto (50%)
-                </span>
-                <span className="text-white font-bold text-lg  tracking-tight">
-                  ₡ {sinpeAmount.toLocaleString()}
-                </span>
-              </div>
-            </div>
-          </div>
-
-          {/* Upload Comprobante or Confirmation Status */}
-          <div className="px-4 mb-6">
-            {/* If comprobante already uploaded */}
-            {reserva.sinpe_reserva ? (
-              <div className="space-y-4">
-                {/* Comprobante received message */}
-                <div className="bg-green-500/10 border border-green-500/30 rounded-xl px-4 py-4">
-                  <div className="flex items-start gap-3">
-                    <FaCheck className="text-green-500 text-lg shrink-0 mt-0.5" />
-                    <div>
-                      <p className="text-white font-medium">
-                        Comprobante recibido
-                      </p>
-                      <p className="text-white/70 text-sm mt-1">
-                        Hemos recibido tu comprobante. Un encargado verificará
-                        tu pago.
-                      </p>
-                    </div>
+              {/* Confirmation status badge */}
+              {reserva.confirmada === null && (
+                <div className="bg-yellow-500/10 border border-yellow-500/30 rounded-xl px-4 py-3">
+                  <div className="flex items-center gap-2 justify-center">
+                    <FiClock className="text-yellow-500 text-lg" />
+                    <span className="text-yellow-500 font-medium">
+                      Por confirmar
+                    </span>
                   </div>
                 </div>
+              )}
 
-                {/* Confirmation status badge */}
-                {reserva.confirmada === null && (
-                  <div className="bg-yellow-500/10 border border-yellow-500/30 rounded-xl px-4 py-3">
-                    <div className="flex items-center gap-2 justify-center">
-                      <FiClock className="text-yellow-500 text-lg" />
-                      <span className="text-yellow-500 font-medium">
-                        Por confirmar
-                      </span>
-                    </div>
+              {reserva.confirmada === true && (
+                <div className="bg-green-500/10 border border-green-500/30 rounded-xl px-4 py-3">
+                  <div className="flex items-center gap-2 justify-center">
+                    <FaCheck className="text-green-500 text-lg" />
+                    <span className="text-green-500 font-medium">
+                      Reserva confirmada
+                    </span>
+                  </div>
+                </div>
+              )}
+
+              {/* Show uploaded image preview */}
+              <div className="relative">
+                <p className="text-white/60 text-xs mb-2">
+                  Comprobante subido:
+                </p>
+                {uploading && (
+                  <div className="absolute inset-0 z-10 bg-black/70 rounded-lg flex flex-col items-center justify-center">
+                    <img
+                      src="/tellos-square.svg"
+                      alt="Cargando"
+                      className="w-12 h-12 animate-spin"
+                    />
+                    <p className="mt-3 text-white text-sm font-medium">
+                      Subiendo comprobante...
+                    </p>
                   </div>
                 )}
+                <img
+                  src={reserva.sinpe_reserva}
+                  alt="Comprobante SINPE"
+                  className="w-full max-h-64 object-contain rounded-lg border border-white/10"
+                />
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept="image/*"
+                  onChange={handleFileSelect}
+                  className="hidden"
+                />
+                <button
+                  onClick={() => fileInputRef.current?.click()}
+                  disabled={uploading}
+                  className="w-full mt-3 py-2.5 rounded-lg font-medium flex items-center justify-center gap-2 bg-white/10 text-white hover:bg-white/15 transition-colors text-sm disabled:opacity-50"
+                >
+                  <FiUpload className="text-base" />
+                  Cambiar comprobante
+                </button>
+              </div>
+            </div>
+          ) : (
+            /* Upload form */
+            <div>
+              <h3 className="text-white font-medium mb-3">Subir comprobante</h3>
 
-                {reserva.confirmada === true && (
-                  <div className="bg-green-500/10 border border-green-500/30 rounded-xl px-4 py-3">
-                    <div className="flex items-center gap-2 justify-center">
-                      <FaCheck className="text-green-500 text-lg" />
-                      <span className="text-green-500 font-medium">
-                        Reserva confirmada
-                      </span>
-                    </div>
-                  </div>
-                )}
-
-                {/* Show uploaded image preview */}
-                <div className="relative">
-                  <p className="text-white/60 text-xs mb-2">
-                    Comprobante subido:
-                  </p>
-                  {uploading && (
-                    <div className="absolute inset-0 z-10 bg-black/70 rounded-lg flex flex-col items-center justify-center">
-                      <img
-                        src="/tellos-square.svg"
-                        alt="Cargando"
-                        className="w-12 h-12 animate-spin"
-                      />
-                      <p className="mt-3 text-white text-sm font-medium">
-                        Subiendo comprobante...
-                      </p>
-                    </div>
-                  )}
+              {uploading ? (
+                <div className="w-full rounded-lg border-2 border-dashed border-white/15 p-8 flex flex-col items-center justify-center">
                   <img
-                    src={reserva.sinpe_reserva}
-                    alt="Comprobante SINPE"
-                    className="w-full max-h-64 object-contain rounded-lg border border-white/10"
+                    src="/tellos-square.svg"
+                    alt="Cargando"
+                    className="w-14 h-14 animate-spin"
                   />
+                  <p className="mt-4 text-white text-sm font-semibold">
+                    Subiendo comprobante...
+                  </p>
+                  <p className="mt-1 text-white/50 text-xs">
+                    Esto puede tomar unos segundos
+                  </p>
+                </div>
+              ) : (
+                <label className="relative block w-full rounded-lg border-2 border-dashed border-white/15 p-8 text-center hover:border-white/25 focus:outline-2 focus:outline-offset-2 focus:outline-primary transition-colors cursor-pointer">
                   <input
                     ref={fileInputRef}
                     type="file"
                     accept="image/*"
                     onChange={handleFileSelect}
-                    className="hidden"
+                    className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
                   />
-                  <button
-                    onClick={() => fileInputRef.current?.click()}
-                    disabled={uploading}
-                    className="w-full mt-3 py-2.5 rounded-lg font-medium flex items-center justify-center gap-2 bg-white/10 text-white hover:bg-white/15 transition-colors text-sm disabled:opacity-50"
-                  >
-                    <FiUpload className="text-base" />
-                    Cambiar comprobante
-                  </button>
-                </div>
-              </div>
-            ) : (
-              /* Upload form */
-              <div>
-                <h3 className="text-white font-medium mb-3">
-                  Subir comprobante
-                </h3>
+                  <FiUpload className="mx-auto size-12 text-gray-500" />
+                  <span className="mt-2 block text-sm font-semibold text-white">
+                    Subir imagen del comprobante SINPE
+                  </span>
+                  <span className="mt-1 block text-xs text-gray-500">
+                    Toque para seleccionar o tomar foto (máx. 20MB)
+                  </span>
+                </label>
+              )}
 
-                {uploading ? (
-                  <div className="w-full rounded-lg border-2 border-dashed border-white/15 p-8 flex flex-col items-center justify-center">
-                    <img
-                      src="/tellos-square.svg"
-                      alt="Cargando"
-                      className="w-14 h-14 animate-spin"
-                    />
-                    <p className="mt-4 text-white text-sm font-semibold">
-                      Subiendo comprobante...
-                    </p>
-                    <p className="mt-1 text-white/50 text-xs">
-                      Esto puede tomar unos segundos
-                    </p>
-                  </div>
-                ) : (
-                  <label className="relative block w-full rounded-lg border-2 border-dashed border-white/15 p-8 text-center hover:border-white/25 focus:outline-2 focus:outline-offset-2 focus:outline-primary transition-colors cursor-pointer">
-                    <input
-                      ref={fileInputRef}
-                      type="file"
-                      accept="image/*"
-                      onChange={handleFileSelect}
-                      className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
-                    />
-                    <FiUpload className="mx-auto size-12 text-gray-500" />
-                    <span className="mt-2 block text-sm font-semibold text-white">
-                      Subir imagen del comprobante SINPE
-                    </span>
-                    <span className="mt-1 block text-xs text-gray-500">
-                      Toque para seleccionar o tomar foto (máx. 20MB)
-                    </span>
-                  </label>
-                )}
-
-                {uploadError && (
-                  <p className="text-red-400 text-sm mt-2">{uploadError}</p>
-                )}
-              </div>
-            )}
-          </div>
+              {uploadError && (
+                <p className="text-red-400 text-sm mt-2">{uploadError}</p>
+              )}
+            </div>
+          )}
+        </div>
       </>
 
       {/* Maps Links */}
