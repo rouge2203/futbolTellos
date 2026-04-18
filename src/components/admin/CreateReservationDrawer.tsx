@@ -11,6 +11,7 @@ import {
   ChevronRightIcon,
 } from "@heroicons/react/24/outline";
 import { supabase, isReservaConflictError } from "../../lib/supabase";
+import { useAuth } from "../../contexts/AuthContext";
 import { FaRegCalendarCheck, FaRegClock } from "react-icons/fa";
 import { TbPlayFootball, TbRun } from "react-icons/tb";
 import { GiWhistle } from "react-icons/gi";
@@ -79,6 +80,7 @@ export default function CreateReservationDrawer({
   defaultDate,
   onSuccess,
 }: CreateReservationDrawerProps) {
+  const { user } = useAuth();
   const [step, setStep] = useState<1 | 2>(1);
   const [canchas, setCanchas] = useState<Cancha[]>([]);
   const [selectedCancha, setSelectedCancha] = useState<Cancha | null>(null);
@@ -376,16 +378,25 @@ export default function CreateReservationDrawer({
         });
       }
 
-      // Send email if correo is provided
-      if (correo && correo.trim()) {
-        try {
-          const djangoApiUrl = import.meta.env.VITE_DJANGO_API_URL || "";
-          if (djangoApiUrl) {
-            const reservaUrl = `${window.location.origin}/reserva/${data.id}`;
-            const horaInicioStr = formatLocalTimestamp(horaInicio);
-            const horaFinStr = formatLocalTimestamp(horaFin);
+      // Notify backend (admin emails + optional client email)
+      try {
+        const djangoApiUrl = import.meta.env.VITE_DJANGO_API_URL || "";
+        if (djangoApiUrl) {
+          const reservaUrl = `${window.location.origin}/reserva/${data.id}`;
+          const horaInicioStr = formatLocalTimestamp(horaInicio);
+          const horaFinStr = formatLocalTimestamp(horaFin);
 
-            const emailPayload = {
+          const adminName =
+            user?.user_metadata?.full_name ??
+            user?.user_metadata?.name ??
+            user?.email ??
+            "Admin";
+          const adminEmail = user?.email ?? "";
+
+          fetch(`${djangoApiUrl}/tellos/confirm-reservation`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
               reserva_id: data.id,
               hora_inicio: horaInicioStr,
               hora_fin: horaFinStr,
@@ -394,25 +405,19 @@ export default function CreateReservationDrawer({
               cancha_local: selectedCancha.local,
               nombre_reserva: nombre,
               celular_reserva: celular || "",
-              correo_reserva: correo,
+              correo_reserva: correo?.trim() || "",
               precio: getPrice(),
               arbitro: arbitro,
               jugadores: getPlayerCount() * 2,
               reserva_url: reservaUrl,
-            };
-
-            await fetch(`${djangoApiUrl}/tellos/confirm-reservation`, {
-              method: "POST",
-              headers: {
-                "Content-Type": "application/json",
-              },
-              body: JSON.stringify(emailPayload),
-            });
-          }
-        } catch (emailError) {
-          console.error("Error sending email:", emailError);
-          // Don't fail the reservation creation if email fails
+              source: "admin",
+              created_by_name: adminName,
+              created_by_email: adminEmail,
+            }),
+          }).catch((err) => console.error("Error sending notification:", err));
         }
+      } catch (emailError) {
+        console.error("Error sending notification:", emailError);
       }
 
       // Success - refresh and close, return reservation ID

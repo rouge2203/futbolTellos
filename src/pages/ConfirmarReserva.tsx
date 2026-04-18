@@ -262,56 +262,43 @@ function ConfirmarReserva() {
       setReservaId(data.id);
       reservaCreatedAtRef.current = data.created_at;
 
-      // Call Django endpoint to send confirmation email (only when correo provided)
+      // Notify backend (admin emails + optional client email)
       try {
         const djangoApiUrl = import.meta.env.VITE_DJANGO_API_URL || "";
-        if (correoForDb && djangoApiUrl) {
+        if (djangoApiUrl) {
           const reservaUrl = `${window.location.origin}/reserva/${data.id}`;
-
-          // Format datetime strings for Django endpoint
           const horaInicioStr = formatLocalTimestamp(horaInicio);
           const horaFinStr = formatLocalTimestamp(horaFin);
 
-          const emailPayload = {
-            reserva_id: data.id,
-            hora_inicio: horaInicioStr,
-            hora_fin: horaFinStr,
-            cancha_id: cancha.id,
-            cancha_nombre: cancha.nombre,
-            cancha_local: cancha.local,
-            nombre_reserva: nombre,
-            celular_reserva: celular,
-            correo_reserva: correoForDb,
-            precio: finalPrice,
-            arbitro: effectiveArbitro,
-            jugadores: getPlayerCount() * 2,
-            reserva_url: reservaUrl,
-          };
-
-          const response = await fetch(
-            `${djangoApiUrl}/tellos/confirm-reservation`,
-            {
-              method: "POST",
-              headers: {
-                "Content-Type": "application/json",
-              },
-              body: JSON.stringify(emailPayload),
-            },
-          );
-
-          if (response.ok) {
-            const result = await response.json();
-            setEmailSent(result.email_sent || false);
-          } else {
-            console.error("Error sending email:", response.statusText);
-            setEmailSent(false);
-          }
-        } else if (!correoForDb) {
-          setEmailSent(null);
-        } else {
-          console.warn("Django API URL not configured");
-          setEmailSent(false);
+          fetch(`${djangoApiUrl}/tellos/confirm-reservation`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              reserva_id: data.id,
+              hora_inicio: horaInicioStr,
+              hora_fin: horaFinStr,
+              cancha_id: cancha.id,
+              cancha_nombre: cancha.nombre,
+              cancha_local: cancha.local,
+              nombre_reserva: nombre,
+              celular_reserva: celular,
+              correo_reserva: correoForDb || "",
+              precio: finalPrice,
+              arbitro: effectiveArbitro,
+              jugadores: getPlayerCount() * 2,
+              reserva_url: reservaUrl,
+              source: "public",
+            }),
+          }).then(async (response) => {
+            if (response.ok) {
+              const result = await response.json();
+              setEmailSent(result.email_sent || false);
+            } else {
+              setEmailSent(false);
+            }
+          }).catch(() => setEmailSent(false));
         }
+        if (!correoForDb) setEmailSent(null);
       } catch (error) {
         console.error("Error calling email endpoint:", error);
         setEmailSent(false);
