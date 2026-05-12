@@ -1,10 +1,12 @@
 import { useState, useEffect, useCallback, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import AdminLayout from "../../../components/admin/AdminLayout";
-import VentaDrawer from "../../../components/admin/tienda/VentaDrawer";
+import VentaDrawer, {
+  type VentaTransaccionEditable,
+} from "../../../components/admin/tienda/VentaDrawer";
+import ConfirmDialog from "../../../components/admin/tienda/ConfirmDialog";
 import { supabase } from "../../../lib/supabase";
 import { useAuth } from "../../../contexts/AuthContext";
-import { generateReporteVentas } from "./utils/generateReporteVentas";
 import {
   generateCierreTienda,
   type VentaCierreTienda,
@@ -13,12 +15,12 @@ import {
   ArrowLongLeftIcon,
   ArrowLongRightIcon,
   MagnifyingGlassIcon,
-  DocumentArrowDownIcon,
   DocumentTextIcon,
   PlusIcon,
   CubeIcon,
   ShoppingCartIcon,
 } from "@heroicons/react/20/solid";
+import { PencilSquareIcon, TrashIcon } from "@heroicons/react/24/outline";
 import {
   Dialog,
   DialogBackdrop,
@@ -46,6 +48,8 @@ interface Ubicacion {
 interface Venta {
   id: number;
   created_at: string;
+  fecha_venta: string | null;
+  transaccion_id: string | null;
   producto_id: number;
   ubicacion_id: number;
   cantidad: number;
@@ -54,7 +58,8 @@ interface Venta {
   metodo_pago: string;
   comprobante_url: string | null;
   nota: string | null;
-  vendido_por: string;
+  vendido_por: string | null;
+  vendido_por_email: string | null;
 }
 
 interface StockInfo {
@@ -63,6 +68,19 @@ interface StockInfo {
   stock: number;
   precio_venta: number;
   costo_unitario: number;
+}
+
+interface VentaGroup {
+  id: string;
+  fecha: string;
+  metodo_pago: string;
+  comprobante_url: string | null;
+  nota: string | null;
+  vendido_por: string | null;
+  vendido_por_email: string | null;
+  ubicacion_id: number | null;
+  total: number;
+  lineas: Venta[];
 }
 
 type DateFilter = "hoy" | "ayer" | "semana" | "mes" | "custom";
@@ -76,26 +94,34 @@ const PAYMENT_BREAKDOWN_ALLOWED_EMAILS = new Set([
   "joseruizsuarez@hotmail.com",
 ]);
 
-const getTimezoneOffset = (): string => {
-  const offset = new Date().getTimezoneOffset();
-  const sign = offset <= 0 ? "+" : "-";
-  const hours = String(Math.floor(Math.abs(offset) / 60)).padStart(2, "0");
-  const minutes = String(Math.abs(offset) % 60).padStart(2, "0");
-  return `${sign}${hours}:${minutes}`;
+const CR_TIMEZONE_OFFSET = "-06:00";
+const TIENDA_BUCKET = "tienda";
+
+const getStoragePathFromUrl = (url: string | null | undefined): string | null => {
+  if (!url) return null;
+  try {
+    const parsed = new URL(url);
+    const marker = `/${TIENDA_BUCKET}/`;
+    const markerIdx = parsed.pathname.indexOf(marker);
+    if (markerIdx === -1) return null;
+    return decodeURIComponent(parsed.pathname.slice(markerIdx + marker.length));
+  } catch {
+    return null;
+  }
 };
 
 const getStartOfDay = (date: Date): string => {
   const y = date.getFullYear();
   const m = String(date.getMonth() + 1).padStart(2, "0");
   const d = String(date.getDate()).padStart(2, "0");
-  return `${y}-${m}-${d}T00:00:00${getTimezoneOffset()}`;
+  return `${y}-${m}-${d}T00:00:00${CR_TIMEZONE_OFFSET}`;
 };
 
 const getEndOfDay = (date: Date): string => {
   const y = date.getFullYear();
   const m = String(date.getMonth() + 1).padStart(2, "0");
   const d = String(date.getDate()).padStart(2, "0");
-  return `${y}-${m}-${d}T23:59:59${getTimezoneOffset()}`;
+  return `${y}-${m}-${d}T23:59:59${CR_TIMEZONE_OFFSET}`;
 };
 
 const getStartOfWeek = (date: Date): Date => {
@@ -144,6 +170,10 @@ const isInDateRange = (dateStr: string, start: string, end: string): boolean => 
   return time >= new Date(start).getTime() && time <= new Date(end).getTime();
 };
 
+const getVentaDate = (venta: Venta): string => venta.fecha_venta ?? venta.created_at;
+const getTransaccionId = (venta: Venta): string =>
+  venta.transaccion_id ?? `legacy-${venta.id}`;
+
 export default function TiendaDashboard() {
   const navigate = useNavigate();
   const { user } = useAuth();
@@ -151,9 +181,16 @@ export default function TiendaDashboard() {
   const [productos, setProductos] = useState<Producto[]>([]);
   const [ubicaciones, setUbicaciones] = useState<Ubicacion[]>([]);
   const [ventas, setVentas] = useState<Venta[]>([]);
+  const [trendVentas, setTrendVentas] = useState<Venta[]>([]);
   const [stockData, setStockData] = useState<StockInfo[]>([]);
   const [drawerOpen, setDrawerOpen] = useState(false);
-  const [generatingPdf, setGeneratingPdf] = useState(false);
+  const [editingTransaccion, setEditingTransaccion] =
+    useState<VentaTransaccionEditable | null>(null);
+  const [deletingTransaccionId, setDeletingTransaccionId] = useState<
+    string | null
+  >(null);
+  const [ventaPendingDelete, setVentaPendingDelete] =
+    useState<VentaGroup | null>(null);
   const [cierreDialogOpen, setCierreDialogOpen] = useState(false);
   const [cierreNota, setCierreNota] = useState("");
   const [cierreFaltante, setCierreFaltante] = useState("");
@@ -166,9 +203,16 @@ export default function TiendaDashboard() {
   const [selectedProductoId, setSelectedProductoId] = useState<number | "">("");
   const [searchNota, setSearchNota] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
-  const [expandedVentaId, setExpandedVentaId] = useState<number | null>(null);
+  const [expandedTransaccionId, setExpandedTransaccionId] = useState<
+    string | null
+  >(null);
   const canSeePaymentBreakdown =
     PAYMENT_BREAKDOWN_ALLOWED_EMAILS.has(user?.email?.toLowerCase() ?? "");
+  const customRangeInvalid =
+    dateFilter === "custom" &&
+    customStart.trim() !== "" &&
+    customEnd.trim() !== "" &&
+    customStart > customEnd;
 
   const dateRange = useMemo(() => {
     const now = new Date();
@@ -192,51 +236,89 @@ export default function TiendaDashboard() {
         return { start: getStartOfDay(monthStart), end: getEndOfDay(now) };
       }
       case "custom": {
-        const tz = getTimezoneOffset();
         return {
-          start: customStart ? `${customStart}T00:00:00${tz}` : getStartOfDay(now),
-          end: customEnd ? `${customEnd}T23:59:59${tz}` : getEndOfDay(now),
+          start: customStart
+            ? `${customStart}T00:00:00${CR_TIMEZONE_OFFSET}`
+            : getStartOfDay(now),
+          end: customEnd
+            ? `${customEnd}T23:59:59${CR_TIMEZONE_OFFSET}`
+            : getEndOfDay(now),
         };
       }
     }
   }, [dateFilter, customStart, customEnd]);
 
   const fetchAll = useCallback(async () => {
+    if (customRangeInvalid) {
+      setVentas([]);
+      setTrendVentas([]);
+      setStockData([]);
+      setLoading(false);
+      return;
+    }
+
     setLoading(true);
     try {
-      const [prodRes, ubRes, ventasRes, invRes, stockVentasRes] =
-        await Promise.all([
-        supabase.from("productos").select("*").eq("activo", true),
-        supabase.from("ubicaciones").select("*").eq("activo", true),
-        supabase
-          .from("producto_ventas")
-          .select("*")
-          .gte("created_at", dateRange.start)
-          .lte("created_at", dateRange.end)
-          .order("created_at", { ascending: false }),
-        supabase
-          .from("producto_inventario")
-          .select(
-            "producto_id, ubicacion_id, cantidad, precio_venta, costo_unitario",
-          ),
-        supabase
-          .from("producto_ventas")
-          .select("producto_id, ubicacion_id, cantidad"),
-      ]);
+      const trendStartDate = new Date();
+      trendStartDate.setDate(trendStartDate.getDate() - 6);
+      const trendStart = getStartOfDay(trendStartDate);
+      const trendEnd = getEndOfDay(new Date());
 
-      setProductos(prodRes.data ?? []);
-      setUbicaciones(ubRes.data ?? []);
-      setVentas(ventasRes.data ?? []);
+      const [prodRes, ubRes, ventasRes, invRes, stockVentasRes, trendVentasRes] =
+        await Promise.all([
+          supabase.from("productos").select("*").eq("activo", true),
+          supabase.from("ubicaciones").select("*").eq("activo", true),
+          supabase
+            .from("producto_ventas")
+            .select("*")
+            .gte("fecha_venta", dateRange.start)
+            .lte("fecha_venta", dateRange.end)
+            .order("fecha_venta", { ascending: false }),
+          supabase
+            .from("producto_inventario")
+            .select(
+              "producto_id, ubicacion_id, cantidad, precio_venta, costo_unitario, created_at",
+            )
+            .order("created_at", { ascending: false }),
+          supabase.from("producto_ventas").select("producto_id, ubicacion_id, cantidad"),
+          supabase
+            .from("producto_ventas")
+            .select("*")
+            .gte("fecha_venta", trendStart)
+            .lte("fecha_venta", trendEnd)
+            .order("fecha_venta", { ascending: false }),
+        ]);
+
+      if (prodRes.error) throw prodRes.error;
+      if (ubRes.error) throw ubRes.error;
+      if (ventasRes.error) throw ventasRes.error;
+      if (invRes.error) throw invRes.error;
+      if (stockVentasRes.error) throw stockVentasRes.error;
+      if (trendVentasRes.error) throw trendVentasRes.error;
+
+      const activeProductos = (prodRes.data ?? []) as Producto[];
+      const activeUbicaciones = (ubRes.data ?? []) as Ubicacion[];
+      const activeProductoIds = new Set(activeProductos.map((p) => p.id));
+      const activeUbicacionIds = new Set(activeUbicaciones.map((u) => u.id));
+
+      setProductos(activeProductos);
+      setUbicaciones(activeUbicaciones);
+      setVentas((ventasRes.data ?? []) as Venta[]);
+      setTrendVentas((trendVentasRes.data ?? []) as Venta[]);
 
       const invRows = invRes.data ?? [];
       const stockMap = new Map<string, StockInfo>();
       for (const row of invRows) {
+        if (
+          !activeProductoIds.has(row.producto_id) ||
+          !activeUbicacionIds.has(row.ubicacion_id)
+        ) {
+          continue;
+        }
         const key = `${row.producto_id}-${row.ubicacion_id}`;
         const existing = stockMap.get(key);
         if (existing) {
           existing.stock += row.cantidad;
-          existing.precio_venta = row.precio_venta;
-          existing.costo_unitario = row.costo_unitario;
         } else {
           stockMap.set(key, {
             producto_id: row.producto_id,
@@ -249,6 +331,12 @@ export default function TiendaDashboard() {
       }
 
       for (const row of stockVentasRes.data ?? []) {
+        if (
+          !activeProductoIds.has(row.producto_id) ||
+          !activeUbicacionIds.has(row.ubicacion_id)
+        ) {
+          continue;
+        }
         const key = `${row.producto_id}-${row.ubicacion_id}`;
         const existing = stockMap.get(key);
         if (existing) {
@@ -262,17 +350,24 @@ export default function TiendaDashboard() {
     } finally {
       setLoading(false);
     }
-  }, [dateRange]);
+  }, [dateRange, customRangeInvalid]);
 
   useEffect(() => {
     fetchAll();
   }, [fetchAll]);
 
   useEffect(() => {
+    if (dateFilter !== "custom" && (customStart || customEnd)) {
+      setCustomStart("");
+      setCustomEnd("");
+    }
+  }, [dateFilter, customStart, customEnd]);
+
+  useEffect(() => {
     setCurrentPage(1);
   }, [dateFilter, selectedUbicaciones, selectedProductoId, searchNota]);
 
-  const filteredVentas = useMemo(() => {
+  const filteredVentaRows = useMemo(() => {
     let result = ventas;
 
     if (selectedUbicaciones.length > 0) {
@@ -293,8 +388,37 @@ export default function TiendaDashboard() {
     return result;
   }, [ventas, selectedUbicaciones, selectedProductoId, searchNota]);
 
-  const totalPages = Math.ceil(filteredVentas.length / ITEMS_PER_PAGE);
-  const paginatedVentas = filteredVentas.slice(
+  const groupedVentas = useMemo(() => {
+    const groups = new Map<string, VentaGroup>();
+    for (const venta of filteredVentaRows) {
+      const transaccionId = getTransaccionId(venta);
+      const fecha = getVentaDate(venta);
+      const existing = groups.get(transaccionId);
+      if (existing) {
+        existing.total += venta.precio_unitario * venta.cantidad;
+        existing.lineas.push(venta);
+      } else {
+        groups.set(transaccionId, {
+          id: transaccionId,
+          fecha,
+          metodo_pago: venta.metodo_pago,
+          comprobante_url: venta.comprobante_url,
+          nota: venta.nota,
+          vendido_por: venta.vendido_por,
+          vendido_por_email: venta.vendido_por_email,
+          ubicacion_id: venta.ubicacion_id,
+          total: venta.precio_unitario * venta.cantidad,
+          lineas: [venta],
+        });
+      }
+    }
+    return Array.from(groups.values()).sort(
+      (a, b) => new Date(b.fecha).getTime() - new Date(a.fecha).getTime(),
+    );
+  }, [filteredVentaRows]);
+
+  const totalPages = Math.ceil(groupedVentas.length / ITEMS_PER_PAGE);
+  const paginatedVentas = groupedVentas.slice(
     (currentPage - 1) * ITEMS_PER_PAGE,
     currentPage * ITEMS_PER_PAGE,
   );
@@ -302,28 +426,28 @@ export default function TiendaDashboard() {
   const todayStart = getStartOfDay(new Date());
   const todayEnd = getEndOfDay(new Date());
   const todayVentas = ventas.filter(
-    (v) => isInDateRange(v.created_at, todayStart, todayEnd),
+    (v) => isInDateRange(getVentaDate(v), todayStart, todayEnd),
   );
 
   const stats = useMemo(() => {
-    const ventasHoy = todayVentas.length;
+    const ventasHoy = new Set(todayVentas.map((v) => getTransaccionId(v))).size;
     const ingresosHoy = todayVentas.reduce(
       (sum, v) => sum + v.precio_unitario * v.cantidad,
       0,
     );
-    const productosVendidosHoy = new Set(
+    const productosDistintosHoy = new Set(
       todayVentas.map((venta) => venta.producto_id),
     ).size;
     const unidadesEnStock = stockData.reduce(
       (sum, item) => sum + Math.max(0, item.stock),
       0,
     );
-    return { ventasHoy, ingresosHoy, productosVendidosHoy, unidadesEnStock };
+    return { ventasHoy, ingresosHoy, productosDistintosHoy, unidadesEnStock };
   }, [todayVentas, stockData]);
 
   const topProducts = useMemo(() => {
     const map = new Map<number, { unidades: number; ingresos: number }>();
-    for (const v of filteredVentas) {
+    for (const v of filteredVentaRows) {
       const current = map.get(v.producto_id) ?? { unidades: 0, ingresos: 0 };
       current.unidades += v.cantidad;
       current.ingresos += v.precio_unitario * v.cantidad;
@@ -339,11 +463,11 @@ export default function TiendaDashboard() {
         ...data,
       }))
       .sort((a, b) => b.unidades - a.unidades || b.ingresos - a.ingresos);
-  }, [filteredVentas, productos]);
+  }, [filteredVentaRows, productos]);
 
   const salesByLocation = useMemo(() => {
-    const map = new Map<number, number>();
-    for (const v of filteredVentas) {
+    const map = new Map<number, number>(ubicaciones.map((u) => [u.id, 0]));
+    for (const v of filteredVentaRows) {
       const revenue = v.precio_unitario * v.cantidad;
       map.set(v.ubicacion_id, (map.get(v.ubicacion_id) ?? 0) + revenue);
     }
@@ -356,7 +480,7 @@ export default function TiendaDashboard() {
         revenue,
       }))
       .sort((a, b) => b.revenue - a.revenue);
-  }, [filteredVentas, ubicaciones]);
+  }, [filteredVentaRows, ubicaciones]);
 
   const maxProductUnits = Math.max(...topProducts.map((p) => p.unidades), 1);
   const maxLocationRevenue = Math.max(
@@ -371,8 +495,8 @@ export default function TiendaDashboard() {
       d.setDate(d.getDate() - i);
       const dayStart = getStartOfDay(d);
       const dayEnd = getEndOfDay(d);
-      const dayVentas = ventas.filter(
-        (v) => isInDateRange(v.created_at, dayStart, dayEnd),
+      const dayVentas = trendVentas.filter(
+        (v) => isInDateRange(getVentaDate(v), dayStart, dayEnd),
       );
       const revenue = dayVentas.reduce(
         (sum, v) => sum + v.precio_unitario * v.cantidad,
@@ -381,38 +505,38 @@ export default function TiendaDashboard() {
       days.push({ date: d, revenue });
     }
     return days;
-  }, [ventas]);
+  }, [trendVentas]);
 
   const maxRevenue = Math.max(...dailyTrend.map((d) => d.revenue), 1);
 
   const paymentBreakdown = useMemo(() => {
-    const efectivo = filteredVentas
+    const efectivo = filteredVentaRows
       .filter((v) => normalizeMetodoPago(v.metodo_pago) === "efectivo")
       .reduce((sum, v) => sum + v.precio_unitario * v.cantidad, 0);
-    const sinpe = filteredVentas
+    const sinpe = filteredVentaRows
       .filter((v) => normalizeMetodoPago(v.metodo_pago) === "sinpe")
       .reduce((sum, v) => sum + v.precio_unitario * v.cantidad, 0);
-    const transferencia = filteredVentas
+    const transferencia = filteredVentaRows
       .filter((v) => normalizeMetodoPago(v.metodo_pago) === "transferencia")
       .reduce((sum, v) => sum + v.precio_unitario * v.cantidad, 0);
     return { efectivo, sinpe, transferencia };
-  }, [filteredVentas]);
+  }, [filteredVentaRows]);
 
   const cierreResumen = useMemo(() => {
-    const totalIngresos = filteredVentas.reduce(
+    const totalIngresos = filteredVentaRows.reduce(
       (sum, v) => sum + v.precio_unitario * v.cantidad,
       0,
     );
-    const totalUnidades = filteredVentas.reduce(
+    const totalUnidades = filteredVentaRows.reduce(
       (sum, v) => sum + v.cantidad,
       0,
     );
     return {
-      totalRegistros: filteredVentas.length,
+      totalRegistros: groupedVentas.length,
       totalUnidades,
       totalIngresos,
     };
-  }, [filteredVentas]);
+  }, [filteredVentaRows, groupedVentas.length]);
 
   const getProductoName = (id: number) =>
     productos.find((p) => p.id === id)?.nombre ?? "—";
@@ -439,9 +563,9 @@ export default function TiendaDashboard() {
       : undefined;
 
   const buildVentaReporteData = (): VentaCierreTienda[] =>
-    filteredVentas.map((v) => ({
+    filteredVentaRows.map((v) => ({
       id: v.id,
-      created_at: v.created_at,
+      created_at: getVentaDate(v),
       producto_nombre: getProductoName(v.producto_id),
       ubicacion_nombre: getUbicacionName(v.ubicacion_id),
       cantidad: v.cantidad,
@@ -478,38 +602,19 @@ export default function TiendaDashboard() {
   };
 
   const handleOpenCierreDialog = () => {
-    if (filteredVentas.length === 0) {
+    if (customRangeInvalid) {
+      alert("El rango personalizado no es válido.");
+      return;
+    }
+    if (filteredVentaRows.length === 0) {
       alert("No hay ventas en el periodo seleccionado para registrar cierre.");
       return;
     }
     setCierreDialogOpen(true);
   };
 
-  const handleExportPdf = async () => {
-    if (!user) return;
-    setGeneratingPdf(true);
-    try {
-      const reporteVentas = buildVentaReporteData();
-      const { startDate, endDate } = getDateRangeValues();
-
-      const url = await generateReporteVentas({
-        ventas: reporteVentas,
-        fechaInicio: startDate,
-        fechaFin: endDate,
-        ubicacionFiltro: getUbicacionFiltroName(),
-      });
-
-      window.open(url, "_blank");
-    } catch (error) {
-      console.error("Error generando reporte:", error);
-      alert("Error al generar el reporte. Por favor intente de nuevo.");
-    } finally {
-      setGeneratingPdf(false);
-    }
-  };
-
   const handleRegistrarCierre = async () => {
-    if (!user || filteredVentas.length === 0) return;
+    if (!user || filteredVentaRows.length === 0 || customRangeInvalid) return;
 
     const faltante = Number(cierreFaltante || 0);
     if (Number.isNaN(faltante) || faltante < 0) {
@@ -543,6 +648,84 @@ export default function TiendaDashboard() {
     setGeneratingCierre(false);
   };
 
+  const handleOpenNewVenta = () => {
+    setEditingTransaccion(null);
+    setDrawerOpen(true);
+  };
+
+  const handleEditVenta = (ventaGroup: VentaGroup) => {
+    if (ventaGroup.id.startsWith("legacy-")) {
+      alert(
+        "Esta venta no tiene transacción agrupada aún. Ejecute la migración de tienda para habilitar su edición.",
+      );
+      return;
+    }
+    setEditingTransaccion({
+      id: ventaGroup.id,
+      fecha_venta: ventaGroup.fecha,
+      metodo_pago: ventaGroup.metodo_pago,
+      nota: ventaGroup.nota,
+      comprobante_url: ventaGroup.comprobante_url,
+      lines: ventaGroup.lineas.map((line) => ({
+        producto_id: line.producto_id,
+        ubicacion_id: line.ubicacion_id,
+        cantidad: line.cantidad,
+        precio_unitario: line.precio_unitario,
+        costo_unitario: line.costo_unitario,
+      })),
+    });
+    setDrawerOpen(true);
+  };
+
+  const handleDeleteVenta = (ventaGroup: VentaGroup) => {
+    setVentaPendingDelete(ventaGroup);
+  };
+
+  const performDeleteVenta = async () => {
+    const ventaGroup = ventaPendingDelete;
+    if (!ventaGroup) return;
+    setDeletingTransaccionId(ventaGroup.id);
+    try {
+      const isLegacy = ventaGroup.id.startsWith("legacy-");
+      const comprobantes = Array.from(
+        new Set(
+          ventaGroup.lineas
+            .map((line) => getStoragePathFromUrl(line.comprobante_url))
+            .filter((path): path is string => Boolean(path)),
+        ),
+      );
+
+      const deleteQuery = supabase.from("producto_ventas").delete();
+      const { error } = isLegacy
+        ? await deleteQuery.in(
+            "id",
+            ventaGroup.lineas.map((line) => line.id),
+          )
+        : await deleteQuery.eq("transaccion_id", ventaGroup.id);
+      if (error) throw error;
+
+      if (comprobantes.length > 0) {
+        const { error: storageError } = await supabase.storage
+          .from(TIENDA_BUCKET)
+          .remove(comprobantes);
+        if (storageError) {
+          console.error("Error deleting comprobantes:", storageError);
+        }
+      }
+
+      if (expandedTransaccionId === ventaGroup.id) {
+        setExpandedTransaccionId(null);
+      }
+      setVentaPendingDelete(null);
+      await fetchAll();
+    } catch (error: any) {
+      console.error("Error deleting venta:", error);
+      alert(error.message || "Error al eliminar la venta.");
+    } finally {
+      setDeletingTransaccionId(null);
+    }
+  };
+
   const STAT_CARDS = [
     {
       label: "Ventas Hoy",
@@ -557,8 +740,8 @@ export default function TiendaDashboard() {
       color: "text-gray-900",
     },
     {
-      label: "Productos Vendidos Hoy",
-      value: stats.productosVendidosHoy,
+      label: "Productos Distintos Hoy",
+      value: stats.productosDistintosHoy,
       format: (v: number) => v.toString(),
       color: "text-gray-900",
     },
@@ -581,17 +764,12 @@ export default function TiendaDashboard() {
           <div className="flex flex-wrap gap-2">
             <button
               type="button"
-              onClick={handleExportPdf}
-              disabled={generatingPdf || filteredVentas.length === 0}
-              className="inline-flex items-center gap-1.5 rounded-md bg-white px-3 py-2 text-sm font-semibold text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              <DocumentArrowDownIcon className="size-4" />
-              {generatingPdf ? "Generando..." : "Exportar PDF"}
-            </button>
-            <button
-              type="button"
               onClick={handleOpenCierreDialog}
-              disabled={generatingCierre || filteredVentas.length === 0}
+              disabled={
+                generatingCierre ||
+                filteredVentaRows.length === 0 ||
+                customRangeInvalid
+              }
               className="inline-flex items-center gap-1.5 rounded-md bg-white px-3 py-2 text-sm font-semibold text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
             >
               <DocumentTextIcon className="size-4" />
@@ -599,7 +777,7 @@ export default function TiendaDashboard() {
             </button>
             <button
               type="button"
-              onClick={() => setDrawerOpen(true)}
+              onClick={handleOpenNewVenta}
               className="inline-flex items-center gap-1.5 rounded-md bg-primary px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-primary/90"
             >
               <PlusIcon className="size-4" />
@@ -607,7 +785,6 @@ export default function TiendaDashboard() {
             </button>
           </div>
         </div>
-
         {/* Summary Cards */}
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
           {STAT_CARDS.map((card) => (
@@ -653,29 +830,37 @@ export default function TiendaDashboard() {
           </div>
 
           {dateFilter === "custom" && (
-            <div className="flex flex-wrap gap-3">
-              <div>
-                <label className="block text-xs font-medium text-gray-600 mb-1">
-                  Desde
-                </label>
-                <input
-                  type="date"
-                  value={customStart}
-                  onChange={(e) => setCustomStart(e.target.value)}
-                  className="rounded-md border border-gray-300 px-3 py-1.5 text-sm text-gray-900 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-primary"
-                />
+            <div className="space-y-2">
+              <div className="flex flex-wrap gap-3">
+                <div>
+                  <label className="block text-xs font-medium text-gray-600 mb-1">
+                    Desde
+                  </label>
+                  <input
+                    type="date"
+                    value={customStart}
+                    onChange={(e) => setCustomStart(e.target.value)}
+                    className="rounded-md border border-gray-300 px-3 py-1.5 text-sm text-gray-900 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-primary"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-gray-600 mb-1">
+                    Hasta
+                  </label>
+                  <input
+                    type="date"
+                    value={customEnd}
+                    onChange={(e) => setCustomEnd(e.target.value)}
+                    className="rounded-md border border-gray-300 px-3 py-1.5 text-sm text-gray-900 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-primary"
+                  />
+                </div>
               </div>
-              <div>
-                <label className="block text-xs font-medium text-gray-600 mb-1">
-                  Hasta
-                </label>
-                <input
-                  type="date"
-                  value={customEnd}
-                  onChange={(e) => setCustomEnd(e.target.value)}
-                  className="rounded-md border border-gray-300 px-3 py-1.5 text-sm text-gray-900 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-primary"
-                />
-              </div>
+              {customRangeInvalid && (
+                <p className="text-xs text-red-600">
+                  El rango personalizado no es válido: "Desde" debe ser menor o
+                  igual que "Hasta".
+                </p>
+              )}
             </div>
           )}
 
@@ -735,7 +920,7 @@ export default function TiendaDashboard() {
           <div className="flex items-center justify-center py-12">
             <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary" />
           </div>
-        ) : filteredVentas.length === 0 ? (
+        ) : groupedVentas.length === 0 ? (
           <div className="text-center py-12 text-gray-500">
             <ShoppingCartIcon className="mx-auto size-12 text-gray-300" />
             <p className="mt-2 text-sm">No se encontraron ventas</p>
@@ -743,27 +928,33 @@ export default function TiendaDashboard() {
         ) : (
           <>
             <ol className="divide-y divide-gray-200 bg-white rounded-lg shadow-sm border">
-              {paginatedVentas.map((venta) => {
-                const productoNombre = getProductoName(venta.producto_id);
-                const productoFoto = getProductoFoto(venta.producto_id);
-                const ubicacionNombre = getUbicacionName(venta.ubicacion_id);
-                const total = venta.precio_unitario * venta.cantidad;
-                const inventoryStock = stockData.find(
-                  (s) =>
-                    s.producto_id === venta.producto_id &&
-                    s.ubicacion_id === venta.ubicacion_id,
-                );
-                const isDiscounted =
-                  inventoryStock != null &&
-                  venta.precio_unitario < inventoryStock.precio_venta;
-                const isExpanded = expandedVentaId === venta.id;
+              {paginatedVentas.map((ventaGroup) => {
+                const firstLine = ventaGroup.lineas[0];
+                const productoNombre = firstLine
+                  ? getProductoName(firstLine.producto_id)
+                  : "Venta";
+                const productoFoto = firstLine
+                  ? getProductoFoto(firstLine.producto_id)
+                  : null;
+                const ubicacionNombre =
+                  ventaGroup.ubicacion_id != null
+                    ? getUbicacionName(ventaGroup.ubicacion_id)
+                    : "Múltiples";
+                const hasDiscount = ventaGroup.lineas.some((line) => {
+                  const sugerido = productos.find(
+                    (p) => p.id === line.producto_id,
+                  )?.precio_sugerido;
+                  return sugerido != null && line.precio_unitario < sugerido;
+                });
+                const isExpanded = expandedTransaccionId === ventaGroup.id;
+                const isDeleting = deletingTransaccionId === ventaGroup.id;
 
                 return (
                   <li
-                    key={venta.id}
+                    key={ventaGroup.id}
                     className="px-4 py-5 hover:bg-gray-50 cursor-pointer transition-colors"
                     onClick={() =>
-                      setExpandedVentaId(isExpanded ? null : venta.id)
+                      setExpandedTransaccionId(isExpanded ? null : ventaGroup.id)
                     }
                   >
                     <div className="flex items-center gap-4">
@@ -783,64 +974,99 @@ export default function TiendaDashboard() {
                         <div className="flex items-center gap-2 flex-wrap">
                           <p className="text-base font-semibold text-gray-900 truncate">
                             {productoNombre}
+                            {ventaGroup.lineas.length > 1 &&
+                              ` +${ventaGroup.lineas.length - 1} producto(s)`}
                           </p>
                           <span className="inline-flex items-center rounded-full bg-blue-50 px-2 py-0.5 text-xs font-medium text-blue-700">
                             {ubicacionNombre}
                           </span>
-                          {isDiscounted && (
+                          {hasDiscount && (
                             <span className="inline-flex items-center rounded-full bg-yellow-50 px-2 py-0.5 text-xs font-medium text-yellow-700">
                               Descuento
                             </span>
                           )}
                         </div>
                         <div className="mt-1.5 flex flex-wrap items-center gap-3 text-sm text-gray-500">
-                          <span>
-                            {venta.cantidad} ×{" "}
-                            {formatCurrency(venta.precio_unitario)} ={" "}
-                            <span className="font-medium text-gray-900">
-                              {formatCurrency(total)}
-                            </span>
-                          </span>
+                          <span>{ventaGroup.lineas.length} línea(s)</span>
                           <span className="flex items-center gap-1">
-                            {getMetodoIcon(venta.metodo_pago)}
-                            {formatMetodoPago(venta.metodo_pago)}
+                            {getMetodoIcon(ventaGroup.metodo_pago)}
+                            {formatMetodoPago(ventaGroup.metodo_pago)}
                           </span>
                         </div>
                       </div>
 
                       <div className="text-right shrink-0">
                         <p className="text-lg font-bold text-gray-900">
-                          {formatCurrency(total)}
+                          {formatCurrency(ventaGroup.total)}
                         </p>
                         <p className="text-xs text-gray-400 mt-0.5">
-                          {formatDateES(venta.created_at)}
+                          {formatDateES(ventaGroup.fecha)}
                         </p>
                       </div>
                     </div>
 
                     {isExpanded && (
-                      <div className="mt-3 pl-13 text-xs text-gray-600 space-y-1 border-t border-gray-100 pt-3">
+                      <div
+                        className="mt-3 text-xs text-gray-600 space-y-2 border-t border-gray-100 pt-3"
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        <div className="space-y-1">
+                          {ventaGroup.lineas.map((line) => {
+                            const lineTotal = line.precio_unitario * line.cantidad;
+                            return (
+                              <p key={line.id}>
+                                <span className="font-medium">
+                                  {getProductoName(line.producto_id)}:
+                                </span>{" "}
+                                {line.cantidad} × {formatCurrency(line.precio_unitario)} ={" "}
+                                <span className="font-semibold text-gray-900">
+                                  {formatCurrency(lineTotal)}
+                                </span>
+                              </p>
+                            );
+                          })}
+                        </div>
                         <p>
                           <span className="font-medium">Vendido por:</span>{" "}
-                          {venta.vendido_por || "—"}
+                          {ventaGroup.vendido_por_email ||
+                            ventaGroup.vendido_por ||
+                            "—"}
                         </p>
-                        {venta.nota && (
+                        {ventaGroup.nota && (
                           <p>
                             <span className="font-medium">Nota:</span>{" "}
-                            {venta.nota}
+                            {ventaGroup.nota}
                           </p>
                         )}
-                        {venta.comprobante_url && (
+                        {ventaGroup.comprobante_url && (
                           <a
-                            href={venta.comprobante_url}
+                            href={ventaGroup.comprobante_url}
                             target="_blank"
                             rel="noopener noreferrer"
                             className="text-primary hover:underline inline-block"
-                            onClick={(e) => e.stopPropagation()}
                           >
                             Ver comprobante
                           </a>
                         )}
+                        <div className="flex flex-wrap gap-2 pt-2">
+                          <button
+                            type="button"
+                            onClick={() => handleEditVenta(ventaGroup)}
+                            className="inline-flex items-center gap-1 rounded-md bg-white px-2 py-1 text-xs font-medium text-gray-700 ring-1 ring-inset ring-gray-300 hover:bg-gray-50"
+                          >
+                            <PencilSquareIcon className="size-3.5" />
+                            Editar
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleDeleteVenta(ventaGroup)}
+                            disabled={isDeleting}
+                            className="inline-flex items-center gap-1 rounded-md bg-red-50 px-2 py-1 text-xs font-medium text-red-700 ring-1 ring-inset ring-red-200 hover:bg-red-100 disabled:opacity-60"
+                          >
+                            <TrashIcon className="size-3.5" />
+                            {isDeleting ? "Eliminando..." : "Eliminar"}
+                          </button>
+                        </div>
                       </div>
                     )}
                   </li>
@@ -941,7 +1167,7 @@ export default function TiendaDashboard() {
         )}
 
         {/* Analytics Section */}
-        {!loading && filteredVentas.length > 0 && (
+        {!loading && filteredVentaRows.length > 0 && (
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             {/* Best-selling products */}
             <div className="bg-white border rounded-lg shadow-sm p-4">
@@ -1093,11 +1319,18 @@ export default function TiendaDashboard() {
 
       <VentaDrawer
         open={drawerOpen}
-        onClose={() => setDrawerOpen(false)}
+        onClose={() => {
+          setDrawerOpen(false);
+          setEditingTransaccion(null);
+        }}
         productos={productos}
         ubicaciones={ubicaciones}
         stockData={stockData}
-        onSaved={fetchAll}
+        ventaTransaccion={editingTransaccion}
+        onSaved={async () => {
+          await fetchAll();
+          setEditingTransaccion(null);
+        }}
       />
 
       <Dialog
@@ -1183,7 +1416,7 @@ export default function TiendaDashboard() {
                     inputMode="numeric"
                     value={cierreFaltante}
                     onChange={(e) => setCierreFaltante(e.target.value)}
-                    placeholder="0"
+                    placeholder="0 (ningún faltante)"
                     className="block w-full rounded-md bg-white border border-gray-300 px-3 py-2 text-sm text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-1"
                   />
                   <p className="mt-1 text-xs text-gray-500">
@@ -1232,18 +1465,6 @@ export default function TiendaDashboard() {
         </div>
       </Dialog>
 
-      {generatingPdf && (
-        <div className="fixed inset-0 z-100 bg-black/80 flex flex-col items-center justify-center">
-          <img
-            src="/tellos-square.svg"
-            alt="Futbol Tello"
-            className="w-16 h-16 animate-spin"
-          />
-          <p className="mt-4 text-white text-lg font-semibold">Futbol Tello</p>
-          <p className="mt-2 text-white/70 text-sm">Generando reporte...</p>
-        </div>
-      )}
-
       {generatingCierre && (
         <div className="fixed inset-0 z-100 bg-black/80 flex flex-col items-center justify-center">
           <img
@@ -1255,6 +1476,41 @@ export default function TiendaDashboard() {
           <p className="mt-2 text-white/70 text-sm">Generando cierre...</p>
         </div>
       )}
+
+      <ConfirmDialog
+        open={ventaPendingDelete !== null}
+        title="Eliminar venta"
+        description="¿Desea eliminar esta venta? Esta acción no se puede deshacer."
+        details={
+          ventaPendingDelete ? (
+            <div className="space-y-1">
+              <div>
+                <strong>Líneas:</strong> {ventaPendingDelete.lineas.length}
+              </div>
+              <div>
+                <strong>Total:</strong> {formatCurrency(ventaPendingDelete.total)}
+              </div>
+              <div>
+                <strong>Método de pago:</strong> {ventaPendingDelete.metodo_pago}
+              </div>
+              {ventaPendingDelete.comprobante_url && (
+                <div className="text-xs text-gray-500">
+                  El comprobante asociado también será eliminado del almacenamiento.
+                </div>
+              )}
+            </div>
+          ) : null
+        }
+        confirmLabel={
+          deletingTransaccionId !== null ? "Eliminando..." : "Eliminar"
+        }
+        tone="danger"
+        loading={deletingTransaccionId !== null}
+        onConfirm={performDeleteVenta}
+        onCancel={() => {
+          if (deletingTransaccionId === null) setVentaPendingDelete(null);
+        }}
+      />
     </AdminLayout>
   );
 }

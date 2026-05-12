@@ -7,7 +7,11 @@ import {
   MenuItem,
   MenuItems,
 } from "@headlessui/react";
-import { Bars3Icon, XMarkIcon, ChevronDownIcon } from "@heroicons/react/24/outline";
+import {
+  Bars3Icon,
+  XMarkIcon,
+  ChevronDownIcon,
+} from "@heroicons/react/24/outline";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "../../contexts/AuthContext";
 import { FaUser, FaEye, FaSignOutAlt } from "react-icons/fa";
@@ -239,7 +243,7 @@ export default function AdminLayout({ children, title }: AdminLayoutProps) {
                 <Menu as="div" className="relative flex items-stretch">
                   {() => {
                     const isReservacionesActive = reservacionesItems.some(
-                      (item) => location.pathname === item.path
+                      (item) => location.pathname === item.path,
                     );
                     return (
                       <>
@@ -248,7 +252,7 @@ export default function AdminLayout({ children, title }: AdminLayoutProps) {
                             isReservacionesActive
                               ? "border-primary text-gray-900"
                               : "border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700",
-                            "inline-flex items-center gap-x-1 border-b-2 px-1 text-sm font-medium"
+                            "inline-flex items-center gap-x-1 border-b-2 px-1 text-sm font-medium",
                           )}
                         >
                           <span>Reservaciones</span>
@@ -277,70 +281,7 @@ export default function AdminLayout({ children, title }: AdminLayoutProps) {
                                           isCurrent
                                             ? "text-primary"
                                             : "text-gray-900",
-                                          "font-semibold"
-                                        )}
-                                      >
-                                        {item.name}
-                                        <span className="absolute inset-0"></span>
-                                      </Link>
-                                      <p className="mt-1 text-gray-600 text-sm">
-                                        {item.description}
-                                      </p>
-                                    </div>
-                                  </div>
-                                </MenuItem>
-                              );
-                            })}
-                          </div>
-                        </MenuItems>
-                      </>
-                    );
-                  }}
-                </Menu>
-
-                {/* Tienda Dropdown */}
-                <Menu as="div" className="relative flex items-stretch">
-                  {() => {
-                    const isTiendaActive = tiendaItems.some(
-                      (item) => location.pathname === item.path
-                    );
-                    return (
-                      <>
-                        <MenuButton
-                          className={classNames(
-                            isTiendaActive
-                              ? "border-primary text-gray-900"
-                              : "border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700",
-                            "inline-flex items-center gap-x-1 border-b-2 px-1 text-sm font-medium"
-                          )}
-                        >
-                          <span>Tienda</span>
-                          <ChevronDownIcon
-                            aria-hidden="true"
-                            className="size-4"
-                          />
-                        </MenuButton>
-                        <MenuItems
-                          transition
-                          className="absolute left-0 z-10 mt-17 w-screen max-w-md origin-top-left rounded-3xl bg-white shadow-lg ring-1 ring-black/5 transition focus:outline-none data-closed:scale-95 data-closed:opacity-0 data-enter:duration-200 data-enter:ease-out data-leave:duration-150 data-leave:ease-in"
-                        >
-                          <div className="p-4">
-                            {tiendaItems.map((item) => {
-                              const isCurrent = location.pathname === item.path;
-                              return (
-                                <MenuItem key={item.name}>
-                                  <div className="group relative flex gap-x-6 rounded-lg p-4 hover:bg-gray-50">
-                                    <div className="mt-1 flex size-11 shrink-0 items-center justify-center rounded-lg bg-gray-50 group-hover:bg-white">
-                                      {item.icon}
-                                    </div>
-                                    <div>
-                                      <Link
-                                        to={item.href}
-                                        className={classNames(
-                                          isCurrent
-                                            ? "text-primary"
-                                            : "text-gray-900",
-                                          "font-semibold"
+                                          "font-semibold",
                                         )}
                                       >
                                         {item.name}
@@ -373,13 +314,76 @@ export default function AdminLayout({ children, title }: AdminLayoutProps) {
                         isCurrent
                           ? "border-primary text-gray-900"
                           : "border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700",
-                        "inline-flex items-center border-b-2 px-1 text-sm font-medium"
+                        "inline-flex items-center border-b-2 px-1 text-sm font-medium",
                       )}
                     >
                       {item.name}
                     </Link>
                   );
                 })}
+
+                {/* Tienda Dropdown */}
+                <Menu as="div" className="relative flex items-stretch">
+                  {() => {
+                    const isTiendaActive = tiendaItems.some(
+                      (item) => location.pathname === item.path,
+                    );
+                    return (
+                      <>
+                        <MenuButton
+                          className={classNames(
+                            isTiendaActive
+                              ? "border-primary text-gray-900"
+                              : "border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700",
+                            "inline-flex items-center gap-x-1 border-b-2 px-1 text-sm font-medium",
+                          )}
+                        >
+                          <span>Tienda</span>
+                          <ChevronDownIcon
+                            aria-hidden="true"
+                            className="size-4"
+                          />
+                        </MenuButton>
+                        <MenuItems
+                          transition
+                          className="absolute left-0 z-10 mt-17 w-screen max-w-md origin-top-left rounded-3xl bg-white shadow-lg ring-1 ring-black/5 transition focus:outline-none data-closed:scale-95 data-closed:opacity-0 data-enter:duration-200 data-enter:ease-out data-leave:duration-150 data-leave:ease-in"
+                        >
+                          <div className="p-4">
+                            {tiendaItems.map((item) => {
+                              const isCurrent = location.pathname === item.path;
+                              return (
+                                <MenuItem key={item.name}>
+                                  <div className="group relative flex gap-x-6 rounded-lg p-4 hover:bg-gray-50">
+                                    <div className="mt-1 flex size-11 shrink-0 items-center justify-center rounded-lg bg-gray-50 group-hover:bg-white">
+                                      {item.icon}
+                                    </div>
+                                    <div>
+                                      <Link
+                                        to={item.href}
+                                        className={classNames(
+                                          isCurrent
+                                            ? "text-primary"
+                                            : "text-gray-900",
+                                          "font-semibold",
+                                        )}
+                                      >
+                                        {item.name}
+                                        <span className="absolute inset-0"></span>
+                                      </Link>
+                                      <p className="mt-1 text-gray-600 text-sm">
+                                        {item.description}
+                                      </p>
+                                    </div>
+                                  </div>
+                                </MenuItem>
+                              );
+                            })}
+                          </div>
+                        </MenuItems>
+                      </>
+                    );
+                  }}
+                </Menu>
               </div>
             </div>
             <div className="hidden lg:ml-6 lg:flex lg:items-center">
@@ -474,36 +478,13 @@ export default function AdminLayout({ children, title }: AdminLayoutProps) {
                     isCurrent
                       ? "border-primary bg-primary/5 text-primary"
                       : "border-transparent text-gray-600 hover:border-gray-300 hover:bg-gray-50 hover:text-gray-800",
-                    "block border-l-4 py-2 pr-4 pl-3 text-base font-medium"
+                    "block border-l-4 py-2 pr-4 pl-3 text-base font-medium",
                   )}
                 >
                   {item.name}
                 </DisclosureButton>
               );
             })}
-            {/* Tienda items */}
-            <div className="border-t border-gray-200 mt-1 pt-1">
-              <span className="block px-4 py-1 text-xs font-semibold text-gray-400 uppercase tracking-wider">Tienda</span>
-              {tiendaItems.map((item) => {
-                const isCurrent = location.pathname === item.path;
-                return (
-                  <DisclosureButton
-                    key={item.name}
-                    as={Link}
-                    to={item.href}
-                    aria-current={isCurrent ? "page" : undefined}
-                    className={classNames(
-                      isCurrent
-                        ? "border-primary bg-primary/5 text-primary"
-                        : "border-transparent text-gray-600 hover:border-gray-300 hover:bg-gray-50 hover:text-gray-800",
-                      "block border-l-4 py-2 pr-4 pl-3 text-base font-medium"
-                    )}
-                  >
-                    {item.name}
-                  </DisclosureButton>
-                );
-              })}
-            </div>
             {/* Other navigation items */}
             {navigation.map((item) => {
               const isCurrent = location.pathname === item.path;
@@ -517,13 +498,38 @@ export default function AdminLayout({ children, title }: AdminLayoutProps) {
                     isCurrent
                       ? "border-primary bg-primary/5 text-primary"
                       : "border-transparent text-gray-600 hover:border-gray-300 hover:bg-gray-50 hover:text-gray-800",
-                    "block border-l-4 py-2 pr-4 pl-3 text-base font-medium"
+                    "block border-l-4 py-2 pr-4 pl-3 text-base font-medium",
                   )}
                 >
                   {item.name}
                 </DisclosureButton>
               );
             })}
+            {/* Tienda items */}
+            <div className="border-t border-gray-200 mt-1 pt-1">
+              <span className="block px-4 py-1 text-xs font-semibold text-gray-400 uppercase tracking-wider">
+                Tienda
+              </span>
+              {tiendaItems.map((item) => {
+                const isCurrent = location.pathname === item.path;
+                return (
+                  <DisclosureButton
+                    key={item.name}
+                    as={Link}
+                    to={item.href}
+                    aria-current={isCurrent ? "page" : undefined}
+                    className={classNames(
+                      isCurrent
+                        ? "border-primary bg-primary/5 text-primary"
+                        : "border-transparent text-gray-600 hover:border-gray-300 hover:bg-gray-50 hover:text-gray-800",
+                      "block border-l-4 py-2 pr-4 pl-3 text-base font-medium",
+                    )}
+                  >
+                    {item.name}
+                  </DisclosureButton>
+                );
+              })}
+            </div>
           </div>
           <div className="-mt-3  space-y-1">
             {userNavigation.map((item) => {

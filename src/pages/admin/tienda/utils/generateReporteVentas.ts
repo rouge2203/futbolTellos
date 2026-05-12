@@ -23,7 +23,50 @@ interface ReporteParams {
 }
 
 const formatCurrency = (value: number): string =>
-  `CRC ${value.toLocaleString()}`;
+  `CRC ${value.toLocaleString("es-CR")}`;
+
+const getTimestampCR = (): string => {
+  return new Intl.DateTimeFormat("es-CR", {
+    timeZone: "America/Costa_Rica",
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: true,
+  }).format(new Date());
+};
+
+const loadLogoDataUrl = async (): Promise<string | null> => {
+  try {
+    const response = await fetch("/tellos-square.svg");
+    const svgText = await response.text();
+    const blob = new Blob([svgText], { type: "image/svg+xml" });
+    const blobUrl = URL.createObjectURL(blob);
+
+    const img = new Image();
+    await new Promise<void>((resolve, reject) => {
+      img.onload = () => resolve();
+      img.onerror = () => reject(new Error("Could not load logo image"));
+      img.src = blobUrl;
+    });
+
+    const canvas = document.createElement("canvas");
+    canvas.width = 256;
+    canvas.height = 256;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) {
+      URL.revokeObjectURL(blobUrl);
+      return null;
+    }
+    ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+    URL.revokeObjectURL(blobUrl);
+    return canvas.toDataURL("image/png");
+  } catch (error) {
+    console.error("Error loading PDF logo:", error);
+    return null;
+  }
+};
 
 export async function generateReporteVentas(
   params: ReporteParams
@@ -43,6 +86,10 @@ export async function generateReporteVentas(
 
   const doc = new jsPDF();
   let yPos = 20;
+  const logoDataUrl = await loadLogoDataUrl();
+  if (logoDataUrl) {
+    doc.addImage(logoDataUrl, "PNG", 14, 10, 14, 14);
+  }
 
   doc.setFontSize(18);
   doc.setFont("helvetica", "bold");
@@ -66,14 +113,7 @@ export async function generateReporteVentas(
     yPos += 6;
   }
 
-  const now = new Date();
-  const hour = now.getHours();
-  const ampm = hour >= 12 ? "PM" : "AM";
-  const hour12 = hour % 12 || 12;
-  const timestamp = `${now.getDate()}/${now.getMonth() + 1}/${now.getFullYear()} ${hour12}:${now
-    .getMinutes()
-    .toString()
-    .padStart(2, "0")} ${ampm}`;
+  const timestamp = getTimestampCR();
   doc.setFontSize(9);
   doc.setTextColor(100, 100, 100);
   doc.text(`Generado: ${timestamp}`, 105, yPos, { align: "center" });

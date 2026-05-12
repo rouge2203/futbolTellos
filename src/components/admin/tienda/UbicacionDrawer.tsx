@@ -8,6 +8,7 @@ import {
   Switch,
 } from "@headlessui/react";
 import { XMarkIcon, TrashIcon } from "@heroicons/react/24/outline";
+import ConfirmDialog from "./ConfirmDialog";
 
 interface Ubicacion {
   id: number;
@@ -34,16 +35,26 @@ export default function UbicacionDrawer({
   const [activo, setActivo] = useState(true);
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false);
 
   const isEdit = ubicacion !== null;
 
+  const resetForm = () => {
+    setNombre("");
+    setActivo(true);
+  };
+
   useEffect(() => {
-    if (open && ubicacion) {
+    if (!open) {
+      resetForm();
+      return;
+    }
+
+    if (ubicacion) {
       setNombre(ubicacion.nombre);
       setActivo(ubicacion.activo);
-    } else if (open && !ubicacion) {
-      setNombre("");
-      setActivo(true);
+    } else {
+      resetForm();
     }
   }, [open, ubicacion]);
 
@@ -80,11 +91,13 @@ export default function UbicacionDrawer({
     }
   };
 
-  const handleDelete = async () => {
+  const handleDelete = () => {
     if (!ubicacion) return;
+    setConfirmDeleteOpen(true);
+  };
 
-    if (!confirm("¿Está seguro que desea eliminar esta ubicación?")) return;
-
+  const performDelete = async () => {
+    if (!ubicacion) return;
     setDeleting(true);
     try {
       const { error } = await supabase
@@ -94,6 +107,7 @@ export default function UbicacionDrawer({
 
       if (error) throw error;
 
+      setConfirmDeleteOpen(false);
       await onSaved();
       onClose();
     } catch (error: any) {
@@ -217,6 +231,27 @@ export default function UbicacionDrawer({
           </div>
         </div>
       </div>
+      <ConfirmDialog
+        open={confirmDeleteOpen}
+        title="Eliminar ubicación"
+        description={
+          <>
+            ¿Está seguro que desea eliminar la ubicación
+            {ubicacion ? (
+              <>
+                {" "}<strong>{ubicacion.nombre}</strong>
+              </>
+            ) : null}
+            ?
+          </>
+        }
+        details="Esta acción no se puede deshacer. Si la ubicación tiene inventario o ventas asociadas, no podrá ser eliminada."
+        confirmLabel={deleting ? "Eliminando..." : "Eliminar"}
+        tone="danger"
+        loading={deleting}
+        onConfirm={performDelete}
+        onCancel={() => setConfirmDeleteOpen(false)}
+      />
     </Dialog>
   );
 }

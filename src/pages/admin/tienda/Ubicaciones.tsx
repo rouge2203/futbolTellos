@@ -61,7 +61,7 @@ export default function Ubicaciones() {
 
       const { data: ventas, error: ventasError } = await supabase
         .from("producto_ventas")
-        .select("ubicacion_origen_id, cantidad");
+        .select("ubicacion_id, cantidad");
 
       if (ventasError) throw ventasError;
 
@@ -76,17 +76,15 @@ export default function Ubicaciones() {
       });
 
       (ventas || []).forEach((item: any) => {
-        if (
-          item.ubicacion_origen_id &&
-          counts[item.ubicacion_origen_id] !== undefined
-        ) {
-          counts[item.ubicacion_origen_id] -= item.cantidad || 0;
+        if (item.ubicacion_id && counts[item.ubicacion_id] !== undefined) {
+          counts[item.ubicacion_id] -= item.cantidad || 0;
         }
       });
 
       setStockCounts(counts);
     } catch (error) {
       console.error("Error fetching stock counts:", error);
+      alert("No se pudo calcular el stock por ubicación.");
     }
   };
 

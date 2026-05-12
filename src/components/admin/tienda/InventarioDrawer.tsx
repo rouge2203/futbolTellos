@@ -8,6 +8,7 @@ import {
   DialogBackdrop,
 } from "@headlessui/react";
 import { XMarkIcon } from "@heroicons/react/24/outline";
+import ConfirmDialog from "./ConfirmDialog";
 
 interface Producto {
   id: number;
@@ -21,6 +22,26 @@ interface Ubicacion {
   id: number;
   nombre: string;
   activo: boolean;
+  es_principal?: boolean;
+}
+
+interface LoteEditableEntry {
+  id: number;
+  producto_id: number;
+  ubicacion_id: number;
+  cantidad: number;
+  precio_venta: number;
+  costo_unitario: number;
+  created_at: string;
+  tipo: "ingreso" | "ajuste";
+}
+
+export interface LoteEditable {
+  lote_id: string;
+  producto_id: number;
+  created_at: string;
+  nota: string | null;
+  entries: LoteEditableEntry[];
 }
 
 interface InventarioDrawerProps {
@@ -29,6 +50,8 @@ interface InventarioDrawerProps {
   productos: Producto[];
   ubicaciones: Ubicacion[];
   onSaved: () => Promise<void>;
+  mode: "ingreso" | "ajuste";
+  lote: LoteEditable | null;
 }
 
 interface Distribucion {
@@ -41,8 +64,12 @@ export default function InventarioDrawer({
   productos,
   ubicaciones,
   onSaved,
+  mode,
+  lote,
 }: InventarioDrawerProps) {
   const { user } = useAuth();
+  const [availableProductos, setAvailableProductos] = useState<Producto[]>([]);
+  const [formMode, setFormMode] = useState<"ingreso" | "ajuste">(mode);
   const [productoId, setProductoId] = useState<number | "">("");
   const [precioVenta, setPrecioVenta] = useState<string>("");
   const [cantidad, setCantidad] = useState<string>("");
@@ -50,10 +77,23 @@ export default function InventarioDrawer({
   const [costoTotal, setCostoTotal] = useState<string>("");
   const [distribucion, setDistribucion] = useState<Distribucion>({});
   const [nota, setNota] = useState("");
+  const [overflowUbicacionId, setOverflowUbicacionId] = useState<number | null>(
+    null,
+  );
+  const [deleting, setDeleting] = useState(false);
+  const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [loadingProductos, setLoadingProductos] = useState(false);
+
+  const principalUbicacion = ubicaciones.find((u) => u.es_principal);
+
+  useEffect(() => {
+    setFormMode(mode);
+  }, [mode]);
 
   useEffect(() => {
     if (!open) {
+      setAvailableProductos(productos.filter((p) => p.activo));
       setProductoId("");
       setPrecioVenta("");
       setCantidad("");
@@ -61,41 +101,95 @@ export default function InventarioDrawer({
       setCostoTotal("");
       setDistribucion({});
       setNota("");
+      setOverflowUbicacionId(null);
+      setDeleting(false);
+      return;
     }
-  }, [open]);
+
+    const loadProductos = async () => {
+      setLoadingProductos(true);
+      const { data, error } = await supabase
+        .from("productos")
+        .select("*")
+        .eq("activo", true)
+        .order("nombre");
+      if (error) {
+        console.error("Error loading productos in inventario drawer:", error);
+        setAvailableProductos(productos.filter((p) => p.activo));
+      } else {
+        setAvailableProductos((data as Producto[]) ?? []);
+      }
+      setLoadingProductos(false);
+    };
+    void loadProductos();
+
+    if (lote) {
+      const groupedDistribucion = lote.entries.reduce((acc, entry) => {
+        acc[entry.ubicacion_id] = (acc[entry.ubicacion_id] || 0) + entry.cantidad;
+        return acc;
+      }, {} as Distribucion);
+      const totalCantidad = lote.entries.reduce(
+        (sum, entry) => sum + entry.cantidad,
+        0,
+      );
+      const firstEntry = lote.entries[0];
+
+      setFormMode(firstEntry?.tipo ?? mode);
+      setProductoId(lote.producto_id);
+      setCantidad(String(totalCantidad));
+      setPrecioVenta(String(firstEntry?.precio_venta ?? 0));
+      setCostoUnitario(String(firstEntry?.costo_unitario ?? 0));
+      setCostoTotal(
+        String(Math.round((firstEntry?.costo_unitario ?? 0) * totalCantidad)),
+      );
+      setDistribucion(groupedDistribucion);
+      setNota(lote.nota ?? "");
+      setOverflowUbicacionId(null);
+      return;
+    }
+
+    setProductoId("");
+    setPrecioVenta("");
+    setCantidad("");
+    setCostoUnitario("");
+    setCostoTotal("");
+    setDistribucion({});
+    setNota("");
+    setOverflowUbicacionId(null);
+  }, [open, lote, mode, productos]);
 
   useEffect(() => {
+    if (lote) return;
     if (productoId !== "") {
-      const producto = productos.find((p) => p.id === productoId);
+      const producto = availableProductos.find((p) => p.id === productoId);
       if (producto?.precio_sugerido) {
         setPrecioVenta(String(producto.precio_sugerido));
       } else {
         setPrecioVenta("");
       }
     }
-  }, [productoId, productos]);
+  }, [productoId, availableProductos, lote]);
 
   useEffect(() => {
+    if (formMode === "ajuste" || !principalUbicacion) return;
     const total = parseInt(cantidad) || 0;
     const distributed = Object.entries(distribucion).reduce((sum, [key, val]) => {
       const ubId = parseInt(key);
-      const bodega = ubicaciones.find((u) => u.nombre === "Bodega");
-      if (bodega && ubId === bodega.id) return sum;
+      if (ubId === principalUbicacion.id) return sum;
       return sum + (val || 0);
     }, 0);
-
-    const bodega = ubicaciones.find((u) => u.nombre === "Bodega");
-    if (bodega) {
-      const remaining = Math.max(0, total - distributed);
-      setDistribucion((prev) => ({ ...prev, [bodega.id]: remaining }));
-    }
-  }, [cantidad, ubicaciones]);
+    const remaining = Math.max(0, total - distributed);
+    setDistribucion((prev) => {
+      if ((prev[principalUbicacion.id] || 0) === remaining) return prev;
+      return { ...prev, [principalUbicacion.id]: remaining };
+    });
+  }, [cantidad, distribucion, principalUbicacion, formMode]);
 
   const handleCostoTotalChange = (value: string) => {
     setCostoTotal(value);
     const total = parseFloat(value) || 0;
     const qty = parseInt(cantidad) || 0;
-    if (qty > 0 && total > 0) {
+    if (qty !== 0 && total > 0) {
       setCostoUnitario(String(Math.round(total / qty)));
     } else {
       setCostoUnitario("");
@@ -104,20 +198,13 @@ export default function InventarioDrawer({
 
   const handleCostoUnitarioChange = (value: string) => {
     setCostoUnitario(value);
-    const unitCost = parseFloat(value) || 0;
-    const qty = parseInt(cantidad) || 0;
-    if (qty > 0 && unitCost > 0) {
-      setCostoTotal(String(Math.round(unitCost * qty)));
-    } else {
-      setCostoTotal("");
-    }
   };
 
   const handleCantidadChange = (value: string) => {
     setCantidad(value);
     const qty = parseInt(value) || 0;
     const totalCost = parseFloat(costoTotal) || 0;
-    if (qty > 0 && totalCost > 0) {
+    if (qty !== 0 && totalCost > 0) {
       setCostoUnitario(String(Math.round(totalCost / qty)));
     }
   };
@@ -134,26 +221,63 @@ export default function InventarioDrawer({
 
   const handleDistribucionChange = (ubicacionId: number, value: string) => {
     const numValue = parseInt(value) || 0;
-    const bodega = ubicaciones.find((u) => u.nombre === "Bodega");
-
     setDistribucion((prev) => {
-      const next = { ...prev, [ubicacionId]: numValue };
-
-      if (bodega) {
-        const otherSum = Object.entries(next).reduce((sum, [key, val]) => {
-          if (parseInt(key) === bodega.id) return sum;
-          return sum + (val || 0);
-        }, 0);
-        next[bodega.id] = Math.max(0, totalCantidad - otherSum);
+      if (formMode === "ajuste") {
+        setOverflowUbicacionId(null);
+        return { ...prev, [ubicacionId]: numValue };
       }
 
+      const next = { ...prev };
+      if (principalUbicacion && ubicacionId !== principalUbicacion.id) {
+        const otherSum = Object.entries(next).reduce((sum, [key, val]) => {
+          const keyNum = parseInt(key);
+          if (keyNum === principalUbicacion.id || keyNum === ubicacionId) return sum;
+          return sum + (val || 0);
+        }, 0);
+        const maxAllowed = Math.max(0, totalCantidad - otherSum);
+        if (numValue > maxAllowed) {
+          setOverflowUbicacionId(ubicacionId);
+        } else {
+          setOverflowUbicacionId(null);
+        }
+        next[ubicacionId] = Math.max(0, Math.min(numValue, maxAllowed));
+        const used = otherSum + (next[ubicacionId] || 0);
+        next[principalUbicacion.id] = Math.max(0, totalCantidad - used);
+      } else if (!principalUbicacion) {
+        next[ubicacionId] = Math.max(0, numValue);
+      }
       return next;
     });
+  };
+
+  const hasVentasPosteriores = async (): Promise<boolean> => {
+    if (!lote) return false;
+    const ubicacionIds = Array.from(new Set(lote.entries.map((e) => e.ubicacion_id)));
+    const { count, error } = await supabase
+      .from("producto_ventas")
+      .select("id", { count: "exact", head: true })
+      .eq("producto_id", lote.producto_id)
+      .in("ubicacion_id", ubicacionIds)
+      .gte("created_at", lote.created_at);
+    if (error) {
+      throw error;
+    }
+    return (count ?? 0) > 0;
   };
 
   const handleSave = async () => {
     if (!productoId || !cantidad || !precioVenta || !costoUnitario) {
       alert("Por favor complete todos los campos requeridos.");
+      return;
+    }
+
+    if (formMode === "ingreso" && totalCantidad <= 0) {
+      alert("La cantidad total de ingreso debe ser mayor que 0.");
+      return;
+    }
+
+    if (formMode === "ajuste" && totalCantidad === 0) {
+      alert("Ingrese una cantidad de ajuste distinta de 0.");
       return;
     }
 
@@ -171,9 +295,19 @@ export default function InventarioDrawer({
 
     setSaving(true);
     try {
-      const loteId = crypto.randomUUID();
+      if (lote) {
+        const blocked = await hasVentasPosteriores();
+        if (blocked) {
+          alert(
+            "Este lote tiene ventas posteriores y no puede editarse/eliminarse. Use un ajuste para corregir stock.",
+          );
+          return;
+        }
+      }
+
+      const loteId = lote?.lote_id ?? crypto.randomUUID();
       const rows = Object.entries(distribucion)
-        .filter(([, val]) => val > 0)
+        .filter(([, val]) => (formMode === "ajuste" ? val !== 0 : val > 0))
         .map(([ubicacionId, cantidadUb]) => ({
           producto_id: productoId,
           ubicacion_id: parseInt(ubicacionId),
@@ -183,7 +317,21 @@ export default function InventarioDrawer({
           creado_por: user.id,
           nota: nota.trim() || null,
           lote_id: loteId,
+          tipo: formMode,
         }));
+
+      if (rows.length === 0) {
+        alert("La distribución no puede quedar vacía.");
+        return;
+      }
+
+      if (lote) {
+        const { error: deleteError } = await supabase
+          .from("producto_inventario")
+          .delete()
+          .eq("lote_id", lote.lote_id);
+        if (deleteError) throw deleteError;
+      }
 
       const { error } = await supabase.from("producto_inventario").insert(rows);
 
@@ -196,6 +344,41 @@ export default function InventarioDrawer({
       alert("Error al registrar el inventario. Por favor intente de nuevo.");
     } finally {
       setSaving(false);
+    }
+  };
+
+  const handleDelete = () => {
+    if (!lote) return;
+    setConfirmDeleteOpen(true);
+  };
+
+  const performDelete = async () => {
+    if (!lote) return;
+    setDeleting(true);
+    try {
+      const blocked = await hasVentasPosteriores();
+      if (blocked) {
+        alert(
+          "Este lote tiene ventas posteriores y no puede editarse/eliminarse. Use un ajuste para corregir stock.",
+        );
+        setConfirmDeleteOpen(false);
+        return;
+      }
+
+      const { error } = await supabase
+        .from("producto_inventario")
+        .delete()
+        .eq("lote_id", lote.lote_id);
+      if (error) throw error;
+
+      setConfirmDeleteOpen(false);
+      await onSaved();
+      onClose();
+    } catch (error) {
+      console.error("Error deleting lote:", error);
+      alert("Error al eliminar el lote.");
+    } finally {
+      setDeleting(false);
     }
   };
 
@@ -218,7 +401,11 @@ export default function InventarioDrawer({
                   <div className="bg-primary px-4 py-6 sm:px-6">
                     <div className="flex items-center justify-between">
                       <DialogTitle className="text-base font-semibold text-white">
-                        Registrar Inventario
+                        {lote
+                          ? "Editar Lote"
+                          : formMode === "ajuste"
+                            ? "Registrar Ajuste"
+                            : "Registrar Inventario"}
                       </DialogTitle>
                       <div className="ml-3 flex h-7 items-center">
                         <button
@@ -251,7 +438,7 @@ export default function InventarioDrawer({
                             className="block w-full rounded-md bg-white border border-gray-300 px-3 py-1.5 text-sm text-gray-900 outline-1 -outline-offset-1 outline-gray-300 placeholder:text-gray-400 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-primary"
                           >
                             <option value="">Seleccionar producto...</option>
-                            {productos.map((p) => (
+                            {(loadingProductos ? productos : availableProductos).map((p) => (
                               <option key={p.id} value={p.id}>
                                 {p.nombre}
                               </option>
@@ -268,7 +455,7 @@ export default function InventarioDrawer({
                                 </label>
                                 <input
                                   type="number"
-                                  min="1"
+                                  min={formMode === "ajuste" ? undefined : "1"}
                                   value={cantidad}
                                   onChange={(e) => handleCantidadChange(e.target.value)}
                                   placeholder="0"
@@ -281,7 +468,7 @@ export default function InventarioDrawer({
                                 </label>
                                 <input
                                   type="number"
-                                  min="0"
+                                  min="1"
                                   value={precioVenta}
                                   onChange={(e) => setPrecioVenta(e.target.value)}
                                   placeholder="0"
@@ -297,7 +484,7 @@ export default function InventarioDrawer({
                                 </label>
                                 <input
                                   type="number"
-                                  min="0"
+                                  min="1"
                                   value={costoTotal}
                                   onChange={(e) => handleCostoTotalChange(e.target.value)}
                                   placeholder="Ej: 20000"
@@ -310,7 +497,7 @@ export default function InventarioDrawer({
                                 </label>
                                 <input
                                   type="number"
-                                  min="0"
+                                  min="1"
                                   value={costoUnitario}
                                   onChange={(e) => handleCostoUnitarioChange(e.target.value)}
                                   placeholder="Se calcula automáticamente"
@@ -322,6 +509,9 @@ export default function InventarioDrawer({
                             {totalCantidad > 0 && parseInt(precioVenta) > 0 && parseInt(costoUnitario) > 0 && (
                               <div className="bg-gray-50 rounded-xl p-4 border border-gray-200">
                                 <h4 className="text-sm font-semibold text-gray-900 mb-2">Resumen</h4>
+                                <p className="mb-2 text-xs text-amber-700">
+                                  Se redondea a colones enteros.
+                                </p>
                                 <div className="grid grid-cols-2 gap-2 text-sm">
                                   <span className="text-gray-600">Inversión total:</span>
                                   <span className="text-right font-medium text-gray-900">
@@ -359,23 +549,21 @@ export default function InventarioDrawer({
                                 </div>
                                 <div className="space-y-3">
                                   {activeUbicaciones.map((ubicacion) => {
-                                    const isBodega =
-                                      ubicacion.nombre === "Bodega";
+                                    const isPrincipal = Boolean(ubicacion.es_principal);
                                     return (
                                       <div
                                         key={ubicacion.id}
                                         className="flex items-center gap-3"
                                       >
                                         <span
-                                          className={`text-sm w-32 shrink-0 ${isBodega ? "font-semibold text-amber-700" : "text-gray-700"}`}
+                                          className={`text-sm w-32 shrink-0 ${isPrincipal ? "font-semibold text-amber-700" : "text-gray-700"}`}
                                         >
                                           {ubicacion.nombre}
-                                          {isBodega && " (auto)"}
+                                          {isPrincipal && formMode === "ingreso" && " (auto)"}
                                         </span>
                                         <input
                                           type="number"
-                                          min="0"
-                                          max={totalCantidad}
+                                          min={formMode === "ajuste" ? undefined : "0"}
                                           value={
                                             distribucion[ubicacion.id] || 0
                                           }
@@ -385,13 +573,22 @@ export default function InventarioDrawer({
                                               e.target.value,
                                             )
                                           }
-                                          disabled={isBodega}
-                                          className={`block w-24 rounded-md border border-gray-300 px-3 py-1.5 text-sm text-gray-900 outline-1 -outline-offset-1 outline-gray-300 placeholder:text-gray-400 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-primary ${isBodega ? "bg-amber-50" : "bg-white"}`}
+                                          disabled={isPrincipal && formMode === "ingreso"}
+                                          className={`block w-24 rounded-md border px-3 py-1.5 text-sm text-gray-900 outline-1 -outline-offset-1 placeholder:text-gray-400 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-primary ${
+                                            overflowUbicacionId === ubicacion.id
+                                              ? "border-red-500 outline-red-500"
+                                              : "border-gray-300 outline-gray-300"
+                                          } ${isPrincipal && formMode === "ingreso" ? "bg-amber-50" : "bg-white"}`}
                                         />
                                       </div>
                                     );
                                   })}
                                 </div>
+                                {overflowUbicacionId && formMode === "ingreso" && (
+                                  <p className="mt-2 text-xs text-red-600">
+                                    Ajuste máximo aplicado para evitar sobreasignación.
+                                  </p>
+                                )}
                               </div>
                             )}
 
@@ -415,6 +612,16 @@ export default function InventarioDrawer({
                 </div>
 
                 <div className="flex shrink-0 justify-end gap-3 px-4 py-4">
+                  {lote && (
+                    <button
+                      type="button"
+                      onClick={handleDelete}
+                      disabled={deleting || saving}
+                      className="rounded-md bg-red-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-red-500 disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      {deleting ? "Eliminando..." : "Eliminar lote"}
+                    </button>
+                  )}
                   <button
                     type="button"
                     onClick={onClose}
@@ -428,7 +635,7 @@ export default function InventarioDrawer({
                     disabled={saving || productoId === "" || totalCantidad === 0}
                     className="rounded-md bg-primary px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-primary/90 disabled:bg-gray-300 disabled:cursor-not-allowed"
                   >
-                    {saving ? "Guardando..." : "Registrar"}
+                    {saving ? "Guardando..." : lote ? "Guardar cambios" : "Registrar"}
                   </button>
                 </div>
               </div>
@@ -436,6 +643,17 @@ export default function InventarioDrawer({
           </div>
         </div>
       </div>
+      <ConfirmDialog
+        open={confirmDeleteOpen}
+        title="Eliminar lote"
+        description="¿Está seguro que desea eliminar este lote? Se removerán todas las filas de inventario asociadas."
+        details="Si el lote tiene ventas posteriores no podrá eliminarse. En ese caso registre un ajuste."
+        confirmLabel={deleting ? "Eliminando..." : "Eliminar"}
+        tone="danger"
+        loading={deleting}
+        onConfirm={performDelete}
+        onCancel={() => setConfirmDeleteOpen(false)}
+      />
     </Dialog>
   );
 }

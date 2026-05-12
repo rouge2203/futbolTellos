@@ -9,6 +9,7 @@ import {
   Switch,
 } from "@headlessui/react";
 import { XMarkIcon, TrashIcon } from "@heroicons/react/24/outline";
+import ConfirmDialog from "./ConfirmDialog";
 
 interface Producto {
   id: number;
@@ -27,6 +28,21 @@ interface ProductoDrawerProps {
   onSaved: () => Promise<void>;
 }
 
+const TIENDA_BUCKET = "tienda";
+
+const getStoragePathFromUrl = (url: string | null | undefined): string | null => {
+  if (!url) return null;
+  try {
+    const parsed = new URL(url);
+    const marker = `/${TIENDA_BUCKET}/`;
+    const markerIdx = parsed.pathname.indexOf(marker);
+    if (markerIdx === -1) return null;
+    return decodeURIComponent(parsed.pathname.slice(markerIdx + marker.length));
+  } catch {
+    return null;
+  }
+};
+
 export default function ProductoDrawer({
   open,
   onClose,
@@ -41,12 +57,29 @@ export default function ProductoDrawer({
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [uploading, setUploading] = useState(false);
+  const [decimalWarning, setDecimalWarning] = useState(false);
+  const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false);
+  const [ventasCount, setVentasCount] = useState<number | null>(null);
+  const [deactivateOpen, setDeactivateOpen] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const isEdit = producto !== null;
 
+  const resetForm = () => {
+    setNombre("");
+    setPrecioSugerido("");
+    setActivo(true);
+    setSelectedFile(null);
+    setDecimalWarning(false);
+  };
+
   useEffect(() => {
-    if (open && producto) {
+    if (!open) {
+      resetForm();
+      return;
+    }
+
+    if (producto) {
       setNombre(producto.nombre);
       setPrecioSugerido(
         producto.precio_sugerido != null
@@ -55,11 +88,9 @@ export default function ProductoDrawer({
       );
       setActivo(producto.activo);
       setSelectedFile(null);
-    } else if (open && !producto) {
-      setNombre("");
-      setPrecioSugerido("");
-      setActivo(true);
-      setSelectedFile(null);
+      setDecimalWarning(false);
+    } else {
+      resetForm();
     }
   }, [open, producto]);
 
@@ -87,23 +118,37 @@ export default function ProductoDrawer({
     setSelectedFile(file);
   };
 
-  const uploadPhoto = async (file: File): Promise<string> => {
+  const uploadPhoto = async (
+    file: File,
+  ): Promise<{ publicUrl: string; path: string }> => {
     const fileExt = file.name.split(".").pop();
     const fileName = `producto_${Date.now()}_${Math.random()
       .toString(36)
       .substring(7)}.${fileExt}`;
 
     const { error: uploadError } = await supabase.storage
-      .from("tienda")
+      .from(TIENDA_BUCKET)
       .upload(fileName, file);
 
     if (uploadError) throw uploadError;
 
     const { data: urlData } = supabase.storage
-      .from("tienda")
+      .from(TIENDA_BUCKET)
       .getPublicUrl(fileName);
 
-    return urlData.publicUrl;
+    return { publicUrl: urlData.publicUrl, path: fileName };
+  };
+
+  const removeStorageObjectByPath = async (path: string | null) => {
+    if (!path) return;
+    const { error } = await supabase.storage.from(TIENDA_BUCKET).remove([path]);
+    if (error) {
+      console.error("Error deleting storage object:", error);
+    }
+  };
+
+  const removeStorageObjectByUrl = async (url: string | null | undefined) => {
+    await removeStorageObjectByPath(getStoragePathFromUrl(url));
   };
 
   const handleSave = async () => {
@@ -114,12 +159,15 @@ export default function ProductoDrawer({
 
     setSaving(true);
     if (selectedFile) setUploading(true);
+    let uploadedPath: string | null = null;
 
     try {
       let fotoUrl: string | null = producto?.foto_url ?? null;
 
       if (selectedFile) {
-        fotoUrl = await uploadPhoto(selectedFile);
+        const uploaded = await uploadPhoto(selectedFile);
+        fotoUrl = uploaded.publicUrl;
+        uploadedPath = uploaded.path;
       }
 
       const precio = precioSugerido ? parseInt(precioSugerido) : null;
@@ -136,6 +184,13 @@ export default function ProductoDrawer({
           .eq("id", producto.id);
 
         if (error) throw error;
+
+        if (selectedFile && producto?.foto_url) {
+          const previousPhotoPath = getStoragePathFromUrl(producto.foto_url);
+          if (previousPhotoPath && previousPhotoPath !== uploadedPath) {
+            await removeStorageObjectByPath(previousPhotoPath);
+          }
+        }
       } else {
         const { error } = await supabase.from("productos").insert({
           nombre: nombre.trim(),
@@ -150,6 +205,9 @@ export default function ProductoDrawer({
       await onSaved();
       onClose();
     } catch (error: any) {
+      if (uploadedPath) {
+        await removeStorageObjectByPath(uploadedPath);
+      }
       console.error("Error saving producto:", error);
       alert(error.message || "Error al guardar el producto");
     } finally {
@@ -160,9 +218,16 @@ export default function ProductoDrawer({
 
   const handleDelete = async () => {
     if (!producto) return;
+    const { count } = await supabase
+      .from("producto_ventas")
+      .select("id", { count: "exact", head: true })
+      .eq("producto_id", producto.id);
+    setVentasCount(count ?? 0);
+    setConfirmDeleteOpen(true);
+  };
 
-    if (!confirm("¿Está seguro que desea eliminar este producto?")) return;
-
+  const performDelete = async () => {
+    if (!producto) return;
     setDeleting(true);
     try {
       const { error } = await supabase
@@ -170,13 +235,46 @@ export default function ProductoDrawer({
         .delete()
         .eq("id", producto.id);
 
-      if (error) throw error;
+      if (error) {
+        if (error.code === "23503") {
+          setConfirmDeleteOpen(false);
+          setDeactivateOpen(true);
+          return;
+        }
+        throw error;
+      }
 
+      await removeStorageObjectByUrl(producto.foto_url);
+      setConfirmDeleteOpen(false);
       await onSaved();
       onClose();
     } catch (error: any) {
       console.error("Error deleting producto:", error);
       alert(error.message || "Error al eliminar el producto");
+    } finally {
+      setDeleting(false);
+    }
+  };
+
+  const performDeactivate = async () => {
+    if (!producto) return;
+    setDeleting(true);
+    try {
+      const { error: deactivateError } = await supabase
+        .from("productos")
+        .update({
+          activo: false,
+          foto_url: null,
+        })
+        .eq("id", producto.id);
+      if (deactivateError) throw deactivateError;
+      await removeStorageObjectByUrl(producto.foto_url);
+      setDeactivateOpen(false);
+      await onSaved();
+      onClose();
+    } catch (error: any) {
+      console.error("Error deactivating producto:", error);
+      alert(error.message || "Error al desactivar el producto");
     } finally {
       setDeleting(false);
     }
@@ -239,11 +337,23 @@ export default function ProductoDrawer({
                           </label>
                           <input
                             type="number"
+                            min="0"
                             value={precioSugerido}
-                            onChange={(e) => setPrecioSugerido(e.target.value)}
+                            onChange={(e) => {
+                              setPrecioSugerido(e.target.value);
+                              setDecimalWarning(
+                                e.target.value.includes(".") ||
+                                  e.target.value.includes(","),
+                              );
+                            }}
                             placeholder="0"
                             className="block w-full rounded-md bg-white border border-gray-300 px-3 py-1.5 text-sm text-gray-900 outline-1 -outline-offset-1 outline-gray-300 placeholder:text-gray-400 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-primary"
                           />
+                          {decimalWarning && (
+                            <p className="mt-1 text-xs text-amber-600">
+                              Se guardan solo colones enteros.
+                            </p>
+                          )}
                         </div>
 
                         <div>
@@ -351,6 +461,45 @@ export default function ProductoDrawer({
           <p className="mt-2 text-white/70 text-sm">Subiendo foto...</p>
         </div>
       )}
+      <ConfirmDialog
+        open={confirmDeleteOpen}
+        title="Eliminar producto"
+        description={
+          <>
+            ¿Está seguro que desea eliminar
+            {producto ? (
+              <>
+                {" "}<strong>{producto.nombre}</strong>
+              </>
+            ) : (
+              " este producto"
+            )}
+            ?
+          </>
+        }
+        details={
+          ventasCount && ventasCount > 0
+            ? `Este producto tiene ${ventasCount} venta(s) asociada(s). Si la base de datos lo bloquea, se ofrecerá desactivarlo en su lugar.`
+            : "Esta acción no se puede deshacer."
+        }
+        confirmLabel={deleting ? "Eliminando..." : "Eliminar"}
+        tone="danger"
+        loading={deleting}
+        onConfirm={performDelete}
+        onCancel={() => setConfirmDeleteOpen(false)}
+      />
+      <ConfirmDialog
+        open={deactivateOpen}
+        title="Desactivar producto"
+        description="Este producto tiene ventas registradas y no se puede eliminar. ¿Desea desactivarlo en su lugar?"
+        details="El producto dejará de aparecer en las listas activas pero se conservará el historial de ventas."
+        confirmLabel={deleting ? "Desactivando..." : "Desactivar"}
+        cancelLabel="Cancelar"
+        tone="warning"
+        loading={deleting}
+        onConfirm={performDeactivate}
+        onCancel={() => setDeactivateOpen(false)}
+      />
     </Dialog>
   );
 }
