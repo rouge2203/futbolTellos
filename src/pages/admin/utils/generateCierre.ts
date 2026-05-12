@@ -74,6 +74,8 @@ const formatTimeAmPm = (dateTimeStr: string): string => {
   }
 };
 
+const formatCRC = (value: number): string => `CRC ${value.toLocaleString()}`;
+
 /**
  * Generates a cierre PDF and uploads it to storage
  */
@@ -226,25 +228,25 @@ export async function generateCierre(
     doc.setFont("helvetica", "normal");
     doc.setFontSize(10);
     doc.text(
-      `Total Reservaciones: CRC ${overallTotalReservas.toLocaleString()}`,
+      `Total Reservaciones: ${formatCRC(overallTotalReservas)}`,
       20,
       yPos
     );
     doc.text(
-      `Total Pagos: CRC ${overallTotalPagos.toLocaleString()}`,
+      `Total Pagos: ${formatCRC(overallTotalPagos)}`,
       110,
       yPos
     );
     yPos += 6;
-    doc.text(`SINPE: CRC ${overallTotalSinpe.toLocaleString()}`, 20, yPos);
+    doc.text(`SINPE: ${formatCRC(overallTotalSinpe)}`, 20, yPos);
     doc.text(
-      `Efectivo: CRC ${overallTotalEfectivo.toLocaleString()}`,
+      `Efectivo: ${formatCRC(overallTotalEfectivo)}`,
       110,
       yPos
     );
     yPos += 6;
     doc.setFont("helvetica", "bold");
-    doc.text(`FALTANTE: CRC ${overallFaltante.toLocaleString()}`, 20, yPos);
+    doc.text(`FALTANTE: ${formatCRC(overallFaltante)}`, 20, yPos);
     yPos += 15;
 
     // Nota if any
@@ -343,8 +345,8 @@ export async function generateCierre(
             return [
               hora,
               r.nombre_reserva,
-              `CRC ${r.precio.toLocaleString()}`,
-              `CRC ${totalPagado.toLocaleString()}`,
+              formatCRC(r.precio),
+              formatCRC(totalPagado),
               status,
             ];
           });
@@ -426,14 +428,14 @@ export async function generateCierre(
       // Day summary
       doc.setFontSize(9);
       doc.setFont("helvetica", "normal");
-      doc.text(`Esperado: CRC ${dayExpected.toLocaleString()}`, 20, yPos);
-      doc.text(`SINPE: CRC ${daySinpe.toLocaleString()}`, 80, yPos);
-      doc.text(`Efectivo: CRC ${dayEfectivo.toLocaleString()}`, 130, yPos);
+      doc.text(`Esperado: ${formatCRC(dayExpected)}`, 20, yPos);
+      doc.text(`SINPE: ${formatCRC(daySinpe)}`, 80, yPos);
+      doc.text(`Efectivo: ${formatCRC(dayEfectivo)}`, 130, yPos);
       yPos += 5;
-      doc.text(`Total Pagos: CRC ${dayTotalPagos.toLocaleString()}`, 20, yPos);
+      doc.text(`Total Pagos: ${formatCRC(dayTotalPagos)}`, 20, yPos);
       doc.setFont("helvetica", "bold");
       doc.text(
-        `Faltante: CRC ${dayFaltante.toLocaleString()}`,
+        `Faltante: ${formatCRC(dayFaltante)}`,
         80,
         yPos
       );
@@ -448,8 +450,8 @@ export async function generateCierre(
           return [
             canchaName,
             stats.count.toString(),
-            `CRC ${stats.expected.toLocaleString()}`,
-            `CRC ${stats.pagado.toLocaleString()}`,
+            formatCRC(stats.expected),
+            formatCRC(stats.pagado),
           ];
         });
 

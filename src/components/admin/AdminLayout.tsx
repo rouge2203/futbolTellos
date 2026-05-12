@@ -79,6 +79,98 @@ const reservacionesItems = [
   },
 ];
 
+const tiendaItems = [
+  {
+    name: "Ventas",
+    href: "/admin/tienda",
+    path: "/admin/tienda",
+    description: "Dashboard de ventas y analíticas",
+    icon: (
+      <svg
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.5"
+        className="size-6 text-gray-600 group-hover:text-primary"
+      >
+        <path
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          d="M2.25 18.75a60.07 60.07 0 0 1 15.797 2.101c.727.198 1.453-.342 1.453-1.096V18.75M3.75 4.5v.75A.75.75 0 0 1 3 6h-.75m0 0v-.375c0-.621.504-1.125 1.125-1.125H20.25M2.25 6v9m18-10.5v.75c0 .414.336.75.75.75h.75m-1.5-1.5h.375c.621 0 1.125.504 1.125 1.125v9.75c0 .621-.504 1.125-1.125 1.125h-.375m1.5-1.5H21a.75.75 0 0 0-.75.75v.75m0 0H3.75m0 0h-.375a1.125 1.125 0 0 1-1.125-1.125V15m1.5 1.5v-.75A.75.75 0 0 0 3 15h-.75M15 10.5a3 3 0 1 1-6 0 3 3 0 0 1 6 0Zm3 0h.008v.008H18V10.5Zm-12 0h.008v.008H6V10.5Z"
+        />
+      </svg>
+    ),
+  },
+  {
+    name: "Productos",
+    href: "/admin/tienda/productos",
+    path: "/admin/tienda/productos",
+    description: "Catálogo de productos disponibles",
+    icon: (
+      <svg
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.5"
+        className="size-6 text-gray-600 group-hover:text-primary"
+      >
+        <path
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          d="m21 7.5-9-5.25L3 7.5m18 0-9 5.25m9-5.25v9l-9 5.25M3 7.5l9 5.25M3 7.5v9l9 5.25m0-9v9"
+        />
+      </svg>
+    ),
+  },
+  {
+    name: "Inventario",
+    href: "/admin/tienda/inventario",
+    path: "/admin/tienda/inventario",
+    description: "Control de stock por ubicación",
+    icon: (
+      <svg
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.5"
+        className="size-6 text-gray-600 group-hover:text-primary"
+      >
+        <path
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          d="M3.75 12h16.5m-16.5 3.75h16.5M3.75 19.5h16.5M5.625 4.5h12.75a1.875 1.875 0 0 1 0 3.75H5.625a1.875 1.875 0 0 1 0-3.75Z"
+        />
+      </svg>
+    ),
+  },
+  {
+    name: "Ubicaciones",
+    href: "/admin/tienda/ubicaciones",
+    path: "/admin/tienda/ubicaciones",
+    description: "Gestión de puntos de venta",
+    icon: (
+      <svg
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.5"
+        className="size-6 text-gray-600 group-hover:text-primary"
+      >
+        <path
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          d="M15 10.5a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z"
+        />
+        <path
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          d="M19.5 10.5c0 7.142-7.5 11.25-7.5 11.25S4.5 17.642 4.5 10.5a7.5 7.5 0 1 1 15 0Z"
+        />
+      </svg>
+    ),
+  },
+];
+
 const navigation = [
   { name: "Retos", href: "/admin/retos", path: "/admin/retos" },
   { name: "Pagos", href: "/admin/pagos", path: "/admin/pagos" },
@@ -171,6 +263,69 @@ export default function AdminLayout({ children, title }: AdminLayoutProps) {
                         >
                           <div className="p-4">
                             {reservacionesItems.map((item) => {
+                              const isCurrent = location.pathname === item.path;
+                              return (
+                                <MenuItem key={item.name}>
+                                  <div className="group relative flex gap-x-6 rounded-lg p-4 hover:bg-gray-50">
+                                    <div className="mt-1 flex size-11 shrink-0 items-center justify-center rounded-lg bg-gray-50 group-hover:bg-white">
+                                      {item.icon}
+                                    </div>
+                                    <div>
+                                      <Link
+                                        to={item.href}
+                                        className={classNames(
+                                          isCurrent
+                                            ? "text-primary"
+                                            : "text-gray-900",
+                                          "font-semibold"
+                                        )}
+                                      >
+                                        {item.name}
+                                        <span className="absolute inset-0"></span>
+                                      </Link>
+                                      <p className="mt-1 text-gray-600 text-sm">
+                                        {item.description}
+                                      </p>
+                                    </div>
+                                  </div>
+                                </MenuItem>
+                              );
+                            })}
+                          </div>
+                        </MenuItems>
+                      </>
+                    );
+                  }}
+                </Menu>
+
+                {/* Tienda Dropdown */}
+                <Menu as="div" className="relative flex items-stretch">
+                  {() => {
+                    const isTiendaActive = tiendaItems.some(
+                      (item) => location.pathname === item.path
+                    );
+                    return (
+                      <>
+                        <MenuButton
+                          className={classNames(
+                            isTiendaActive
+                              ? "border-primary text-gray-900"
+                              : "border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700",
+                            "inline-flex items-center gap-x-1 border-b-2 px-1 text-sm font-medium"
+                          )}
+                        >
+                          <span>Tienda</span>
+                          <ChevronDownIcon
+                            aria-hidden="true"
+                            className="size-4"
+                          />
+                        </MenuButton>
+                        <MenuItems
+                          transition
+                          className="absolute left-0 z-10 mt-17 w-screen max-w-md origin-top-left rounded-3xl bg-white shadow-lg ring-1 ring-black/5 transition focus:outline-none data-closed:scale-95 data-closed:opacity-0 data-enter:duration-200 data-enter:ease-out data-leave:duration-150 data-leave:ease-in"
+                        >
+                          <div className="p-4">
+                            {tiendaItems.map((item) => {
                               const isCurrent = location.pathname === item.path;
                               return (
                                 <MenuItem key={item.name}>
@@ -326,6 +481,29 @@ export default function AdminLayout({ children, title }: AdminLayoutProps) {
                 </DisclosureButton>
               );
             })}
+            {/* Tienda items */}
+            <div className="border-t border-gray-200 mt-1 pt-1">
+              <span className="block px-4 py-1 text-xs font-semibold text-gray-400 uppercase tracking-wider">Tienda</span>
+              {tiendaItems.map((item) => {
+                const isCurrent = location.pathname === item.path;
+                return (
+                  <DisclosureButton
+                    key={item.name}
+                    as={Link}
+                    to={item.href}
+                    aria-current={isCurrent ? "page" : undefined}
+                    className={classNames(
+                      isCurrent
+                        ? "border-primary bg-primary/5 text-primary"
+                        : "border-transparent text-gray-600 hover:border-gray-300 hover:bg-gray-50 hover:text-gray-800",
+                      "block border-l-4 py-2 pr-4 pl-3 text-base font-medium"
+                    )}
+                  >
+                    {item.name}
+                  </DisclosureButton>
+                );
+              })}
+            </div>
             {/* Other navigation items */}
             {navigation.map((item) => {
               const isCurrent = location.pathname === item.path;

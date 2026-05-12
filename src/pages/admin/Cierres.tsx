@@ -20,6 +20,7 @@ interface Cierre {
   nota: string | null;
   cierre_pdf: string;
   faltantes: number;
+  tipo: "reservas" | "tienda" | null;
   created_at: string;
 }
 
@@ -106,6 +107,17 @@ export default function Cierres() {
     return `${formatDate(inicio)} - ${formatDate(fin)}`;
   };
 
+  const getCierreTipo = (cierre: Cierre): "reservas" | "tienda" =>
+    cierre.tipo === "tienda" ? "tienda" : "reservas";
+
+  const getCierreTipoLabel = (cierre: Cierre): string =>
+    getCierreTipo(cierre) === "tienda" ? "Tienda" : "Reservas";
+
+  const getCierreTipoClasses = (cierre: Cierre): string =>
+    getCierreTipo(cierre) === "tienda"
+      ? "bg-green-50 text-green-700 ring-green-600/20"
+      : "bg-blue-50 text-blue-700 ring-blue-600/20";
+
   const handleOpenPdf = (pdfUrl: string) => {
     window.open(pdfUrl, "_blank");
   };
@@ -132,7 +144,8 @@ export default function Cierres() {
       try {
         const urlParts = cierreToDelete.cierre_pdf.split("/");
         const fileName = urlParts[urlParts.length - 1];
-        await supabase.storage.from("cierres").remove([fileName]);
+        const bucket = getCierreTipo(cierreToDelete) === "tienda" ? "tienda" : "cierres";
+        await supabase.storage.from(bucket).remove([fileName]);
       } catch (storageError) {
         console.warn("Could not delete PDF from storage:", storageError);
       }
@@ -245,6 +258,13 @@ export default function Cierres() {
                       <div className="text-sm font-medium text-gray-900">
                         {formatDateRange(cierre.inicio, cierre.fin)}
                       </div>
+                      <div className="mt-1">
+                        <span
+                          className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ring-1 ring-inset ${getCierreTipoClasses(cierre)}`}
+                        >
+                          {getCierreTipoLabel(cierre)}
+                        </span>
+                      </div>
                     </td>
                     <td className="px-4 py-4 whitespace-nowrap">
                       <span
@@ -330,6 +350,11 @@ export default function Cierres() {
                     <p className="text-sm font-medium text-gray-900">
                       {formatDateRange(cierreToDelete.inicio, cierreToDelete.fin)}
                     </p>
+                    <span
+                      className={`mt-1 inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ring-1 ring-inset ${getCierreTipoClasses(cierreToDelete)}`}
+                    >
+                      {getCierreTipoLabel(cierreToDelete)}
+                    </span>
                     <p className="text-xs text-gray-500 mt-1">
                       Faltante: ₡ {cierreToDelete.faltantes.toLocaleString()}
                     </p>

@@ -26,6 +26,12 @@ import Pagos from "./pages/admin/Pagos";
 import Cierres from "./pages/admin/Cierres";
 import ReservasFijas from "./pages/admin/ReservasFijas";
 
+// Tienda pages
+import TiendaDashboard from "./pages/admin/tienda/TiendaDashboard";
+import Productos from "./pages/admin/tienda/Productos";
+import Inventario from "./pages/admin/tienda/Inventario";
+import Ubicaciones from "./pages/admin/tienda/Ubicaciones";
+
 function App() {
   return (
     <AuthProvider>
@@ -161,6 +167,40 @@ function App() {
           element={
             <ProtectedRoute>
               <ReservasFijas />
+            </ProtectedRoute>
+          }
+        />
+
+        {/* Tienda Routes */}
+        <Route
+          path="/admin/tienda"
+          element={
+            <ProtectedRoute>
+              <TiendaDashboard />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/admin/tienda/productos"
+          element={
+            <ProtectedRoute>
+              <Productos />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/admin/tienda/inventario"
+          element={
+            <ProtectedRoute>
+              <Inventario />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/admin/tienda/ubicaciones"
+          element={
+            <ProtectedRoute>
+              <Ubicaciones />
             </ProtectedRoute>
           }
         />
