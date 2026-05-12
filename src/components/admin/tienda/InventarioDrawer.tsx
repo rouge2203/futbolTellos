@@ -435,7 +435,7 @@ export default function InventarioDrawer({
                                 e.target.value ? parseInt(e.target.value) : "",
                               )
                             }
-                            className="block w-full rounded-md bg-white border border-gray-300 px-3 py-1.5 text-sm text-gray-900 outline-1 -outline-offset-1 outline-gray-300 placeholder:text-gray-400 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-primary"
+                            className="block w-full rounded-md bg-white border border-gray-300 px-3 py-1.5 text-base text-gray-900 sm:text-sm outline-1 -outline-offset-1 outline-gray-300 placeholder:text-gray-400 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-primary"
                           >
                             <option value="">Seleccionar producto...</option>
                             {(loadingProductos ? productos : availableProductos).map((p) => (
@@ -459,7 +459,7 @@ export default function InventarioDrawer({
                                   value={cantidad}
                                   onChange={(e) => handleCantidadChange(e.target.value)}
                                   placeholder="0"
-                                  className="block w-full rounded-md bg-white border border-gray-300 px-3 py-1.5 text-sm text-gray-900 outline-1 -outline-offset-1 outline-gray-300 placeholder:text-gray-400 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-primary"
+                                  className="block w-full rounded-md bg-white border border-gray-300 px-3 py-1.5 text-base text-gray-900 sm:text-sm outline-1 -outline-offset-1 outline-gray-300 placeholder:text-gray-400 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-primary"
                                 />
                               </div>
                               <div>
@@ -472,7 +472,7 @@ export default function InventarioDrawer({
                                   value={precioVenta}
                                   onChange={(e) => setPrecioVenta(e.target.value)}
                                   placeholder="0"
-                                  className="block w-full rounded-md bg-white border border-gray-300 px-3 py-1.5 text-sm text-gray-900 outline-1 -outline-offset-1 outline-gray-300 placeholder:text-gray-400 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-primary"
+                                  className="block w-full rounded-md bg-white border border-gray-300 px-3 py-1.5 text-base text-gray-900 sm:text-sm outline-1 -outline-offset-1 outline-gray-300 placeholder:text-gray-400 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-primary"
                                 />
                               </div>
                             </div>
@@ -488,7 +488,7 @@ export default function InventarioDrawer({
                                   value={costoTotal}
                                   onChange={(e) => handleCostoTotalChange(e.target.value)}
                                   placeholder="Ej: 20000"
-                                  className="block w-full rounded-md bg-white border border-gray-300 px-3 py-1.5 text-sm text-gray-900 outline-1 -outline-offset-1 outline-gray-300 placeholder:text-gray-400 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-primary"
+                                  className="block w-full rounded-md bg-white border border-gray-300 px-3 py-1.5 text-base text-gray-900 sm:text-sm outline-1 -outline-offset-1 outline-gray-300 placeholder:text-gray-400 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-primary"
                                 />
                               </div>
                               <div>
@@ -501,7 +501,7 @@ export default function InventarioDrawer({
                                   value={costoUnitario}
                                   onChange={(e) => handleCostoUnitarioChange(e.target.value)}
                                   placeholder="Se calcula automáticamente"
-                                  className="block w-full rounded-md bg-white border border-gray-300 px-3 py-1.5 text-sm text-gray-900 outline-1 -outline-offset-1 outline-gray-300 placeholder:text-gray-400 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-primary"
+                                  className="block w-full rounded-md bg-white border border-gray-300 px-3 py-1.5 text-base text-gray-900 sm:text-sm outline-1 -outline-offset-1 outline-gray-300 placeholder:text-gray-400 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-primary"
                                 />
                               </div>
                             </div>
@@ -574,7 +574,7 @@ export default function InventarioDrawer({
                                             )
                                           }
                                           disabled={isPrincipal && formMode === "ingreso"}
-                                          className={`block w-24 rounded-md border px-3 py-1.5 text-sm text-gray-900 outline-1 -outline-offset-1 placeholder:text-gray-400 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-primary ${
+                                          className={`block w-24 rounded-md border px-3 py-1.5 text-base text-gray-900 sm:text-sm outline-1 -outline-offset-1 placeholder:text-gray-400 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-primary ${
                                             overflowUbicacionId === ubicacion.id
                                               ? "border-red-500 outline-red-500"
                                               : "border-gray-300 outline-gray-300"
@@ -601,7 +601,7 @@ export default function InventarioDrawer({
                                 onChange={(e) => setNota(e.target.value)}
                                 rows={2}
                                 placeholder="Notas adicionales..."
-                                className="block w-full rounded-md bg-white border border-gray-300 px-3 py-1.5 text-sm text-gray-900 outline-1 -outline-offset-1 outline-gray-300 placeholder:text-gray-400 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-primary"
+                                className="block w-full rounded-md bg-white border border-gray-300 px-3 py-1.5 text-base text-gray-900 sm:text-sm outline-1 -outline-offset-1 outline-gray-300 placeholder:text-gray-400 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-primary"
                               />
                             </div>
                           </>

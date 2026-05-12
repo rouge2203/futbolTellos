@@ -591,7 +591,7 @@ export default function VentaDrawer({
                               }
                             }}
                             disabled={isEdit}
-                            className="block w-full rounded-md bg-white border border-gray-300 px-3 py-1.5 text-sm text-gray-900 outline-1 -outline-offset-1 outline-gray-300 placeholder:text-gray-400 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-primary disabled:bg-gray-100 disabled:cursor-not-allowed"
+                            className="block w-full rounded-md bg-white border border-gray-300 px-3 py-1.5 text-base text-gray-900 sm:text-sm outline-1 -outline-offset-1 outline-gray-300 placeholder:text-gray-400 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-primary disabled:bg-gray-100 disabled:cursor-not-allowed"
                           >
                             <option value="">Seleccionar ubicación...</option>
                             {activeUbicaciones.map((u) => (
@@ -609,7 +609,7 @@ export default function VentaDrawer({
                             type="datetime-local"
                             value={fechaVenta}
                             onChange={(e) => setFechaVenta(e.target.value)}
-                            className="block w-full rounded-md bg-white border border-gray-300 px-3 py-1.5 text-sm text-gray-900 outline-1 -outline-offset-1 outline-gray-300 placeholder:text-gray-400 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-primary"
+                            className="block w-full rounded-md bg-white border border-gray-300 px-3 py-1.5 text-base text-gray-900 sm:text-sm outline-1 -outline-offset-1 outline-gray-300 placeholder:text-gray-400 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-primary"
                           />
                         </div>
                       </div>
@@ -737,7 +737,7 @@ export default function VentaDrawer({
                                                     e.target.value,
                                                   )
                                                 }
-                                                className="mt-1 block w-full rounded-md bg-white border border-gray-300 px-2 py-1 text-sm text-gray-900"
+                                                className="mt-1 block w-full rounded-md bg-white border border-gray-300 px-2 py-1 text-base text-gray-900 sm:text-sm"
                                               />
                                             </label>
                                             <label className="text-xs text-gray-600">
@@ -753,7 +753,7 @@ export default function VentaDrawer({
                                                     e.target.value,
                                                   )
                                                 }
-                                                className="mt-1 block w-full rounded-md bg-white border border-gray-300 px-2 py-1 text-sm text-gray-900"
+                                                className="mt-1 block w-full rounded-md bg-white border border-gray-300 px-2 py-1 text-base text-gray-900 sm:text-sm"
                                               />
                                             </label>
                                           </div>
@@ -849,7 +849,7 @@ export default function VentaDrawer({
                           onChange={(e) => setNota(e.target.value)}
                           rows={2}
                           placeholder="Notas adicionales..."
-                          className="block w-full rounded-md bg-white border border-gray-300 px-3 py-1.5 text-sm text-gray-900 outline-1 -outline-offset-1 outline-gray-300 placeholder:text-gray-400 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-primary"
+                          className="block w-full rounded-md bg-white border border-gray-300 px-3 py-1.5 text-base text-gray-900 sm:text-sm outline-1 -outline-offset-1 outline-gray-300 placeholder:text-gray-400 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-primary"
                         />
                       </div>
 
