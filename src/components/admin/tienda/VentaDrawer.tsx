@@ -549,10 +549,10 @@ export default function VentaDrawer({
           <div className="pointer-events-none fixed inset-y-0 right-0 flex max-w-full pl-10 sm:pl-16">
             <DialogPanel
               transition
-              className="pointer-events-auto w-screen max-w-4xl transform transition duration-500 ease-in-out data-closed:translate-x-full sm:duration-700"
+              className="pointer-events-auto w-screen max-w-4xl overflow-hidden transform transition duration-500 ease-in-out data-closed:translate-x-full sm:duration-700"
             >
-              <div className="relative flex h-full flex-col divide-y divide-gray-200 bg-white shadow-xl">
-                <div className="h-0 flex-1 overflow-y-auto">
+              <div className="relative flex h-full flex-col divide-y divide-gray-200 bg-white shadow-xl overflow-x-hidden">
+                <div className="h-0 flex-1 overflow-y-auto overflow-x-hidden overscroll-y-contain">
                   <div className="bg-primary px-4 py-6 sm:px-6">
                     <div className="flex items-center justify-between">
                       <DialogTitle className="text-base font-semibold text-white">
@@ -623,51 +623,74 @@ export default function VentaDrawer({
                           <div>
                             <label className="block text-sm font-medium text-gray-900 mb-2">
                               Productos disponibles
+                              <span className="ml-1 font-normal text-gray-500">
+                                (deslice para ver más)
+                              </span>
                             </label>
                             {productosDisponibles.length === 0 ? (
                               <p className="text-sm text-gray-500 italic">
                                 No hay productos con stock disponible.
                               </p>
                             ) : (
-                              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
-                                {productosDisponibles.map(
-                                  ({ producto, stock, remaining }) => (
-                                    <button
-                                      key={producto.id}
-                                      type="button"
-                                      onClick={() =>
-                                        addProductToCart(producto.id)
-                                      }
-                                      disabled={remaining <= 0}
-                                      className={`rounded-lg border p-2 text-left transition-colors ${
-                                        remaining <= 0
-                                          ? "bg-gray-100 border-gray-200 opacity-60 cursor-not-allowed"
-                                          : "bg-white hover:border-primary/60 hover:bg-primary/5"
-                                      }`}
-                                    >
-                                      {producto.foto_url ? (
-                                        <img
-                                          src={producto.foto_url}
-                                          alt={producto.nombre}
-                                          className="aspect-square w-full object-cover rounded-md bg-gray-100"
-                                        />
-                                      ) : (
-                                        <div className="aspect-square w-full rounded-md bg-gray-100 flex items-center justify-center">
-                                          <CubeIcon className="size-10 text-gray-400" />
+                              <div className="relative mt-1 rounded-xl border border-gray-100 bg-gray-50/70 py-3 pl-4 pr-3 sm:pl-5 sm:pr-4">
+                                <div
+                                  className={[
+                                    "flex gap-3 overflow-x-auto overscroll-x-contain scroll-smooth snap-x snap-proximity touch-pan-x pb-1 pr-8 sm:pr-10",
+                                    "[-webkit-overflow-scrolling:touch]",
+                                    "[&::-webkit-scrollbar]:h-2.5 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-gray-400/90 [&::-webkit-scrollbar-track]:rounded-full [&::-webkit-scrollbar-track]:bg-gray-100",
+                                  ].join(" ")}
+                                  style={{
+                                    scrollbarWidth: "thin",
+                                    scrollbarColor: "rgba(156,163,175,0.95) #f3f4f6",
+                                  }}
+                                >
+                                  {productosDisponibles.map(
+                                    ({ producto, stock, remaining }) => (
+                                      <button
+                                        key={producto.id}
+                                        type="button"
+                                        onClick={() =>
+                                          addProductToCart(producto.id)
+                                        }
+                                        disabled={remaining <= 0}
+                                        className={`group relative shrink-0 snap-start w-28 sm:w-32 rounded-lg border p-2 text-left transition-all ${
+                                          remaining <= 0
+                                            ? "bg-gray-100 border-gray-200 opacity-60 cursor-not-allowed"
+                                            : "bg-white border-gray-200 hover:border-primary/60 hover:bg-primary/5 active:scale-[0.97]"
+                                        }`}
+                                      >
+                                        {producto.foto_url ? (
+                                          <img
+                                            src={producto.foto_url}
+                                            alt={producto.nombre}
+                                            className="aspect-square w-full object-cover rounded-md bg-gray-100"
+                                          />
+                                        ) : (
+                                          <div className="aspect-square w-full rounded-md bg-gray-100 flex items-center justify-center">
+                                            <CubeIcon className="size-8 text-gray-400" />
+                                          </div>
+                                        )}
+                                        <p className="mt-1.5 text-xs font-medium text-gray-900 line-clamp-2 leading-tight min-h-8">
+                                          {producto.nombre}
+                                        </p>
+                                        <div className="mt-1 flex items-center justify-between gap-1">
+                                          <span className="text-[10px] text-gray-500">
+                                            Stock {stock}
+                                          </span>
+                                          <span
+                                            className={`text-[10px] font-semibold px-1.5 py-0.5 rounded-full ${
+                                              remaining <= 0
+                                                ? "bg-gray-200 text-gray-500"
+                                                : "bg-primary/10 text-primary"
+                                            }`}
+                                          >
+                                            {remaining}
+                                          </span>
                                         </div>
-                                      )}
-                                      <p className="mt-2 text-xs font-medium text-gray-900 line-clamp-2">
-                                        {producto.nombre}
-                                      </p>
-                                      <p className="mt-0.5 text-xs text-gray-600">
-                                        Stock: {stock}
-                                      </p>
-                                      <p className="text-xs text-primary">
-                                        Disponible para agregar: {remaining}
-                                      </p>
-                                    </button>
-                                  ),
-                                )}
+                                      </button>
+                                    ),
+                                  )}
+                                </div>
                               </div>
                             )}
                           </div>
