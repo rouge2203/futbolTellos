@@ -176,7 +176,7 @@ const getTransaccionId = (venta: Venta): string =>
 
 export default function TiendaDashboard() {
   const navigate = useNavigate();
-  const { user } = useAuth();
+  const { user, isSuperuser } = useAuth();
   const [loading, setLoading] = useState(true);
   const [productos, setProductos] = useState<Producto[]>([]);
   const [ubicaciones, setUbicaciones] = useState<Ubicacion[]>([]);
@@ -762,6 +762,7 @@ export default function TiendaDashboard() {
             Panel de Ventas
           </h2>
           <div className="flex flex-wrap gap-2">
+            {isSuperuser && (
             <button
               type="button"
               onClick={handleOpenCierreDialog}
@@ -775,6 +776,7 @@ export default function TiendaDashboard() {
               <DocumentTextIcon className="size-4" />
               Registrar Cierre
             </button>
+            )}
             <button
               type="button"
               onClick={handleOpenNewVenta}

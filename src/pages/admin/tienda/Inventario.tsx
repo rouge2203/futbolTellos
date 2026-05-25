@@ -4,6 +4,7 @@ import InventarioDrawer, {
   type LoteEditable,
 } from "../../../components/admin/tienda/InventarioDrawer";
 import { supabase } from "../../../lib/supabase";
+import { useAuth } from "../../../contexts/AuthContext";
 import { MagnifyingGlassIcon } from "@heroicons/react/20/solid";
 import { ChevronDownIcon, ChevronRightIcon } from "@heroicons/react/24/outline";
 
@@ -64,6 +65,7 @@ interface LoteGroup {
 type ViewMode = "stock" | "lotes";
 
 export default function Inventario() {
+  const { isSuperuser } = useAuth();
   const [productos, setProductos] = useState<Producto[]>([]);
   const [productosLookup, setProductosLookup] = useState<Producto[]>([]);
   const [ubicaciones, setUbicaciones] = useState<Ubicacion[]>([]);
@@ -320,6 +322,7 @@ export default function Inventario() {
               ))}
             </select>
           </div>
+          {isSuperuser && (
           <div className="flex gap-2">
             <button
               type="button"
@@ -336,6 +339,7 @@ export default function Inventario() {
               Registrar Ajuste
             </button>
           </div>
+          )}
         </div>
 
         <div className="flex gap-1 bg-gray-100 rounded-lg p-1 w-fit">
@@ -350,6 +354,7 @@ export default function Inventario() {
           >
             Stock por Producto
           </button>
+          {isSuperuser && (
           <button
             type="button"
             onClick={() => setViewMode("lotes")}
@@ -361,6 +366,7 @@ export default function Inventario() {
           >
             Historial de Lotes
           </button>
+          )}
         </div>
 
         {viewMode === "stock" && (

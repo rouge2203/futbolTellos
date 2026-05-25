@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import AdminLayout from "../../../components/admin/AdminLayout";
 import UbicacionDrawer from "../../../components/admin/tienda/UbicacionDrawer";
 import { supabase } from "../../../lib/supabase";
+import { useAuth } from "../../../contexts/AuthContext";
 import { MagnifyingGlassIcon } from "@heroicons/react/20/solid";
 
 interface Ubicacion {
@@ -17,6 +18,7 @@ interface StockCount {
 }
 
 export default function Ubicaciones() {
+  const { isSuperuser } = useAuth();
   const [ubicaciones, setUbicaciones] = useState<Ubicacion[]>([]);
   const [stockCounts, setStockCounts] = useState<StockCount>({});
   const [loading, setLoading] = useState(true);
@@ -130,6 +132,7 @@ export default function Ubicaciones() {
               className="block w-full rounded-md bg-white border border-gray-300 pl-9 pr-3 py-1.5 text-sm text-gray-900 outline-1 -outline-offset-1 outline-gray-300 placeholder:text-gray-400 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-primary"
             />
           </div>
+          {isSuperuser && (
           <button
             type="button"
             onClick={handleOpenCreate}
@@ -137,6 +140,7 @@ export default function Ubicaciones() {
           >
             Nueva Ubicación
           </button>
+          )}
         </div>
 
         <div className="bg-white rounded-lg shadow overflow-hidden overflow-x-auto">

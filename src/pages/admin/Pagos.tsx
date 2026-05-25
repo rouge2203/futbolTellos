@@ -89,7 +89,7 @@ const MONTHS_SPANISH = [
 const DAYS_SHORT = ["L", "M", "X", "J", "V", "S", "D"];
 
 export default function Pagos() {
-  const { user } = useAuth();
+  const { user, isSuperuser } = useAuth();
   const navigate = useNavigate();
   const [currentMonth, setCurrentMonth] = useState(new Date());
   const [selectedDate, setSelectedDate] = useState<Date | null>(new Date());
@@ -961,6 +961,7 @@ export default function Pagos() {
       <div className="min-h-screen">
         {/* Cierres Mode Toggle */}
         <div className="flex flex-wrap items-center gap-4 mb-4">
+          {isSuperuser && (
           <div className="flex items-center gap-3">
             <RiBankLine className="size-5 text-primary" />
             <span className="text-sm font-medium text-gray-700">
@@ -996,6 +997,7 @@ export default function Pagos() {
               />
             </Switch>
           </div>
+          )}
 
           {/* Pago Checkeado Filters - Only in Cierres Mode, next to toggle */}
           {cierresMode && (

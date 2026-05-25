@@ -3,6 +3,7 @@ import AdminLayout from "../../components/admin/AdminLayout";
 import EditCanchaDrawer from "../../components/admin/EditCanchaDrawer";
 import SuccessNotification from "../../components/admin/SuccessNotification";
 import { supabase } from "../../lib/supabase";
+import { useAuth } from "../../contexts/AuthContext";
 import { FaEdit } from "react-icons/fa";
 import { MdLocationOn } from "react-icons/md";
 import { FaRegCalendarCheck } from "react-icons/fa";
@@ -21,6 +22,7 @@ interface CanchaWithStats extends Cancha {
 }
 
 export default function Canchas() {
+  const { isSuperuser } = useAuth();
   const [canchas, setCanchas] = useState<CanchaWithStats[]>([]);
   const [loading, setLoading] = useState(true);
   const [drawerOpen, setDrawerOpen] = useState(false);
@@ -140,6 +142,7 @@ export default function Canchas() {
                   alt={cancha.nombre}
                   className="w-full h-full object-cover"
                 />
+                {isSuperuser && (
                 <div className="absolute top-2 right-2">
                   <button
                     onClick={() => handleEditCancha(cancha)}
@@ -149,6 +152,7 @@ export default function Canchas() {
                     <FaEdit className="text-gray-600" />
                   </button>
                 </div>
+                )}
               </div>
               <div className="p-4">
                 <h3 className="text-lg font-semibold text-gray-900">

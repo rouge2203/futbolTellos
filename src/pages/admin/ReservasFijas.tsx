@@ -56,7 +56,7 @@ const getLocalName = (local: number): string => {
 };
 
 export default function ReservasFijas() {
-  const { user } = useAuth();
+  const { user, isSuperuser } = useAuth();
   const [reservasFijas, setReservasFijas] = useState<ReservaFija[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedDay, setSelectedDay] = useState<number>(1);
@@ -155,12 +155,14 @@ export default function ReservasFijas() {
             <h3 className="text-lg font-semibold text-gray-900">
               Reservaciones Fijas
             </h3>
+            {isSuperuser && (
             <button
               onClick={() => setCreateDrawerOpen(true)}
               className="rounded-md bg-primary px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-primary/90 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
             >
               Crear Reservación Fija
             </button>
+            )}
           </div>
 
           {/* Day Tabs */}

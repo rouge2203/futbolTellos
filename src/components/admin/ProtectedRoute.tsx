@@ -3,10 +3,14 @@ import { useAuth } from "../../contexts/AuthContext";
 
 interface ProtectedRouteProps {
   children: React.ReactNode;
+  requireSuperuser?: boolean;
 }
 
-export default function ProtectedRoute({ children }: ProtectedRouteProps) {
-  const { user, loading } = useAuth();
+export default function ProtectedRoute({
+  children,
+  requireSuperuser = false,
+}: ProtectedRouteProps) {
+  const { user, loading, isAdmin, isSuperuser } = useAuth();
 
   if (loading) {
     return (
@@ -20,6 +24,13 @@ export default function ProtectedRoute({ children }: ProtectedRouteProps) {
     return <Navigate to="/login" replace />;
   }
 
+  if (!isAdmin) {
+    return <Navigate to="/" replace />;
+  }
+
+  if (requireSuperuser && !isSuperuser) {
+    return <Navigate to="/admin" replace />;
+  }
+
   return <>{children}</>;
 }
-
