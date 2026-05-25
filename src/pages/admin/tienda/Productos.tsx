@@ -2,6 +2,7 @@ import { useState, useEffect, useMemo } from "react";
 import AdminLayout from "../../../components/admin/AdminLayout";
 import ProductoDrawer from "../../../components/admin/tienda/ProductoDrawer";
 import { supabase } from "../../../lib/supabase";
+import { useAuth } from "../../../contexts/AuthContext";
 import { CubeIcon, MagnifyingGlassIcon } from "@heroicons/react/24/outline";
 
 interface Producto {
@@ -15,6 +16,7 @@ interface Producto {
 }
 
 export default function Productos() {
+  const { isSuperuser } = useAuth();
   const [productos, setProductos] = useState<Producto[]>([]);
   const [ventasUltimos30Dias, setVentasUltimos30Dias] = useState<
     Record<number, number>
@@ -165,6 +167,7 @@ export default function Productos() {
               />
               Mostrar inactivos
             </label>
+            {isSuperuser && (
             <button
               type="button"
               onClick={handleNewProducto}
@@ -172,6 +175,7 @@ export default function Productos() {
             >
               Nuevo Producto
             </button>
+            )}
           </div>
         </div>
 

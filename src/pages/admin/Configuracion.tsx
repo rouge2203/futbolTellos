@@ -8,6 +8,7 @@ import {
   DialogBackdrop,
 } from "@headlessui/react";
 import { supabase } from "../../lib/supabase";
+import { useAuth } from "../../contexts/AuthContext";
 import { FaSave, FaEdit } from "react-icons/fa";
 
 interface Configuracion {
@@ -19,6 +20,7 @@ interface Configuracion {
 }
 
 export default function Configuracion() {
+  const { isSuperuser } = useAuth();
   const [config, setConfig] = useState<Configuracion | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -125,7 +127,7 @@ export default function Configuracion() {
             <h3 className="text-lg font-semibold text-gray-900">
               Horarios de Operación
             </h3>
-            {!isEditing && (
+            {!isEditing && isSuperuser && (
               <button
                 onClick={handleEdit}
                 className="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary/90 transition-colors"

@@ -27,3 +27,13 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# Local-only working files (do not commit)
+.mcp.json
+TellosDB.md
+full_schema.txt
+mini-store-plan.html
+supabase_cierres_tipo_migration.sql
+supabase_tienda_migration.sql
+supabase_tienda_module_fixes.sql
+
