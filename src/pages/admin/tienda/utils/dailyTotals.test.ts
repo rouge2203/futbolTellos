@@ -1,6 +1,9 @@
 import { describe, it, expect } from "vitest";
-import { getCostaRicaDayKey } from "./dailyTotals";
-import { groupVentasByDay, type VentaForDaily } from "./dailyTotals";
+import {
+  getCostaRicaDayKey,
+  groupVentasByDay,
+  type VentaForDaily,
+} from "./dailyTotals";
 
 const v = (over: Partial<VentaForDaily>): VentaForDaily => ({
   id: 0,
