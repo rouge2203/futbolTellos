@@ -11,6 +11,7 @@ import {
   generateCierreTienda,
   type VentaCierreTienda,
 } from "./utils/generateCierreTienda";
+import { groupVentasByDay } from "./utils/dailyTotals";
 import {
   ArrowLongLeftIcon,
   ArrowLongRightIcon,
@@ -148,6 +149,16 @@ const formatDateES = (dateStr: string): string => {
 
 const formatShortDate = (date: Date): string => {
   return date.toLocaleDateString("es-CR", { day: "numeric", month: "short" });
+};
+
+const formatDayKeyLabel = (dateKey: string): string => {
+  // Anchor at noon CR to avoid any timezone rollover when re-parsing.
+  const d = new Date(`${dateKey}T12:00:00-06:00`);
+  return d.toLocaleDateString("es-CR", {
+    weekday: "long",
+    day: "numeric",
+    month: "long",
+  });
 };
 
 const normalizeMetodoPago = (metodo: string): string => metodo.toLowerCase();
@@ -521,6 +532,11 @@ export default function TiendaDashboard() {
       .reduce((sum, v) => sum + v.precio_unitario * v.cantidad, 0);
     return { efectivo, sinpe, transferencia };
   }, [filteredVentaRows]);
+
+  const dailyTotals = useMemo(
+    () => groupVentasByDay(filteredVentaRows),
+    [filteredVentaRows],
+  );
 
   const cierreResumen = useMemo(() => {
     const totalIngresos = filteredVentaRows.reduce(
@@ -916,6 +932,66 @@ export default function TiendaDashboard() {
             </div>
           </div>
         </div>
+
+        {/* Daily Totals (Resumen Diario) */}
+        {isSuperuser && !loading && dailyTotals.length > 0 && (
+          <div className="bg-white border rounded-lg shadow-sm overflow-hidden">
+            <div className="px-4 py-3 border-b border-gray-200 flex items-center gap-2">
+              <DocumentTextIcon className="size-5 text-primary" />
+              <h3 className="text-sm font-semibold text-gray-900">
+                Resumen Diario
+              </h3>
+            </div>
+            <div className="divide-y divide-gray-100">
+              {dailyTotals.map((day) => (
+                <div key={day.dateKey} className="px-4 py-3">
+                  <div className="flex items-center justify-between gap-3">
+                    <div>
+                      <p className="text-sm font-semibold text-gray-900 capitalize">
+                        {formatDayKeyLabel(day.dateKey)}
+                      </p>
+                      <p className="text-xs text-gray-500">
+                        {day.transacciones} transacción
+                        {day.transacciones === 1 ? "" : "es"}
+                      </p>
+                    </div>
+                    <p className="text-lg font-bold text-gray-900">
+                      {formatCurrency(day.total)}
+                    </p>
+                  </div>
+                  <div className="mt-2 grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs">
+                    <div className="rounded-md bg-blue-50 px-2 py-1.5">
+                      <p className="font-medium text-blue-700">SINPE</p>
+                      <p className="font-semibold text-blue-800">
+                        {formatCurrency(day.sinpe)}
+                      </p>
+                    </div>
+                    <div className="rounded-md bg-green-50 px-2 py-1.5">
+                      <p className="font-medium text-green-700">Efectivo</p>
+                      <p className="font-semibold text-green-800">
+                        {formatCurrency(day.efectivo)}
+                      </p>
+                    </div>
+                    <div className="rounded-md bg-purple-50 px-2 py-1.5">
+                      <p className="font-medium text-purple-700">Transferencia</p>
+                      <p className="font-semibold text-purple-800">
+                        {formatCurrency(day.transferencia)}
+                      </p>
+                    </div>
+                    {day.otros > 0 && (
+                      <div className="rounded-md bg-gray-100 px-2 py-1.5">
+                        <p className="font-medium text-gray-600">Otros</p>
+                        <p className="font-semibold text-gray-800">
+                          {formatCurrency(day.otros)}
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
 
         {/* Sales List */}
         {loading ? (
