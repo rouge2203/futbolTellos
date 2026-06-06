@@ -90,15 +90,12 @@ const ITEMS_PER_PAGE = 15;
 
 const formatCurrency = (value: number): string => `₡ ${value.toLocaleString()}`;
 
-const PAYMENT_BREAKDOWN_ALLOWED_EMAILS = new Set([
-  "agendakathia1974@gmail.com",
-  "joseruizsuarez@hotmail.com",
-]);
-
 const CR_TIMEZONE_OFFSET = "-06:00";
 const TIENDA_BUCKET = "tienda";
 
-const getStoragePathFromUrl = (url: string | null | undefined): string | null => {
+const getStoragePathFromUrl = (
+  url: string | null | undefined,
+): string | null => {
   if (!url) return null;
   try {
     const parsed = new URL(url);
@@ -176,12 +173,17 @@ const formatMetodoPago = (metodo: string): string => {
   }
 };
 
-const isInDateRange = (dateStr: string, start: string, end: string): boolean => {
+const isInDateRange = (
+  dateStr: string,
+  start: string,
+  end: string,
+): boolean => {
   const time = new Date(dateStr).getTime();
   return time >= new Date(start).getTime() && time <= new Date(end).getTime();
 };
 
-const getVentaDate = (venta: Venta): string => venta.fecha_venta ?? venta.created_at;
+const getVentaDate = (venta: Venta): string =>
+  venta.fecha_venta ?? venta.created_at;
 const getTransaccionId = (venta: Venta): string =>
   venta.transaccion_id ?? `legacy-${venta.id}`;
 
@@ -217,8 +219,7 @@ export default function TiendaDashboard() {
   const [expandedTransaccionId, setExpandedTransaccionId] = useState<
     string | null
   >(null);
-  const canSeePaymentBreakdown =
-    PAYMENT_BREAKDOWN_ALLOWED_EMAILS.has(user?.email?.toLowerCase() ?? "");
+
   const customRangeInvalid =
     dateFilter === "custom" &&
     customStart.trim() !== "" &&
@@ -275,30 +276,38 @@ export default function TiendaDashboard() {
       const trendStart = getStartOfDay(trendStartDate);
       const trendEnd = getEndOfDay(new Date());
 
-      const [prodRes, ubRes, ventasRes, invRes, stockVentasRes, trendVentasRes] =
-        await Promise.all([
-          supabase.from("productos").select("*").eq("activo", true),
-          supabase.from("ubicaciones").select("*").eq("activo", true),
-          supabase
-            .from("producto_ventas")
-            .select("*")
-            .gte("fecha_venta", dateRange.start)
-            .lte("fecha_venta", dateRange.end)
-            .order("fecha_venta", { ascending: false }),
-          supabase
-            .from("producto_inventario")
-            .select(
-              "producto_id, ubicacion_id, cantidad, precio_venta, costo_unitario, created_at",
-            )
-            .order("created_at", { ascending: false }),
-          supabase.from("producto_ventas").select("producto_id, ubicacion_id, cantidad"),
-          supabase
-            .from("producto_ventas")
-            .select("*")
-            .gte("fecha_venta", trendStart)
-            .lte("fecha_venta", trendEnd)
-            .order("fecha_venta", { ascending: false }),
-        ]);
+      const [
+        prodRes,
+        ubRes,
+        ventasRes,
+        invRes,
+        stockVentasRes,
+        trendVentasRes,
+      ] = await Promise.all([
+        supabase.from("productos").select("*").eq("activo", true),
+        supabase.from("ubicaciones").select("*").eq("activo", true),
+        supabase
+          .from("producto_ventas")
+          .select("*")
+          .gte("fecha_venta", dateRange.start)
+          .lte("fecha_venta", dateRange.end)
+          .order("fecha_venta", { ascending: false }),
+        supabase
+          .from("producto_inventario")
+          .select(
+            "producto_id, ubicacion_id, cantidad, precio_venta, costo_unitario, created_at",
+          )
+          .order("created_at", { ascending: false }),
+        supabase
+          .from("producto_ventas")
+          .select("producto_id, ubicacion_id, cantidad"),
+        supabase
+          .from("producto_ventas")
+          .select("*")
+          .gte("fecha_venta", trendStart)
+          .lte("fecha_venta", trendEnd)
+          .order("fecha_venta", { ascending: false }),
+      ]);
 
       if (prodRes.error) throw prodRes.error;
       if (ubRes.error) throw ubRes.error;
@@ -436,8 +445,8 @@ export default function TiendaDashboard() {
 
   const todayStart = getStartOfDay(new Date());
   const todayEnd = getEndOfDay(new Date());
-  const todayVentas = ventas.filter(
-    (v) => isInDateRange(getVentaDate(v), todayStart, todayEnd),
+  const todayVentas = ventas.filter((v) =>
+    isInDateRange(getVentaDate(v), todayStart, todayEnd),
   );
 
   const stats = useMemo(() => {
@@ -506,8 +515,8 @@ export default function TiendaDashboard() {
       d.setDate(d.getDate() - i);
       const dayStart = getStartOfDay(d);
       const dayEnd = getEndOfDay(d);
-      const dayVentas = trendVentas.filter(
-        (v) => isInDateRange(getVentaDate(v), dayStart, dayEnd),
+      const dayVentas = trendVentas.filter((v) =>
+        isInDateRange(getVentaDate(v), dayStart, dayEnd),
       );
       const revenue = dayVentas.reduce(
         (sum, v) => sum + v.precio_unitario * v.cantidad,
@@ -779,19 +788,19 @@ export default function TiendaDashboard() {
           </h2>
           <div className="flex flex-wrap gap-2">
             {isSuperuser && (
-            <button
-              type="button"
-              onClick={handleOpenCierreDialog}
-              disabled={
-                generatingCierre ||
-                filteredVentaRows.length === 0 ||
-                customRangeInvalid
-              }
-              className="inline-flex items-center gap-1.5 rounded-md bg-white px-3 py-2 text-sm font-semibold text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              <DocumentTextIcon className="size-4" />
-              Registrar Cierre
-            </button>
+              <button
+                type="button"
+                onClick={handleOpenCierreDialog}
+                disabled={
+                  generatingCierre ||
+                  filteredVentaRows.length === 0 ||
+                  customRangeInvalid
+                }
+                className="inline-flex items-center gap-1.5 rounded-md bg-white px-3 py-2 text-sm font-semibold text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                <DocumentTextIcon className="size-4" />
+                Registrar Cierre
+              </button>
             )}
             <button
               type="button"
@@ -973,7 +982,9 @@ export default function TiendaDashboard() {
                       </p>
                     </div>
                     <div className="rounded-md bg-purple-50 px-2 py-1.5">
-                      <p className="font-medium text-purple-700">Transferencia</p>
+                      <p className="font-medium text-purple-700">
+                        Transferencia
+                      </p>
                       <p className="font-semibold text-purple-800">
                         {formatCurrency(day.transferencia)}
                       </p>
@@ -1032,7 +1043,9 @@ export default function TiendaDashboard() {
                     key={ventaGroup.id}
                     className="px-4 py-5 hover:bg-gray-50 cursor-pointer transition-colors"
                     onClick={() =>
-                      setExpandedTransaccionId(isExpanded ? null : ventaGroup.id)
+                      setExpandedTransaccionId(
+                        isExpanded ? null : ventaGroup.id,
+                      )
                     }
                   >
                     <div className="flex items-center gap-4">
@@ -1090,13 +1103,15 @@ export default function TiendaDashboard() {
                       >
                         <div className="space-y-1">
                           {ventaGroup.lineas.map((line) => {
-                            const lineTotal = line.precio_unitario * line.cantidad;
+                            const lineTotal =
+                              line.precio_unitario * line.cantidad;
                             return (
                               <p key={line.id}>
                                 <span className="font-medium">
                                   {getProductoName(line.producto_id)}:
                                 </span>{" "}
-                                {line.cantidad} × {formatCurrency(line.precio_unitario)} ={" "}
+                                {line.cantidad} ×{" "}
+                                {formatCurrency(line.precio_unitario)} ={" "}
                                 <span className="font-semibold text-gray-900">
                                   {formatCurrency(lineTotal)}
                                 </span>
@@ -1524,14 +1539,17 @@ export default function TiendaDashboard() {
                 <strong>Líneas:</strong> {ventaPendingDelete.lineas.length}
               </div>
               <div>
-                <strong>Total:</strong> {formatCurrency(ventaPendingDelete.total)}
+                <strong>Total:</strong>{" "}
+                {formatCurrency(ventaPendingDelete.total)}
               </div>
               <div>
-                <strong>Método de pago:</strong> {ventaPendingDelete.metodo_pago}
+                <strong>Método de pago:</strong>{" "}
+                {ventaPendingDelete.metodo_pago}
               </div>
               {ventaPendingDelete.comprobante_url && (
                 <div className="text-xs text-gray-500">
-                  El comprobante asociado también será eliminado del almacenamiento.
+                  El comprobante asociado también será eliminado del
+                  almacenamiento.
                 </div>
               )}
             </div>
