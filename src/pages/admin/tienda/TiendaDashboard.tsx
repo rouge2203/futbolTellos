@@ -1349,48 +1349,6 @@ export default function TiendaDashboard() {
                 ))}
               </div>
             </div>
-
-            {/* Payment Method Breakdown */}
-            {canSeePaymentBreakdown && (
-              <div className="bg-white border rounded-lg shadow-sm p-4 lg:col-span-2">
-                <h3 className="text-sm font-semibold text-gray-900 mb-4">
-                  Desglose por Método de Pago
-                </h3>
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                  <div className="flex items-center gap-3 bg-green-50 rounded-lg p-3">
-                    <LiaMoneyBillWaveSolid className="size-6 text-green-600 shrink-0" />
-                    <div>
-                      <p className="text-xs text-green-700 font-medium">
-                        Efectivo
-                      </p>
-                      <p className="text-lg font-bold text-green-800">
-                        {formatCurrency(paymentBreakdown.efectivo)}
-                      </p>
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-3 bg-blue-50 rounded-lg p-3">
-                    <HiOutlineBanknotes className="size-6 text-blue-600 shrink-0" />
-                    <div>
-                      <p className="text-xs text-blue-700 font-medium">SINPE</p>
-                      <p className="text-lg font-bold text-blue-800">
-                        {formatCurrency(paymentBreakdown.sinpe)}
-                      </p>
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-3 bg-purple-50 rounded-lg p-3">
-                    <RiBankLine className="size-6 text-purple-600 shrink-0" />
-                    <div>
-                      <p className="text-xs text-purple-700 font-medium">
-                        Transferencia
-                      </p>
-                      <p className="text-lg font-bold text-purple-800">
-                        {formatCurrency(paymentBreakdown.transferencia)}
-                      </p>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            )}
           </div>
         )}
       </div>
