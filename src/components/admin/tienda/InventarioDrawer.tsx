@@ -52,6 +52,7 @@ interface InventarioDrawerProps {
   onSaved: () => Promise<void>;
   mode: "ingreso" | "ajuste";
   lote: LoteEditable | null;
+  onRequestAjuste?: (producto: Producto) => void;
 }
 
 interface Distribucion {
@@ -66,6 +67,7 @@ export default function InventarioDrawer({
   onSaved,
   mode,
   lote,
+  onRequestAjuste,
 }: InventarioDrawerProps) {
   const { user } = useAuth();
   const [availableProductos, setAvailableProductos] = useState<Producto[]>([]);
@@ -84,6 +86,7 @@ export default function InventarioDrawer({
   const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false);
   const [saving, setSaving] = useState(false);
   const [loadingProductos, setLoadingProductos] = useState(false);
+  const [ventasBlocked, setVentasBlocked] = useState(false);
 
   const principalUbicacion = ubicaciones.find((u) => u.es_principal);
 
@@ -103,6 +106,7 @@ export default function InventarioDrawer({
       setNota("");
       setOverflowUbicacionId(null);
       setDeleting(false);
+      setVentasBlocked(false);
       return;
     }
 
@@ -157,6 +161,26 @@ export default function InventarioDrawer({
     setNota("");
     setOverflowUbicacionId(null);
   }, [open, lote, mode, productos]);
+
+  useEffect(() => {
+    if (!open || !lote) {
+      setVentasBlocked(false);
+      return;
+    }
+    let cancelled = false;
+    (async () => {
+      try {
+        const blocked = await hasVentasPosteriores();
+        if (!cancelled) setVentasBlocked(blocked);
+      } catch (err) {
+        console.error("Error checking ventas posteriores:", err);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, lote?.lote_id]);
 
   useEffect(() => {
     if (lote) return;
@@ -424,6 +448,39 @@ export default function InventarioDrawer({
                   <div className="flex flex-1 flex-col justify-between">
                     <div className="divide-y divide-gray-200 px-4 sm:px-6">
                       <div className="space-y-5 pt-6 pb-5">
+                        {ventasBlocked && lote && (
+                          <div className="rounded-md bg-amber-50 border border-amber-200 px-3 py-3 text-sm text-amber-900">
+                            <p className="font-semibold">
+                              Este lote ya tiene ventas posteriores.
+                            </p>
+                            <p className="mt-1">
+                              No se puede editar ni eliminar sin romper el
+                              historial. Usá un ajuste para corregir el stock
+                              actual.
+                            </p>
+                            {onRequestAjuste && (
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  const producto = productos.find(
+                                    (p) => p.id === lote.producto_id,
+                                  );
+                                  if (producto) onRequestAjuste(producto);
+                                }}
+                                className="mt-2 inline-flex items-center rounded-md bg-amber-600 px-3 py-1.5 text-xs font-semibold text-white shadow-sm hover:bg-amber-500"
+                              >
+                                Hacer ajuste en su lugar
+                              </button>
+                            )}
+                          </div>
+                        )}
+                        {!lote && formMode === "ajuste" && (
+                          <div className="rounded-md bg-blue-50 border border-blue-200 px-3 py-2 text-xs text-blue-900">
+                            Usá esto para corregir múltiples productos a la vez.
+                            Para mover stock o corregir un solo producto, hacé
+                            clic sobre el producto en la lista.
+                          </div>
+                        )}
                         <div>
                           <label className="block text-sm font-medium text-gray-900 mb-1">
                             Producto
@@ -616,7 +673,7 @@ export default function InventarioDrawer({
                     <button
                       type="button"
                       onClick={handleDelete}
-                      disabled={deleting || saving}
+                      disabled={deleting || saving || ventasBlocked}
                       className="rounded-md bg-red-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-red-500 disabled:opacity-50 disabled:cursor-not-allowed"
                     >
                       {deleting ? "Eliminando..." : "Eliminar lote"}
@@ -632,7 +689,12 @@ export default function InventarioDrawer({
                   <button
                     type="button"
                     onClick={handleSave}
-                    disabled={saving || productoId === "" || totalCantidad === 0}
+                    disabled={
+                      saving ||
+                      productoId === "" ||
+                      totalCantidad === 0 ||
+                      ventasBlocked
+                    }
                     className="rounded-md bg-primary px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-primary/90 disabled:bg-gray-300 disabled:cursor-not-allowed"
                   >
                     {saving ? "Guardando..." : lote ? "Guardar cambios" : "Registrar"}

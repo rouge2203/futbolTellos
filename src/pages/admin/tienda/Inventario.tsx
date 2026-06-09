@@ -3,6 +3,7 @@ import AdminLayout from "../../../components/admin/AdminLayout";
 import InventarioDrawer, {
   type LoteEditable,
 } from "../../../components/admin/tienda/InventarioDrawer";
+import MoverStockDrawer from "../../../components/admin/tienda/MoverStockDrawer";
 import { supabase } from "../../../lib/supabase";
 import { useAuth } from "../../../contexts/AuthContext";
 import { MagnifyingGlassIcon } from "@heroicons/react/20/solid";
@@ -79,6 +80,13 @@ export default function Inventario() {
   const [drawerMode, setDrawerMode] = useState<"ingreso" | "ajuste">("ingreso");
   const [selectedLote, setSelectedLote] = useState<LoteEditable | null>(null);
   const [expandedLotes, setExpandedLotes] = useState<Set<string>>(new Set());
+  const [moverOpen, setMoverOpen] = useState(false);
+  const [moverProducto, setMoverProducto] = useState<Producto | null>(null);
+  const [moverStockByLocation, setMoverStockByLocation] =
+    useState<StockByLocation>({});
+  const [moverInitialTab, setMoverInitialTab] = useState<
+    "transferir" | "corregir"
+  >("transferir");
 
   useEffect(() => {
     fetchData();
@@ -255,6 +263,17 @@ export default function Inventario() {
     setDrawerOpen(true);
   };
 
+  const openMover = (
+    ps: ProductStock,
+    initialTab: "transferir" | "corregir" = "transferir",
+  ) => {
+    if (!isSuperuser) return;
+    setMoverProducto(ps.producto);
+    setMoverStockByLocation(ps.stockByLocation);
+    setMoverInitialTab(initialTab);
+    setMoverOpen(true);
+  };
+
   const handleOpenLoteEdit = (lote: LoteGroup) => {
     if (!lote.producto) {
       alert("No se puede editar: el producto del lote ya no existe.");
@@ -336,7 +355,7 @@ export default function Inventario() {
               onClick={handleOpenAjuste}
               className="rounded-md bg-amber-600 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-amber-500"
             >
-              Registrar Ajuste
+              Ajuste masivo
             </button>
           </div>
           )}
@@ -395,9 +414,26 @@ export default function Inventario() {
                   return (
                     <div
                       key={ps.producto.id}
+                      onClick={isSuperuser ? () => openMover(ps) : undefined}
+                      role={isSuperuser ? "button" : undefined}
+                      tabIndex={isSuperuser ? 0 : undefined}
+                      onKeyDown={
+                        isSuperuser
+                          ? (e) => {
+                              if (e.key === "Enter" || e.key === " ") {
+                                e.preventDefault();
+                                openMover(ps);
+                              }
+                            }
+                          : undefined
+                      }
                       className={`bg-white rounded-lg shadow p-4 ${
                         ps.total === 0 ? "opacity-80" : ""
-                      } ${hasNegative ? "ring-1 ring-red-200" : ""}`}
+                      } ${hasNegative ? "ring-1 ring-red-200" : ""} ${
+                        isSuperuser
+                          ? "cursor-pointer hover:shadow-md hover:ring-1 hover:ring-primary/30 transition-shadow"
+                          : ""
+                      }`}
                     >
                       <div className="flex items-center justify-between mb-3">
                         <div className="flex items-center gap-3">
@@ -575,6 +611,26 @@ export default function Inventario() {
         ubicaciones={ubicaciones}
         mode={drawerMode}
         lote={selectedLote}
+        onSaved={fetchData}
+        onRequestAjuste={(producto) => {
+          const ps = productStocks.find((p) => p.producto.id === producto.id);
+          if (!ps) return;
+          setDrawerOpen(false);
+          setSelectedLote(null);
+          openMover(ps, "corregir");
+        }}
+      />
+
+      <MoverStockDrawer
+        open={moverOpen}
+        onClose={() => {
+          setMoverOpen(false);
+          setMoverProducto(null);
+        }}
+        producto={moverProducto}
+        ubicaciones={ubicaciones}
+        stockByLocation={moverStockByLocation}
+        initialTab={moverInitialTab}
         onSaved={fetchData}
       />
     </AdminLayout>
