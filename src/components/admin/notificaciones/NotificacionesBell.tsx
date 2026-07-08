@@ -51,8 +51,7 @@ export default function NotificacionesBell({
 
       <PopoverPanel
         transition
-        anchor={{ to: "bottom end", gap: 8, padding: 16 }}
-        className="z-50 w-[calc(100vw-2rem)] max-w-sm origin-top-right rounded-lg bg-white shadow-lg ring-1 ring-black/5 transition focus:outline-none data-closed:scale-95 data-closed:opacity-0 data-enter:duration-200 data-enter:ease-out data-leave:duration-75 data-leave:ease-in"
+        className="absolute right-0 z-50 mt-2 w-80 max-w-[calc(100vw-1rem)] origin-top-right rounded-lg bg-white shadow-lg ring-1 ring-black/5 transition focus:outline-none data-closed:scale-95 data-closed:opacity-0 data-enter:duration-200 data-enter:ease-out data-leave:duration-75 data-leave:ease-in"
       >
         <div className="flex items-center justify-between border-b border-gray-200 px-4 py-3">
           <h3 className="text-sm font-semibold text-gray-900">
