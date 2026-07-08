@@ -119,25 +119,15 @@ export default function NotificacionesBell({
                     <span className="absolute inset-0" aria-hidden="true" />
                     <span
                       className={cn(
-                        "block truncate text-sm font-semibold",
+                        "block text-sm font-semibold",
                         n.atendida ? "text-gray-500" : "text-gray-900",
                       )}
                     >
-                      {n.nombre_reserva ?? "Cliente"}
+                      Reserva cancelada ❌
                     </span>
                     <span
                       className={cn(
-                        "mt-0.5 block truncate text-xs",
-                        n.atendida ? "text-gray-400" : "text-gray-600",
-                      )}
-                    >
-                      {detalle}
-                    </span>
-                  </CloseButton>
-                  <p className="mt-1 flex flex-wrap items-center gap-x-1 text-[11px] text-gray-400">
-                    <span
-                      className={cn(
-                        "font-medium",
+                        "mt-0.5 block truncate text-xs font-medium",
                         n.atendida ? "text-gray-400" : "text-primary",
                       )}
                     >
@@ -149,9 +139,10 @@ export default function NotificacionesBell({
                           }`
                         : "Avisar al árbitro"}
                     </span>
-                    <span aria-hidden="true">·</span>
-                    <span>{formatRelative(n.created_at)}</span>
-                  </p>
+                    <span className="mt-0.5 block truncate text-xs text-gray-500">
+                      {detalle} · {formatRelative(n.created_at)}
+                    </span>
+                  </CloseButton>
                 </div>
 
                 {!n.atendida ? (
