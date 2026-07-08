@@ -8,9 +8,8 @@ import { BellIcon, CheckCircleIcon } from "@heroicons/react/24/outline";
 import { CheckCircleIcon as CheckCircleIconSolid } from "@heroicons/react/24/solid";
 import { GiWhistle } from "react-icons/gi";
 import { cn } from "../../../lib/utils";
-import { formatRelative } from "./format";
-import MensajeNotificacion from "./MensajeNotificacion";
-import type { UseNotificacionesResult } from "./types";
+import { formatFechaHoraCorta, formatRelative } from "./format";
+import { esAgrupada, type UseNotificacionesResult } from "./types";
 
 interface NotificacionesBellProps extends UseNotificacionesResult {
   onOpenDetalle: (id: string) => void;
@@ -79,8 +78,17 @@ export default function NotificacionesBell({
             </p>
           </div>
         ) : (
-          <ul className="max-h-96 divide-y divide-gray-100 overflow-y-auto">
-            {notificaciones.map((n) => (
+          <ul className="max-h-96 divide-y divide-gray-100 overflow-y-auto [scrollbar-color:#d1d5db_transparent] [scrollbar-width:thin] [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-gray-300 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar]:w-1.5">
+            {notificaciones.map((n) => {
+              const cuando = esAgrupada(n)
+                ? `${n.cantidad_fechas} fechas`
+                : n.hora_inicio
+                  ? formatFechaHoraCorta(n.hora_inicio)
+                  : null;
+              const detalle = [n.cancha_nombre ?? "Cancha", cuando]
+                .filter(Boolean)
+                .join(" · ");
+              return (
               <li
                 key={n.id}
                 className={cn(
@@ -106,31 +114,43 @@ export default function NotificacionesBell({
                     as="button"
                     type="button"
                     onClick={() => onOpenDetalle(n.id)}
-                    className="text-left focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+                    className="block w-full text-left focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
                   >
                     <span className="absolute inset-0" aria-hidden="true" />
                     <span
                       className={cn(
-                        "block text-sm line-clamp-3",
-                        n.atendida ? "text-gray-400" : "text-gray-700",
+                        "block truncate text-sm font-semibold",
+                        n.atendida ? "text-gray-500" : "text-gray-900",
                       )}
                     >
-                      <MensajeNotificacion
-                        notificacion={n}
-                        muted={n.atendida}
-                      />
+                      {n.nombre_reserva ?? "Cliente"}
+                    </span>
+                    <span
+                      className={cn(
+                        "mt-0.5 block truncate text-xs",
+                        n.atendida ? "text-gray-400" : "text-gray-600",
+                      )}
+                    >
+                      {detalle}
                     </span>
                   </CloseButton>
-                  <p
-                    className={cn(
-                      "mt-1 text-xs",
-                      n.atendida ? "text-gray-300" : "text-gray-400",
-                    )}
-                  >
-                    {formatRelative(n.created_at)}
-                    {n.atendida && n.atendida_por && (
-                      <> · Hecho por {n.atendida_por.split("@")[0]}</>
-                    )}
+                  <p className="mt-1 flex flex-wrap items-center gap-x-1 text-[11px] text-gray-400">
+                    <span
+                      className={cn(
+                        "font-medium",
+                        n.atendida ? "text-gray-400" : "text-primary",
+                      )}
+                    >
+                      {n.atendida
+                        ? `Avisado${
+                            n.atendida_por
+                              ? ` por ${n.atendida_por.split("@")[0]}`
+                              : ""
+                          }`
+                        : "Avisar al árbitro"}
+                    </span>
+                    <span aria-hidden="true">·</span>
+                    <span>{formatRelative(n.created_at)}</span>
                   </p>
                 </div>
 
@@ -152,7 +172,8 @@ export default function NotificacionesBell({
                   />
                 )}
               </li>
-            ))}
+              );
+            })}
           </ul>
         )}
 
