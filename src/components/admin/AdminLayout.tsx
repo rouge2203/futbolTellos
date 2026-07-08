@@ -16,6 +16,9 @@ import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "../../contexts/AuthContext";
 import { FaUser, FaEye, FaSignOutAlt } from "react-icons/fa";
 import { useState } from "react";
+import NotificacionesBell from "./notificaciones/NotificacionesBell";
+import NotificacionDetailDialog from "./notificaciones/NotificacionDetailDialog";
+import { useNotificaciones } from "./notificaciones/useNotificaciones";
 
 const reservacionesItems = [
   {
@@ -205,6 +208,12 @@ export default function AdminLayout({ children, title }: AdminLayoutProps) {
   const navigate = useNavigate();
   const { user, signOut } = useAuth();
   const [signingOut, setSigningOut] = useState(false);
+  const notif = useNotificaciones();
+  const [detalleId, setDetalleId] = useState<string | null>(null);
+  // Derived by id so an open dialog live-updates when another admin marks done.
+  const detalle = detalleId
+    ? (notif.notificaciones.find((n) => n.id === detalleId) ?? null)
+    : null;
 
   const handleNavClick = async (item: { href: string; action?: string }) => {
     if (item.action === "signout") {
@@ -387,6 +396,7 @@ export default function AdminLayout({ children, title }: AdminLayoutProps) {
               </div>
             </div>
             <div className="hidden lg:ml-6 lg:flex lg:items-center">
+              <NotificacionesBell {...notif} onOpenDetalle={setDetalleId} />
               {/* Profile dropdown */}
               <Menu as="div" className="relative ml-3">
                 <MenuButton className="relative flex max-w-xs items-center rounded-full bg-white text-sm focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary">
@@ -445,7 +455,8 @@ export default function AdminLayout({ children, title }: AdminLayoutProps) {
                 </MenuItems>
               </Menu>
             </div>
-            <div className="-mr-2 flex items-center lg:hidden">
+            <div className="-mr-2 flex items-center gap-1 lg:hidden">
+              <NotificacionesBell {...notif} onOpenDetalle={setDetalleId} />
               {/* Mobile menu button */}
               <DisclosureButton className="group relative inline-flex items-center justify-center rounded-md bg-white p-2 text-gray-400 hover:bg-gray-100 hover:text-gray-500 focus:outline-2 focus:outline-offset-2 focus:outline-primary">
                 <span className="absolute -inset-0.5" />
@@ -577,6 +588,14 @@ export default function AdminLayout({ children, title }: AdminLayoutProps) {
           </div>
         </DisclosurePanel>
       </Disclosure>
+
+      <NotificacionDetailDialog
+        open={detalleId !== null}
+        notificacion={detalle}
+        marking={detalleId !== null && notif.markingIds.has(detalleId)}
+        onClose={() => setDetalleId(null)}
+        onMarkAtendida={notif.markAtendida}
+      />
 
       <div className="py-6">
         {title && (
