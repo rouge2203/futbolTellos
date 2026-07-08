@@ -69,6 +69,33 @@ export const formatFechaCorta = (timestamp: string): string =>
     month: "long",
   });
 
+const MONTHS_SHORT = [
+  "ene",
+  "feb",
+  "mar",
+  "abr",
+  "may",
+  "jun",
+  "jul",
+  "ago",
+  "sep",
+  "oct",
+  "nov",
+  "dic",
+];
+
+// "10 ago, 6:00 PM"
+export const formatFechaHoraCorta = (timestamp: string): string => {
+  const date = parseDateFromTimestamp(timestamp);
+  const day = date.getDate();
+  const month = MONTHS_SHORT[date.getMonth()];
+  const hours = date.getHours();
+  const minutes = String(date.getMinutes()).padStart(2, "0");
+  const ampm = hours >= 12 ? "PM" : "AM";
+  const hour12 = hours % 12 || 12;
+  return `${day} ${month}, ${hour12}:${minutes} ${ampm}`;
+};
+
 export const formatFechaLarga = (timestamp: string): string =>
   parseDateFromTimestamp(timestamp).toLocaleDateString("es-CR", {
     weekday: "long",
