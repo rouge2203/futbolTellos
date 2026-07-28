@@ -70,9 +70,12 @@ function CanchaDetails() {
       setError(null);
       try {
         // Fetch cancha
+        // Enumerated on purpose: canchas is world-readable, and sinpe_nombre /
+        // sinpe_numero are the owners' personal numbers. They belong only on
+        // the reserva page, not in every anonymous visitor's payload.
         const { data: canchaData, error: canchaError } = await supabase
           .from("canchas")
-          .select("*")
+          .select("id, nombre, img, cantidad, local, precio")
           .eq("id", id)
           .single();
 

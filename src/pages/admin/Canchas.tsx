@@ -3,6 +3,7 @@ import AdminLayout from "../../components/admin/AdminLayout";
 import EditCanchaDrawer from "../../components/admin/EditCanchaDrawer";
 import SuccessNotification from "../../components/admin/SuccessNotification";
 import { supabase } from "../../lib/supabase";
+import { formatSinpe } from "../../lib/sinpe";
 import { useAuth } from "../../contexts/AuthContext";
 import { FaEdit } from "react-icons/fa";
 import { MdLocationOn } from "react-icons/md";
@@ -15,6 +16,8 @@ interface Cancha {
   cantidad: string;
   local: number;
   precio: string;
+  sinpe_nombre?: string | null;
+  sinpe_numero?: string | null;
 }
 
 interface CanchaWithStats extends Cancha {
@@ -170,6 +173,19 @@ export default function Canchas() {
                   <div className="text-sm text-gray-600">
                     <span className="font-medium">Precio:</span> ₡
                     {cancha.precio}
+                  </div>
+                  <div className="text-sm text-gray-600">
+                    <span className="font-medium">SINPE:</span>{" "}
+                    {/* Mirror what the customer sees: the reserva page needs
+                        BOTH the titular and a valid number, or it shows none. */}
+                    {formatSinpe(cancha.sinpe_numero) &&
+                    cancha.sinpe_nombre?.trim() ? (
+                      `${formatSinpe(cancha.sinpe_numero)} · ${cancha.sinpe_nombre}`
+                    ) : (
+                      <span className="text-red-600 font-medium">
+                        Sin configurar
+                      </span>
+                    )}
                   </div>
                   <div className="flex items-center gap-1 text-sm text-gray-600">
                     <FaRegCalendarCheck className="text-primary" />

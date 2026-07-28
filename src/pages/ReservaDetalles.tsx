@@ -8,6 +8,7 @@ import { IoWarning } from "react-icons/io5";
 import { GiWhistle } from "react-icons/gi";
 import { FiUpload, FiClock } from "react-icons/fi";
 import { supabase } from "../lib/supabase";
+import { formatSinpe } from "../lib/sinpe";
 import { ImCross } from "react-icons/im";
 
 interface Cancha {
@@ -17,6 +18,8 @@ interface Cancha {
   cantidad: string;
   local: number;
   precio?: string;
+  sinpe_nombre?: string | null;
+  sinpe_numero?: string | null;
 }
 
 interface Reserva {
@@ -116,7 +119,9 @@ function ReservaDetalles() {
               img,
               cantidad,
               local,
-              precio
+              precio,
+              sinpe_nombre,
+              sinpe_numero
             )
           `,
           )
@@ -270,8 +275,35 @@ function ReservaDetalles() {
   // Calculate 50% for SINPE
   const sinpeAmount = Math.ceil(precio / 2);
 
+  // The SINPE account belongs to the cancha, not to the business as a whole.
+  // Both fields must be good before we show anything: a half-filled row must
+  // never pair one person's name with another person's number.
+  const sinpeNombre = cancha.sinpe_nombre?.trim() ?? "";
+  const sinpeNumero = formatSinpe(cancha.sinpe_numero);
+  const hasSinpeDatos = sinpeNombre !== "" && sinpeNumero !== "";
+
+  if (!hasSinpeDatos) {
+    console.error(
+      `Cancha ${cancha.id} (${cancha.nombre}) no tiene datos de SINPE configurados`,
+    );
+  }
+
   // Current page URL for sharing
   const reservaUrl = `${window.location.origin}/reserva/${reservaId}`;
+
+  // General business WhatsApp (not a payment destination) — used to ask for the
+  // SINPE data when it is missing, and to request a cancellation. reservaId is a
+  // uuid, so the message names the reservation in human terms and links to it
+  // instead of pasting the id.
+  const reservaResumen = `${nombre} — ${cancha.nombre} (${getLocalName(
+    cancha.local,
+  )}), ${formatDate()} a las ${formatHourAmPm(selectedHour)}`;
+  const whatsappHelpUrl = `https://wa.me/50686167000?text=${encodeURIComponent(
+    `Hola, necesito los datos de SINPE para mi reserva:\n${reservaResumen}\n${reservaUrl}`,
+  )}`;
+  const whatsappCancelUrl = `https://wa.me/50686167000?text=${encodeURIComponent(
+    `Hola, quisiera cancelar mi reserva:\n${reservaResumen}\n${reservaUrl}`,
+  )}`;
 
   const handleCopyLink = () => {
     navigator.clipboard.writeText(reservaUrl);
@@ -557,19 +589,59 @@ function ReservaDetalles() {
         <div className="px-4 mb-6">
           <h3 className="text-white font-medium mb-3">Datos de SINPE Móvil</h3>
           <div className="bg-white/5 rounded-xl p-4 space-y-3">
-            <div className="flex items-center justify-between">
-              <span className="text-white/80 text-sm">A nombre de</span>
-              <span className="text-white font-medium tracking-tighter">
-                Kathia Salas
-              </span>
-            </div>
-            <div className="border-t border-white/10" />
-            <div className="flex items-center justify-between">
-              <span className="text-white/80 text-sm">Número de SINPE</span>
-              <span className="text-white font-medium tracking-tighter">
-                8616-7000
-              </span>
-            </div>
+            {hasSinpeDatos ? (
+              <>
+                <div className="flex items-center justify-between">
+                  <span className="text-white/80 text-sm">A nombre de</span>
+                  <span className="text-white font-medium tracking-tighter">
+                    {sinpeNombre}
+                  </span>
+                </div>
+                <div className="border-t border-white/10" />
+                <div className="flex items-center justify-between">
+                  <span className="text-white/80 text-sm">Número de SINPE</span>
+                  <span className="text-white font-medium tracking-tighter">
+                    {sinpeNumero}
+                  </span>
+                </div>
+              </>
+            ) : (
+              /* Never guess a SINPE number: paying the wrong person is not
+                 recoverable, having to ask us is. The "no pague" wording is
+                 gated on the comprobante — someone who already paid must not
+                 be warned off a payment they have already made. */
+              <div className="bg-yellow-500/10 border border-yellow-500/30 rounded-lg px-3 py-3">
+                <div className="flex items-start gap-3">
+                  <IoWarning className="text-yellow-500 text-xl shrink-0 mt-0.5" />
+                  <div>
+                    {reserva.sinpe_reserva ? (
+                      <p className="text-white/90 text-sm">
+                        No tenemos los datos de SINPE de esta cancha
+                        registrados. Su comprobante ya fue recibido; si tiene
+                        alguna duda escríbanos.
+                      </p>
+                    ) : (
+                      <p className="text-white/90 text-sm">
+                        No tenemos los datos de SINPE de esta cancha.{" "}
+                        <strong className="text-yellow-500">
+                          No realice el pago
+                        </strong>{" "}
+                        sin confirmarlos con nosotros.
+                      </p>
+                    )}
+                    <a
+                      href={whatsappHelpUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="mt-3 w-full py-2 text-white text-sm rounded-lg font-medium flex items-center justify-center gap-2 bg-white/10 hover:bg-white/20 transition-colors"
+                    >
+                      <FaWhatsapp className="text-green-600 text-lg" />
+                      Escribirnos por WhatsApp
+                    </a>
+                  </div>
+                </div>
+              </div>
+            )}
             <div className="border-t border-white/10" />
             <div className="flex items-center justify-between">
               <span className="text-white/80 text-sm">
@@ -763,7 +835,7 @@ function ReservaDetalles() {
           ¿Desea cancelar esta reserva?
         </h3>
         <a
-          href="https://wa.me/50686167000?text=Hola,%20quisiera%20cancelar%20mi%20reserva%del%20:%20"
+          href={whatsappCancelUrl}
           target="_blank"
           rel="noopener noreferrer"
           className="w-full py-3 text-white text-base rounded-lg font-medium flex items-center justify-center gap-2 bg-white/5 hover:bg-white/10  transition-colors"
