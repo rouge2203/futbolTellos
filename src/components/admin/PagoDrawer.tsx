@@ -296,6 +296,7 @@ export default function PagoDrawer({
   const totalPaid = calculateTotalPaid();
   const percentage = calculatePercentage();
   const isComplete = totalPaid >= reserva.precio;
+  const sobrepago = Math.max(0, totalPaid - reserva.precio);
 
   return (
     <Dialog open={open} onClose={onClose} className="relative z-50">
@@ -416,7 +417,16 @@ export default function PagoDrawer({
                                 </span>
                               </div>
                               <div className="border-t border-gray-200 pt-2">
-                                {isComplete ? (
+                                {sobrepago > 0 ? (
+                                  <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1 sm:gap-2">
+                                    <span className="text-red-600 font-semibold text-xs sm:text-sm">
+                                      Sobrepago
+                                    </span>
+                                    <span className="text-red-600 font-bold text-sm">
+                                      Sobra ₡ {sobrepago.toLocaleString()}
+                                    </span>
+                                  </div>
+                                ) : isComplete ? (
                                   <div className="flex items-center justify-between gap-2">
                                     <span className="text-green-600 font-semibold text-xs sm:text-sm">
                                       Pago Completo
@@ -595,7 +605,68 @@ export default function PagoDrawer({
                                 No hay pagos registrados
                               </div>
                             ) : (
-                              <div className="overflow-x-auto -mx-4 sm:mx-0 px-4 sm:px-0">
+                              <>
+                              {/* Móvil: tarjetas en lugar de tabla */}
+                              <ul className="space-y-3 sm:hidden">
+                                {pagos.map((pago) => {
+                                  const total =
+                                    pago.monto_sinpe + pago.monto_efectivo;
+                                  return (
+                                    <li
+                                      key={pago.id}
+                                      className="rounded-lg border border-gray-200 bg-white p-3"
+                                    >
+                                      <div className="flex items-start justify-between gap-2">
+                                        <div className="min-w-0">
+                                          <p className="text-base font-semibold text-gray-900">
+                                            ₡ {total.toLocaleString()}
+                                          </p>
+                                          <p className="mt-0.5 text-xs text-gray-500">
+                                            SINPE ₡{" "}
+                                            {pago.monto_sinpe.toLocaleString()}{" "}
+                                            · Efectivo ₡{" "}
+                                            {pago.monto_efectivo.toLocaleString()}
+                                          </p>
+                                        </div>
+                                        <div className="flex shrink-0 items-center gap-1.5">
+                                          {pago.sinpe_pago && (
+                                            <button
+                                              type="button"
+                                              onClick={() =>
+                                                handlePreviewSinpe(pago)
+                                              }
+                                              className="rounded border border-gray-300 p-1 text-primary transition-colors hover:text-primary/80"
+                                              title="Ver comprobante SINPE"
+                                            >
+                                              <EyeIcon className="size-4" />
+                                            </button>
+                                          )}
+                                          {pago.completo ? (
+                                            <span className="inline-flex items-center rounded-full bg-green-50 px-1.5 py-0.5 text-xs font-extrabold text-green-600">
+                                              ✓
+                                            </span>
+                                          ) : (
+                                            <span className="inline-flex items-center rounded-full bg-yellow-50 px-1.5 py-0.5 text-xs font-extrabold text-yellow-600">
+                                              !
+                                            </span>
+                                          )}
+                                        </div>
+                                      </div>
+                                      {pago.nota && (
+                                        <p className="mt-2 text-xs break-words text-gray-600">
+                                          {pago.nota}
+                                        </p>
+                                      )}
+                                      <p className="mt-2 truncate text-xs text-gray-400">
+                                        Por {getUserDisplay(pago.creado_por)}
+                                      </p>
+                                    </li>
+                                  );
+                                })}
+                              </ul>
+
+                              {/* sm y superiores: tabla */}
+                              <div className="hidden overflow-x-auto sm:block">
                                 <table className="min-w-full divide-y divide-gray-200">
                                   <thead>
                                     <tr>
@@ -675,6 +746,7 @@ export default function PagoDrawer({
                                   </tbody>
                                 </table>
                               </div>
+                              </>
                             )}
                           </div>
                         </div>

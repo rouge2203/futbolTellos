@@ -19,6 +19,7 @@ import {
   ArrowLongRightIcon,
   ClockIcon,
   XMarkIcon,
+  ExclamationTriangleIcon,
 } from "@heroicons/react/20/solid";
 import {
   Switch,
@@ -87,6 +88,20 @@ const MONTHS_SPANISH = [
 ];
 
 const DAYS_SHORT = ["L", "M", "X", "J", "V", "S", "D"];
+
+// Suma del historial de pagos de una reserva (SINPE + efectivo)
+const getTotalPagado = (pagos?: Pago[]): number =>
+  (pagos || []).reduce((sum, p) => sum + p.monto_sinpe + p.monto_efectivo, 0);
+
+// Monto pagado de más sobre el precio de la cancha (0 si no hay sobrepago)
+const getSobrepago = (reserva: Reserva): number =>
+  Math.max(0, getTotalPagado(reserva.pagos) - reserva.precio);
+
+// Coloca las reservas con sobrepago de primero, conservando el orden interno
+const sobrepagoPrimero = (list: Reserva[]): Reserva[] => [
+  ...list.filter((r) => getSobrepago(r) > 0),
+  ...list.filter((r) => getSobrepago(r) === 0),
+];
 
 export default function Pagos() {
   const { user, isSuperuser } = useAuth();
@@ -312,11 +327,11 @@ export default function Pagos() {
         return bDate.getTime() - aDate.getTime();
       });
 
+      // Sobrepagos de primero, antes de paginar para que caigan en la página 1
+      const ordenadas = sobrepagoPrimero(reservasConPagos);
+
       // Apply pagination after sorting
-      const paginatedResults = reservasConPagos.slice(
-        offset,
-        offset + itemsPerPage,
-      );
+      const paginatedResults = ordenadas.slice(offset, offset + itemsPerPage);
 
       setReservas(paginatedResults);
       setTotalResults(reservasConPagos.length);
@@ -480,7 +495,8 @@ export default function Pagos() {
           new Date(a.hora_inicio).getTime() - new Date(b.hora_inicio).getTime(),
       );
 
-      setReservas(finalReservas);
+      // Sobrepagos de primero, el resto conserva el orden por hora
+      setReservas(sobrepagoPrimero(finalReservas));
     } catch (error) {
       console.error("Error fetching reservaciones:", error);
     } finally {
@@ -945,6 +961,7 @@ export default function Pagos() {
   const filterCanchas = [...sabanaCanchas, ...guadalupeCanchas];
 
   const totals = calculateDailyTotals();
+  const reservasConSobrepago = reservas.filter((r) => getSobrepago(r) > 0);
 
   if (loading) {
     return (
@@ -1348,6 +1365,29 @@ export default function Pagos() {
               </button>
             </div>
 
+            {/* Sobrepago Alert */}
+            {!loadingReservas && reservasConSobrepago.length > 0 && (
+              <div className="mb-6 rounded-lg border border-red-200 bg-red-50 p-4">
+                <div className="flex gap-3">
+                  <ExclamationTriangleIcon
+                    aria-hidden="true"
+                    className="size-5 shrink-0 text-red-500"
+                  />
+                  <div className="min-w-0">
+                    <h3 className="text-sm font-semibold text-red-800">
+                      {reservasConSobrepago.length === 1
+                        ? "1 reservación con sobrepago"
+                        : `${reservasConSobrepago.length} reservaciones con sobrepago`}
+                    </h3>
+                    <p className="mt-1 text-sm text-red-700">
+                      Lo pagado supera el precio de la cancha. Se muestran de
+                      primero en la lista — revise el historial de pagos.
+                    </p>
+                  </div>
+                </div>
+              </div>
+            )}
+
             {/* Reservations List */}
             {loadingReservas ? (
               <div className="flex items-center justify-center h-64">
@@ -1362,6 +1402,17 @@ export default function Pagos() {
             ) : (
               <ol className="divide-y divide-gray-100 text-sm/6">
                 {reservas.map((reserva) => {
+                  const totalPagado = getTotalPagado(reserva.pagos);
+                  const sobrepago = getSobrepago(reserva);
+                  const pagadoColor =
+                    sobrepago > 0
+                      ? "text-red-600"
+                      : totalPagado >= reserva.precio
+                        ? "text-green-700"
+                        : totalPagado === 0
+                          ? "text-red-600"
+                          : "text-amber-600";
+
                   const getPagoBadge = () => {
                     if (reserva.pagoStatus === "completo") {
                       return (
@@ -1390,26 +1441,26 @@ export default function Pagos() {
                   return (
                     <li
                       key={reserva.id}
-                      className="relative flex gap-x-6 py-6 xl:static md:px-2"
+                      className="relative flex flex-wrap items-center gap-x-6 gap-y-4 py-6 xl:static md:px-2"
                     >
                       <img
                         alt={reserva.cancha.nombre}
                         src={reserva.cancha.img}
-                        className="size-14 flex-none rounded-full object-cover hover:cursor-pointer"
+                        className="size-12 flex-none rounded-full object-cover hover:cursor-pointer sm:size-14"
                         onClick={() => handleVerPagos(reserva)}
                       />
-                      <div className="flex-auto">
+                      <div className="min-w-0 flex-1">
                         <div
                           className="00 hover:cursor-pointer flex flex-col group"
                           onClick={() => handleVerPagos(reserva)}
                         >
-                          <h3 className="pr-10 font-semibold text-gray-900 xl:pr-0 group-hover:text-gray-600">
+                          <h3 className="font-semibold break-words text-gray-900 group-hover:text-gray-600">
                             {reserva.nombre_reserva}
                           </h3>
                           <dl className="mt-2 flex flex-col text-gray-500 xl:flex-row xl:items-center">
                             {searchMode ? (
                               <>
-                                <div className="flex items-center gap-x-2">
+                                <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
                                   <CalendarIcon
                                     aria-hidden="true"
                                     className="size-4 text-gray-400"
@@ -1447,15 +1498,23 @@ export default function Pagos() {
                                     {getLocalName(reserva.cancha.local)}
                                   </span>
                                 </div>
-                                <div className="mt-1 xl:mt-0 xl:ml-3.5 xl:border-l xl:border-gray-400/50 xl:pl-3.5">
+                                <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 xl:mt-0 xl:ml-3.5 xl:border-l xl:border-gray-400/50 xl:pl-3.5">
                                   <span className="font-semibold text-gray-900">
                                     ₡ {reserva.precio.toLocaleString()}
+                                  </span>
+                                  <span className="text-xs text-gray-400">
+                                    Pagado
+                                  </span>
+                                  <span
+                                    className={`text-sm font-semibold ${pagadoColor}`}
+                                  >
+                                    ₡ {totalPagado.toLocaleString()}
                                   </span>
                                 </div>
                               </>
                             ) : (
                               <>
-                                <div className="flex items-center gap-x-2">
+                                <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
                                   <CalendarIcon
                                     aria-hidden="true"
                                     className="size-4 text-gray-400"
@@ -1476,9 +1535,17 @@ export default function Pagos() {
                                     {getLocalName(reserva.cancha.local)}
                                   </span>
                                 </div>
-                                <div className="mt-1 xl:mt-0 xl:ml-3.5 xl:border-l xl:border-gray-400/50 xl:pl-3.5">
+                                <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 xl:mt-0 xl:ml-3.5 xl:border-l xl:border-gray-400/50 xl:pl-3.5">
                                   <span className="font-semibold text-gray-900">
                                     ₡ {reserva.precio.toLocaleString()}
+                                  </span>
+                                  <span className="text-xs text-gray-400">
+                                    Pagado
+                                  </span>
+                                  <span
+                                    className={`text-sm font-semibold ${pagadoColor}`}
+                                  >
+                                    ₡ {totalPagado.toLocaleString()}
                                   </span>
                                 </div>
                               </>
@@ -1487,6 +1554,12 @@ export default function Pagos() {
                         </div>
                         {/* Payment Status */}
                         <div className="mt-2 flex flex-wrap gap-2">
+                          {sobrepago > 0 && (
+                            <span className="inline-flex items-center gap-1.5 rounded-md bg-red-100 px-3 py-1.5 text-xs font-semibold text-red-700 ring-1 ring-red-300">
+                              <ExclamationTriangleIcon className="size-3.5" />
+                              Sobrepago ₡ {sobrepago.toLocaleString()}
+                            </span>
+                          )}
                           {getPagoBadge()}
                           {/* Pago Checkeado Badge - Only in Cierres Mode */}
                           {cierresMode &&
@@ -1510,10 +1583,10 @@ export default function Pagos() {
                           )}
                         </div>
                       </div>
-                      <div className="flex items-center">
+                      <div className="flex w-full items-center sm:w-auto">
                         <button
                           onClick={() => handleVerPagos(reserva)}
-                          className="rounded-md bg-primary px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-primary/90 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+                          className="w-full rounded-md bg-primary px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-primary/90 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary sm:w-auto"
                         >
                           {reserva.pagos && reserva.pagos.length > 0
                             ? "Ver pagos"
