@@ -390,11 +390,14 @@ export default function Reservas2() {
       if (error) throw error;
 
       // Check if a pago for this SINPE confirmation already exists
+      // Un adelanto anulado no cuenta como registrado: si lo fue, hay que
+      // permitir crear el pago de nuevo.
       const { data: existingPago } = await supabase
         .from("pagos")
         .select("id")
         .eq("reserva_id", reservaId)
         .eq("nota", "Adelanto SINPE confirmado")
+        .is("anulado_at", null)
         .maybeSingle();
 
       // Only create pago if one doesn't already exist

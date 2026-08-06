@@ -118,11 +118,14 @@ export async function generateCierre(
 
       if (reservasData) {
         // Fetch pagos for these reservas
+        // Los pagos anulados no entran al cierre: se excluyen en la query
+        // para que ningun total del reporte los sume.
         const reservaIds = reservasData.map((r: any) => r.id);
         const { data: pagosData } = await supabase
           .from("pagos")
           .select("*")
-          .in("reserva_id", reservaIds);
+          .in("reserva_id", reservaIds)
+          .is("anulado_at", null);
 
         const pagosByReserva: Record<number, Pago[]> = {};
         (pagosData || []).forEach((pago: Pago) => {

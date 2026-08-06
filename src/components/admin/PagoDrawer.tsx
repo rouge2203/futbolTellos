@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, Fragment } from "react";
 import type { User } from "@supabase/supabase-js";
 import { supabase } from "../../lib/supabase";
 import {
@@ -8,8 +8,16 @@ import {
   DialogBackdrop,
   Switch,
 } from "@headlessui/react";
-import { XMarkIcon, EyeIcon } from "@heroicons/react/24/outline";
+import {
+  XMarkIcon,
+  EyeIcon,
+  PencilSquareIcon,
+  TrashIcon,
+} from "@heroicons/react/24/outline";
 import { RiBankLine } from "react-icons/ri";
+import { validarNuevoPago } from "../../lib/pagoValidation";
+import { recomputarCompletos } from "../../lib/recomputarCompletos";
+import { useAuth } from "../../contexts/AuthContext";
 
 interface Cancha {
   id: number;
@@ -30,6 +38,10 @@ interface Pago {
   creado_por: string;
   created_at?: string;
   sinpe_pago: string | null;
+  // Soft delete: un pago anulado se sigue mostrando (queda el rastro de quién
+  // lo anuló) pero no cuenta para ningún total.
+  anulado_at: string | null;
+  anulado_por: string | null;
 }
 
 interface Reserva {
@@ -76,10 +88,27 @@ export default function PagoDrawer({
   cierresMode = false,
   onReservaUpdated,
 }: PagoDrawerProps) {
+  const { isSuperuser } = useAuth();
+
   const [pagos, setPagos] = useState<Pago[]>([]);
   const [loading, setLoading] = useState(false);
   const [showCreateForm, setShowCreateForm] = useState(false);
   const [creating, setCreating] = useState(false);
+
+  // Edición y anulación: sólo superusuarios, y siempre visibles (no dependen
+  // del Modo Cierres).
+  const [editandoPagoId, setEditandoPagoId] = useState<number | null>(null);
+  const [editSinpe, setEditSinpe] = useState<string>("");
+  const [editEfectivo, setEditEfectivo] = useState<string>("");
+  const [editNota, setEditNota] = useState<string>("");
+  const [pagoAAnular, setPagoAAnular] = useState<Pago | null>(null);
+  const [edicionPendiente, setEdicionPendiente] = useState<{
+    pago: Pago;
+    sinpe: number;
+    efectivo: number;
+    nota: string | null;
+  } | null>(null);
+  const [procesando, setProcesando] = useState(false);
 
   // Form state
   const [montoSinpe, setMontoSinpe] = useState<string>("");
@@ -112,6 +141,9 @@ export default function PagoDrawer({
       setNota("");
       setSelectedSinpeFile(null);
       setPagoCheckeado(false);
+      setEditandoPagoId(null);
+      setPagoAAnular(null);
+      setEdicionPendiente(null);
     }
   }, [open, reserva]);
 
@@ -141,8 +173,36 @@ export default function PagoDrawer({
     return creadoPor;
   };
 
+  const estaAnulado = (pago: Pago): boolean => pago.anulado_at != null;
+
+  // Un pago anulado deja de existir para efectos de plata. Todo lo demás
+  // (porcentaje, sobrepago, "Pago Completo", el restante que valida el formulario)
+  // se deriva de este número, así que excluirlos acá alcanza para que el resumen
+  // completo quede coherente.
   const calculateTotalPaid = (): number => {
-    return pagos.reduce((sum, p) => sum + p.monto_sinpe + p.monto_efectivo, 0);
+    return pagos.reduce(
+      (sum, p) => (estaAnulado(p) ? sum : sum + p.monto_sinpe + p.monto_efectivo),
+      0
+    );
+  };
+
+  // Total de los OTROS pagos vivos. Al editar una fila su monto viejo no puede
+  // contar contra el tope del precio: si no, el importe que se está reemplazando
+  // se cobraría dos veces y la edición quedaría bloqueada sin razón.
+  const totalOtrosPagos = (pagoId: number): number => {
+    return pagos.reduce(
+      (sum, p) =>
+        estaAnulado(p) || p.id === pagoId
+          ? sum
+          : sum + p.monto_sinpe + p.monto_efectivo,
+      0
+    );
+  };
+
+  /** parseFloat("") es NaN; acá un campo vacío vale 0, como en el alta. */
+  const aNumero = (valor: string): number => {
+    const n = parseFloat(valor);
+    return Number.isFinite(n) ? n : 0;
   };
 
   const calculatePercentage = (): number => {
@@ -206,10 +266,16 @@ export default function PagoDrawer({
     const sinpe = parseFloat(montoSinpe) || 0;
     const efectivo = parseFloat(montoEfectivo) || 0;
 
-    if (sinpe === 0 && efectivo === 0) {
-      alert("Debe ingresar al menos un monto");
-      return;
-    }
+    // Mismo chequeo que deshabilita el botón: un render viejo no debe poder
+    // colar una fila que la UI ya marcó como inválida.
+    const check = validarNuevoPago({
+      precio: reserva.precio,
+      totalPagado: calculateTotalPaid(),
+      sinpe,
+      efectivo,
+      tieneComprobante: selectedSinpeFile !== null,
+    });
+    if (!check.puedeRegistrar) return;
 
     setCreating(true);
     setUploading(true);
@@ -291,12 +357,336 @@ export default function PagoDrawer({
     setPreviewDialogOpen(true);
   };
 
+  // ---------------------------------------------------------------------------
+  // Anular y editar (superusuarios)
+  // ---------------------------------------------------------------------------
+
+  // RLS: la política de UPDATE de `pagos` sólo deja pasar a is_superuser(), y
+  // PostgREST reporta éxito con CERO filas cuando la política filtra al llamador
+  // (mismo caso documentado en EditCanchaDrawer). Sin este chequeo el drawer
+  // diría "listo" sin haber escrito nada.
+  const assertFilaActualizada = (filas: unknown[] | null) => {
+    if (!filas || filas.length === 0) {
+      throw new Error(
+        "No se pudo guardar: solo un superusuario puede anular o editar pagos."
+      );
+    }
+  };
+
+  const refrescarTodo = async () => {
+    await fetchPagos();
+    await onPagoCreated();
+    if (onReservaUpdated) {
+      await onReservaUpdated();
+    }
+  };
+
+  /**
+   * `completo` se guardó con el acumulado que existía cuando se creó cada fila,
+   * así que después de anular o editar puede quedar mintiendo. Se recalcula
+   * sobre los pagos frescos de la base y se persisten sólo las filas que cambian.
+   */
+  const recomputarYPersistir = async () => {
+    if (!reserva) return;
+
+    const { data, error } = await supabase
+      .from("pagos")
+      .select("*")
+      .eq("reserva_id", reserva.id)
+      .order("created_at", { ascending: false });
+
+    if (error) throw error;
+
+    const frescos = (data || []) as Pago[];
+    const cambios = recomputarCompletos(
+      frescos.map((p) => ({
+        id: p.id,
+        monto_sinpe: p.monto_sinpe,
+        monto_efectivo: p.monto_efectivo,
+        completo: p.completo,
+        created_at: p.created_at ?? null,
+        anulado_at: p.anulado_at,
+      })),
+      reserva.precio
+    );
+
+    for (const cambio of cambios) {
+      const { data: filas, error: errorUpdate } = await supabase
+        .from("pagos")
+        .update({ completo: cambio.completo })
+        .eq("id", cambio.id)
+        .select();
+
+      if (errorUpdate) throw errorUpdate;
+      assertFilaActualizada(filas);
+    }
+  };
+
+  const handleConfirmarAnular = async () => {
+    if (!reserva || !user || !pagoAAnular) return;
+
+    // Mismo criterio de username que handleCreatePago.
+    const username = user.email ? user.email.split("@")[0] : user.id;
+
+    setProcesando(true);
+    try {
+      const { data, error } = await supabase
+        .from("pagos")
+        .update({
+          anulado_at: new Date().toISOString(),
+          anulado_por: username,
+        })
+        .eq("id", pagoAAnular.id)
+        .select();
+
+      if (error) throw error;
+      assertFilaActualizada(data);
+
+      await recomputarYPersistir();
+
+      // Si la fila anulada era la que estaba en edición, el formulario ya no aplica.
+      if (editandoPagoId === pagoAAnular.id) {
+        setEditandoPagoId(null);
+      }
+      setPagoAAnular(null);
+      await refrescarTodo();
+    } catch (error) {
+      console.error("Error anulando pago:", error);
+      alert(
+        error instanceof Error
+          ? error.message
+          : "Error al anular el pago. Por favor intente de nuevo."
+      );
+      // Se recarga desde la base para no dejar la UI mostrando algo que no se guardó.
+      await fetchPagos();
+      setPagoAAnular(null);
+    } finally {
+      setProcesando(false);
+    }
+  };
+
+  const iniciarEdicion = (pago: Pago) => {
+    setEditandoPagoId(pago.id);
+    setEditSinpe(String(pago.monto_sinpe));
+    setEditEfectivo(String(pago.monto_efectivo));
+    setEditNota(pago.nota || "");
+  };
+
+  const cancelarEdicion = () => {
+    setEditandoPagoId(null);
+    setEditSinpe("");
+    setEditEfectivo("");
+    setEditNota("");
+  };
+
+  const handleGuardarEdicion = async () => {
+    if (!edicionPendiente) return;
+
+    const { pago, sinpe, efectivo, nota: notaEditada } = edicionPendiente;
+
+    setProcesando(true);
+    try {
+      const { data, error } = await supabase
+        .from("pagos")
+        .update({
+          monto_sinpe: sinpe,
+          monto_efectivo: efectivo,
+          nota: notaEditada,
+        })
+        .eq("id", pago.id)
+        .select();
+
+      if (error) throw error;
+      assertFilaActualizada(data);
+
+      await recomputarYPersistir();
+
+      setEdicionPendiente(null);
+      cancelarEdicion();
+      await refrescarTodo();
+    } catch (error) {
+      console.error("Error editando pago:", error);
+      alert(
+        error instanceof Error
+          ? error.message
+          : "Error al editar el pago. Por favor intente de nuevo."
+      );
+      await fetchPagos();
+      setEdicionPendiente(null);
+    } finally {
+      setProcesando(false);
+    }
+  };
+
   if (!reserva) return null;
 
   const totalPaid = calculateTotalPaid();
   const percentage = calculatePercentage();
   const isComplete = totalPaid >= reserva.precio;
   const sobrepago = Math.max(0, totalPaid - reserva.precio);
+
+  const validacion = validarNuevoPago({
+    precio: reserva.precio,
+    totalPagado: totalPaid,
+    sinpe: parseFloat(montoSinpe),
+    efectivo: parseFloat(montoEfectivo),
+    tieneComprobante: selectedSinpeFile !== null,
+  });
+
+  const pagoEnEdicion = pagos.find((p) => p.id === editandoPagoId) || null;
+
+  // Se reusan las mismas reglas del alta; lo único distinto es la base contra la
+  // que se mide el tope (los otros pagos vivos) y que el comprobante ya existe
+  // o no existe, no se puede adjuntar.
+  const validacionEdicion = pagoEnEdicion
+    ? validarNuevoPago({
+        precio: reserva.precio,
+        totalPagado: totalOtrosPagos(pagoEnEdicion.id),
+        sinpe: parseFloat(editSinpe),
+        efectivo: parseFloat(editEfectivo),
+        tieneComprobante: pagoEnEdicion.sinpe_pago !== null,
+      })
+    : null;
+
+  const abrirConfirmacionEdicion = (pago: Pago) => {
+    if (!validacionEdicion?.puedeRegistrar) return;
+    setEdicionPendiente({
+      pago,
+      sinpe: aNumero(editSinpe),
+      efectivo: aNumero(editEfectivo),
+      nota: editNota.trim() || null,
+    });
+  };
+
+  // Función normal (no componente): así el JSX se inserta en el mismo árbol y
+  // los inputs no pierden el foco en cada tecla.
+  const renderFormularioEdicion = (pago: Pago) => (
+    <div className="mt-3 space-y-3 rounded-lg border border-primary/30 bg-gray-50 p-3">
+      <h4 className="text-xs font-semibold text-gray-900">Editar pago</h4>
+      <div>
+        <label className="block text-xs font-medium text-gray-900 mb-1">
+          Monto SINPE
+        </label>
+        <input
+          type="number"
+          step="0.01"
+          min="0"
+          value={editSinpe}
+          onChange={(e) => setEditSinpe(e.target.value)}
+          placeholder="0"
+          className="block w-full rounded-md bg-white border border-gray-300 px-3 py-1.5 text-sm text-gray-900 outline-1 -outline-offset-1 outline-gray-300 placeholder:text-gray-400 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-primary"
+        />
+      </div>
+      <div>
+        <label className="block text-xs font-medium text-gray-900 mb-1">
+          Monto Efectivo
+        </label>
+        <input
+          type="number"
+          step="0.01"
+          min="0"
+          value={editEfectivo}
+          onChange={(e) => setEditEfectivo(e.target.value)}
+          placeholder="0"
+          className="block w-full rounded-md bg-white border border-gray-300 px-3 py-1.5 text-sm text-gray-900 outline-1 -outline-offset-1 outline-gray-300 placeholder:text-gray-400 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-primary"
+        />
+      </div>
+      <div>
+        <label className="block text-xs font-medium text-gray-900 mb-1">
+          Nota (opcional)
+        </label>
+        <textarea
+          value={editNota}
+          onChange={(e) => setEditNota(e.target.value)}
+          placeholder="Notas adicionales..."
+          rows={2}
+          className="block w-full rounded-md bg-white border border-gray-300 px-3 py-1.5 text-sm text-gray-900 outline-1 -outline-offset-1 outline-gray-300 placeholder:text-gray-400 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-primary"
+        />
+      </div>
+
+      <p className="text-xs text-gray-500">
+        El comprobante no se puede cambiar al editar.
+      </p>
+
+      {validacionEdicion &&
+        (validacionEdicion.montoInvalido ||
+          validacionEdicion.faltaComprobante ||
+          validacionEdicion.sinMonto ||
+          validacionEdicion.yaPagada ||
+          validacionEdicion.excedePrecio) && (
+          <div className="rounded-md border border-red-200 bg-red-50 p-3 space-y-1">
+            {validacionEdicion.montoInvalido && (
+              <p className="text-xs font-semibold text-red-700">
+                Los montos no pueden ser negativos.
+              </p>
+            )}
+            {validacionEdicion.faltaComprobante && (
+              <p className="text-xs font-semibold text-red-700">
+                Anule este pago y regístrelo de nuevo con el comprobante.
+              </p>
+            )}
+            {validacionEdicion.sinMonto && (
+              <p className="text-xs font-semibold text-red-700">
+                El pago no puede quedar en ₡ 0. Si desea eliminarlo, anúlelo.
+              </p>
+            )}
+            {validacionEdicion.yaPagada && (
+              <p className="text-xs font-semibold text-red-700">
+                Los demás pagos ya cubren el precio de la reserva. Anule este
+                pago en vez de editarlo.
+              </p>
+            )}
+            {validacionEdicion.excedePrecio && (
+              <p className="text-xs font-semibold text-red-700">
+                El total excede el precio de la cancha. Máximo para este pago: ₡{" "}
+                {validacionEdicion.restante.toLocaleString()}
+              </p>
+            )}
+          </div>
+        )}
+
+      <div className="flex gap-2">
+        <button
+          type="button"
+          onClick={cancelarEdicion}
+          className="flex-1 rounded-md bg-white px-3 py-2 text-xs font-semibold text-gray-900 shadow-xs ring-1 ring-inset ring-gray-300 hover:bg-gray-50"
+        >
+          Cancelar
+        </button>
+        <button
+          type="button"
+          onClick={() => abrirConfirmacionEdicion(pago)}
+          disabled={procesando || !validacionEdicion?.puedeRegistrar}
+          className="flex-1 rounded-md bg-primary px-3 py-2 text-xs font-semibold text-white shadow-xs hover:bg-primary/90 disabled:bg-gray-700 disabled:cursor-not-allowed"
+        >
+          Guardar cambios
+        </button>
+      </div>
+    </div>
+  );
+
+  const renderAccionesSuperuser = (pago: Pago) => (
+    <div className="flex shrink-0 items-center gap-1.5">
+      <button
+        type="button"
+        onClick={() => iniciarEdicion(pago)}
+        className="rounded border border-gray-300 p-1 text-gray-600 transition-colors hover:text-primary"
+        title="Editar pago"
+      >
+        <PencilSquareIcon className="size-4" />
+        <span className="sr-only">Editar pago</span>
+      </button>
+      <button
+        type="button"
+        onClick={() => setPagoAAnular(pago)}
+        className="rounded border border-gray-300 p-1 text-gray-600 transition-colors hover:text-red-600"
+        title="Anular pago"
+      >
+        <TrashIcon className="size-4" />
+        <span className="sr-only">Anular pago</span>
+      </button>
+    </div>
+  );
 
   return (
     <Dialog open={open} onClose={onClose} className="relative z-50">
@@ -519,6 +909,7 @@ export default function PagoDrawer({
                                     <input
                                       type="number"
                                       step="0.01"
+                                      min="0"
                                       value={montoSinpe}
                                       onChange={(e) =>
                                         setMontoSinpe(e.target.value)
@@ -526,6 +917,10 @@ export default function PagoDrawer({
                                       placeholder="0"
                                       className="block w-full rounded-md bg-white border border-gray-300 px-3 py-1.5 text-sm text-gray-900 outline-1 -outline-offset-1 outline-gray-300 placeholder:text-gray-400 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-primary"
                                     />
+                                    <p className="mt-1 text-xs text-gray-500">
+                                      Si ingresa un monto SINPE, el comprobante
+                                      es obligatorio.
+                                    </p>
                                   </div>
                                   <div>
                                     <label className="block text-xs font-medium text-gray-900 mb-1">
@@ -534,6 +929,7 @@ export default function PagoDrawer({
                                     <input
                                       type="number"
                                       step="0.01"
+                                      min="0"
                                       value={montoEfectivo}
                                       onChange={(e) =>
                                         setMontoEfectivo(e.target.value)
@@ -556,7 +952,14 @@ export default function PagoDrawer({
                                   </div>
                                   <div>
                                     <label className="block text-xs font-medium text-gray-900 mb-1">
-                                      Comprobante de SINPE (opcional)
+                                      Comprobante de SINPE{" "}
+                                      {validacion.comprobanteRequerido ? (
+                                        <span className="text-red-600 font-semibold">
+                                          (obligatorio)
+                                        </span>
+                                      ) : (
+                                        "(opcional)"
+                                      )}
                                     </label>
                                     <input
                                       ref={fileInputRef}
@@ -572,6 +975,48 @@ export default function PagoDrawer({
                                       </p>
                                     )}
                                   </div>
+
+                                  {/* Restricciones: comprobante obligatorio y tope del precio */}
+                                  {(validacion.faltaComprobante ||
+                                    validacion.excedePrecio ||
+                                    validacion.yaPagada ||
+                                    validacion.montoInvalido) && (
+                                    <div className="rounded-md border border-red-200 bg-red-50 p-3 space-y-1">
+                                      {validacion.montoInvalido && (
+                                        <p className="text-xs font-semibold text-red-700">
+                                          Los montos no pueden ser negativos.
+                                        </p>
+                                      )}
+                                      {validacion.faltaComprobante && (
+                                        <p className="text-xs font-semibold text-red-700">
+                                          Debe adjuntar el comprobante del
+                                          SINPE.
+                                        </p>
+                                      )}
+                                      {validacion.yaPagada && (
+                                        <p className="text-xs font-semibold text-red-700">
+                                          Esta reserva ya está pagada por
+                                          completo. No se pueden registrar más
+                                          pagos.
+                                        </p>
+                                      )}
+                                      {validacion.excedePrecio && (
+                                        <p className="text-xs font-semibold text-red-700">
+                                          El total excede el precio de la
+                                          cancha. Máximo restante: ₡{" "}
+                                          {validacion.restante.toLocaleString()}
+                                        </p>
+                                      )}
+                                      {(validacion.excedePrecio ||
+                                        validacion.yaPagada) && (
+                                        <p className="text-xs text-red-600">
+                                          Si el precio real de esta reservación
+                                          es mayor, vaya a Reservaciones y edite
+                                          el precio de la reservación.
+                                        </p>
+                                      )}
+                                    </div>
+                                  )}
                                   <div className="flex gap-2">
                                     <button
                                       type="button"
@@ -580,6 +1025,10 @@ export default function PagoDrawer({
                                         setMontoSinpe("");
                                         setMontoEfectivo("");
                                         setNota("");
+                                        setSelectedSinpeFile(null);
+                                        if (fileInputRef.current) {
+                                          fileInputRef.current.value = "";
+                                        }
                                       }}
                                       className="flex-1 rounded-md bg-white px-3 py-2 text-xs font-semibold text-gray-900 shadow-xs ring-1 ring-inset ring-gray-300 hover:bg-gray-50"
                                     >
@@ -588,7 +1037,7 @@ export default function PagoDrawer({
                                     <button
                                       type="button"
                                       onClick={handleCreatePago}
-                                      disabled={creating}
+                                      disabled={creating || !validacion.puedeRegistrar}
                                       className="flex-1 rounded-md bg-primary px-3 py-2 text-xs font-semibold text-white shadow-xs hover:bg-primary/90 disabled:bg-gray-700 disabled:cursor-not-allowed"
                                     >
                                       {creating
@@ -611,17 +1060,34 @@ export default function PagoDrawer({
                                 {pagos.map((pago) => {
                                   const total =
                                     pago.monto_sinpe + pago.monto_efectivo;
+                                  const anulado = estaAnulado(pago);
                                   return (
                                     <li
                                       key={pago.id}
-                                      className="rounded-lg border border-gray-200 bg-white p-3"
+                                      className={`rounded-lg border p-3 ${
+                                        anulado
+                                          ? "border-gray-200 bg-gray-50"
+                                          : "border-gray-200 bg-white"
+                                      }`}
                                     >
                                       <div className="flex items-start justify-between gap-2">
                                         <div className="min-w-0">
-                                          <p className="text-base font-semibold text-gray-900">
+                                          <p
+                                            className={`text-base font-semibold ${
+                                              anulado
+                                                ? "text-gray-400 line-through"
+                                                : "text-gray-900"
+                                            }`}
+                                          >
                                             ₡ {total.toLocaleString()}
                                           </p>
-                                          <p className="mt-0.5 text-xs text-gray-500">
+                                          <p
+                                            className={`mt-0.5 text-xs ${
+                                              anulado
+                                                ? "text-gray-400 line-through"
+                                                : "text-gray-500"
+                                            }`}
+                                          >
                                             SINPE ₡{" "}
                                             {pago.monto_sinpe.toLocaleString()}{" "}
                                             · Efectivo ₡{" "}
@@ -641,7 +1107,11 @@ export default function PagoDrawer({
                                               <EyeIcon className="size-4" />
                                             </button>
                                           )}
-                                          {pago.completo ? (
+                                          {anulado ? (
+                                            <span className="inline-flex items-center rounded-full bg-gray-100 px-1.5 py-0.5 text-xs font-semibold text-gray-500">
+                                              Anulado
+                                            </span>
+                                          ) : pago.completo ? (
                                             <span className="inline-flex items-center rounded-full bg-green-50 px-1.5 py-0.5 text-xs font-extrabold text-green-600">
                                               ✓
                                             </span>
@@ -650,16 +1120,37 @@ export default function PagoDrawer({
                                               !
                                             </span>
                                           )}
+                                          {/* Una fila anulada no ofrece acciones. */}
+                                          {isSuperuser &&
+                                            !anulado &&
+                                            editandoPagoId !== pago.id &&
+                                            renderAccionesSuperuser(pago)}
                                         </div>
                                       </div>
                                       {pago.nota && (
-                                        <p className="mt-2 text-xs break-words text-gray-600">
+                                        <p
+                                          className={`mt-2 text-xs break-words ${
+                                            anulado
+                                              ? "text-gray-400 line-through"
+                                              : "text-gray-600"
+                                          }`}
+                                        >
                                           {pago.nota}
                                         </p>
                                       )}
                                       <p className="mt-2 truncate text-xs text-gray-400">
                                         Por {getUserDisplay(pago.creado_por)}
                                       </p>
+                                      {anulado && (
+                                        <p className="mt-1 truncate text-xs font-medium text-gray-500">
+                                          Anulado por{" "}
+                                          {pago.anulado_por || "desconocido"}
+                                        </p>
+                                      )}
+                                      {isSuperuser &&
+                                        !anulado &&
+                                        editandoPagoId === pago.id &&
+                                        renderFormularioEdicion(pago)}
                                     </li>
                                   );
                                 })}
@@ -688,15 +1179,33 @@ export default function PagoDrawer({
                                       <th className="px-2 py-1.5 text-left text-xs font-medium text-gray-600 uppercase tracking-wider hidden md:table-cell">
                                         Por
                                       </th>
+                                      {isSuperuser && (
+                                        <th className="px-2 py-1.5 text-right text-xs font-medium text-gray-600 uppercase tracking-wider">
+                                          <span className="sr-only">
+                                            Acciones
+                                          </span>
+                                        </th>
+                                      )}
                                     </tr>
                                   </thead>
                                   <tbody className="divide-y divide-gray-200">
                                     {pagos.map((pago) => {
                                       const total =
                                         pago.monto_sinpe + pago.monto_efectivo;
+                                      const anulado = estaAnulado(pago);
+                                      const estiloMonto = anulado
+                                        ? "text-gray-400 line-through"
+                                        : "text-gray-900";
+                                      const editandoEstaFila =
+                                        isSuperuser &&
+                                        !anulado &&
+                                        editandoPagoId === pago.id;
                                       return (
-                                        <tr key={pago.id}>
-                                          <td className="px-2 py-1.5 text-xs text-gray-900">
+                                        <Fragment key={pago.id}>
+                                          <tr className={anulado ? "bg-gray-50" : undefined}>
+                                          <td
+                                            className={`px-2 py-1.5 text-xs ${estiloMonto}`}
+                                          >
                                             <div className="flex items-center gap-1.5">
                                               <span>
                                                 ₡{" "}
@@ -716,18 +1225,42 @@ export default function PagoDrawer({
                                               )}
                                             </div>
                                           </td>
-                                          <td className="px-2 py-1.5 text-xs text-gray-900">
+                                          <td
+                                            className={`px-2 py-1.5 text-xs ${estiloMonto}`}
+                                          >
                                             ₡{" "}
                                             {pago.monto_efectivo.toLocaleString()}
                                           </td>
-                                          <td className="px-2 py-1.5 text-xs font-medium text-gray-900">
+                                          <td
+                                            className={`px-2 py-1.5 text-xs font-medium ${estiloMonto}`}
+                                          >
                                             ₡ {total.toLocaleString()}
                                           </td>
-                                          <td className="px-2 py-1.5 text-xs text-gray-600 hidden sm:table-cell">
+                                          <td
+                                            className={`px-2 py-1.5 text-xs hidden sm:table-cell ${
+                                              anulado
+                                                ? "text-gray-400 line-through"
+                                                : "text-gray-600"
+                                            }`}
+                                          >
                                             {pago.nota || "-"}
                                           </td>
                                           <td className="px-2 py-1.5">
-                                            {pago.completo ? (
+                                            {anulado ? (
+                                              // La columna "Por" se esconde en pantallas chicas,
+                                              // así que la autoría de la anulación va acá para que
+                                              // se vea siempre.
+                                              <span className="inline-flex flex-col items-start rounded bg-gray-100 px-1.5 py-0.5 text-gray-500">
+                                                <span className="text-xs font-semibold">
+                                                  Anulado
+                                                </span>
+                                                <span className="text-[10px] whitespace-nowrap">
+                                                  por{" "}
+                                                  {pago.anulado_por ||
+                                                    "desconocido"}
+                                                </span>
+                                              </span>
+                                            ) : pago.completo ? (
                                               <span className="inline-flex items-center rounded-full bg-green-50 px-1.5 py-0.5 text-xs font-extrabold text-green-600">
                                                 ✓
                                               </span>
@@ -737,10 +1270,37 @@ export default function PagoDrawer({
                                               </span>
                                             )}
                                           </td>
-                                          <td className="px-2 py-1.5 text-xs text-gray-600 hidden md:table-cell truncate max-w-[100px]">
+                                          <td
+                                            className={`px-2 py-1.5 text-xs hidden md:table-cell truncate max-w-[100px] ${
+                                              anulado
+                                                ? "text-gray-400"
+                                                : "text-gray-600"
+                                            }`}
+                                          >
                                             {getUserDisplay(pago.creado_por)}
                                           </td>
-                                        </tr>
+                                          {isSuperuser && (
+                                            <td className="px-2 py-1.5">
+                                              {/* Una fila anulada no ofrece acciones. */}
+                                              {!anulado &&
+                                                !editandoEstaFila && (
+                                                  <div className="flex justify-end">
+                                                    {renderAccionesSuperuser(
+                                                      pago
+                                                    )}
+                                                  </div>
+                                                )}
+                                            </td>
+                                          )}
+                                          </tr>
+                                          {editandoEstaFila && (
+                                            <tr>
+                                              <td colSpan={7} className="px-2 pb-3">
+                                                {renderFormularioEdicion(pago)}
+                                              </td>
+                                            </tr>
+                                          )}
+                                        </Fragment>
                                       );
                                     })}
                                   </tbody>
@@ -842,6 +1402,196 @@ export default function PagoDrawer({
                   className="rounded-md bg-primary px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-primary/90"
                 >
                   Cerrar
+                </button>
+              </div>
+            </DialogPanel>
+          </div>
+        </div>
+      </Dialog>
+
+      {/* Confirmación de anulación (mismo patrón anidado y z-60 que el preview) */}
+      <Dialog
+        open={pagoAAnular !== null}
+        onClose={() => {
+          if (!procesando) setPagoAAnular(null);
+        }}
+        className="relative z-60"
+      >
+        <DialogBackdrop
+          transition
+          className="fixed inset-0 bg-black/80 transition-opacity data-closed:opacity-0 data-enter:duration-300 data-enter:ease-out data-leave:duration-200 data-leave:ease-in"
+        />
+        <div className="fixed inset-0 z-10 overflow-y-auto">
+          <div className="flex min-h-full items-center justify-center p-4">
+            <DialogPanel
+              transition
+              className="relative transform overflow-hidden rounded-xl bg-white shadow-2xl transition-all data-closed:opacity-0 data-closed:scale-95 data-enter:duration-300 data-enter:ease-out data-leave:duration-200 data-leave:ease-in max-w-md w-full"
+            >
+              <div className="bg-red-600 px-4 py-3">
+                <DialogTitle className="text-base font-semibold text-white">
+                  Anular pago
+                </DialogTitle>
+              </div>
+              <div className="p-4 space-y-3">
+                {pagoAAnular && (
+                  <>
+                    <div className="rounded-lg border border-gray-200 bg-gray-50 p-3 space-y-1">
+                      <div className="flex items-center justify-between">
+                        <span className="text-sm text-gray-600">Monto:</span>
+                        <span className="text-lg font-bold text-gray-900">
+                          ₡{" "}
+                          {(
+                            pagoAAnular.monto_sinpe +
+                            pagoAAnular.monto_efectivo
+                          ).toLocaleString()}
+                        </span>
+                      </div>
+                      <p className="text-xs text-gray-500">
+                        SINPE ₡ {pagoAAnular.monto_sinpe.toLocaleString()} ·
+                        Efectivo ₡{" "}
+                        {pagoAAnular.monto_efectivo.toLocaleString()}
+                      </p>
+                    </div>
+                    <p className="text-sm text-gray-700">
+                      Este pago dejará de contar en el total de la reserva y en
+                      los cierres. La fila queda visible como anulada; no se
+                      borra.
+                    </p>
+                  </>
+                )}
+              </div>
+              <div className="bg-gray-50 px-4 py-3 flex justify-end gap-2">
+                <button
+                  type="button"
+                  onClick={() => setPagoAAnular(null)}
+                  disabled={procesando}
+                  className="rounded-md bg-white px-4 py-2 text-sm font-semibold text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 hover:bg-gray-50 disabled:opacity-50"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="button"
+                  onClick={handleConfirmarAnular}
+                  disabled={procesando}
+                  className="rounded-md bg-red-600 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-red-500 disabled:bg-gray-400 disabled:cursor-not-allowed"
+                >
+                  {procesando ? "Anulando..." : "Anular pago"}
+                </button>
+              </div>
+            </DialogPanel>
+          </div>
+        </div>
+      </Dialog>
+
+      {/* Confirmación de edición: ANTES -> DESPUÉS antes de tocar la base */}
+      <Dialog
+        open={edicionPendiente !== null}
+        onClose={() => {
+          if (!procesando) setEdicionPendiente(null);
+        }}
+        className="relative z-60"
+      >
+        <DialogBackdrop
+          transition
+          className="fixed inset-0 bg-black/80 transition-opacity data-closed:opacity-0 data-enter:duration-300 data-enter:ease-out data-leave:duration-200 data-leave:ease-in"
+        />
+        <div className="fixed inset-0 z-10 overflow-y-auto">
+          <div className="flex min-h-full items-center justify-center p-4">
+            <DialogPanel
+              transition
+              className="relative transform overflow-hidden rounded-xl bg-white shadow-2xl transition-all data-closed:opacity-0 data-closed:scale-95 data-enter:duration-300 data-enter:ease-out data-leave:duration-200 data-leave:ease-in max-w-md w-full"
+            >
+              <div className="bg-primary px-4 py-3">
+                <DialogTitle className="text-base font-semibold text-white">
+                  Confirmar cambios del pago
+                </DialogTitle>
+              </div>
+              <div className="p-4 space-y-3">
+                {edicionPendiente && (
+                  <>
+                    <div className="rounded-lg border border-gray-200 overflow-hidden">
+                      <div className="grid grid-cols-3 bg-gray-100 px-3 py-1.5 text-xs font-semibold text-gray-600">
+                        <span></span>
+                        <span className="text-right">Antes</span>
+                        <span className="text-right">Después</span>
+                      </div>
+                      <div className="grid grid-cols-3 px-3 py-1.5 text-xs text-gray-900 border-t border-gray-200">
+                        <span className="text-gray-600">SINPE</span>
+                        <span className="text-right">
+                          ₡{" "}
+                          {edicionPendiente.pago.monto_sinpe.toLocaleString()}
+                        </span>
+                        <span className="text-right font-semibold">
+                          ₡ {edicionPendiente.sinpe.toLocaleString()}
+                        </span>
+                      </div>
+                      <div className="grid grid-cols-3 px-3 py-1.5 text-xs text-gray-900 border-t border-gray-200">
+                        <span className="text-gray-600">Efectivo</span>
+                        <span className="text-right">
+                          ₡{" "}
+                          {edicionPendiente.pago.monto_efectivo.toLocaleString()}
+                        </span>
+                        <span className="text-right font-semibold">
+                          ₡ {edicionPendiente.efectivo.toLocaleString()}
+                        </span>
+                      </div>
+                      <div className="grid grid-cols-3 px-3 py-1.5 text-xs border-t border-gray-200 bg-gray-50">
+                        <span className="text-gray-600 font-semibold">
+                          Total
+                        </span>
+                        <span className="text-right text-gray-900">
+                          ₡{" "}
+                          {(
+                            edicionPendiente.pago.monto_sinpe +
+                            edicionPendiente.pago.monto_efectivo
+                          ).toLocaleString()}
+                        </span>
+                        <span className="text-right font-bold text-gray-900">
+                          ₡{" "}
+                          {(
+                            edicionPendiente.sinpe + edicionPendiente.efectivo
+                          ).toLocaleString()}
+                        </span>
+                      </div>
+                    </div>
+                    {(edicionPendiente.pago.nota || edicionPendiente.nota) && (
+                      <div className="rounded-lg border border-gray-200 p-3 text-xs space-y-1">
+                        <p className="text-gray-600">
+                          Nota antes:{" "}
+                          <span className="text-gray-900">
+                            {edicionPendiente.pago.nota || "-"}
+                          </span>
+                        </p>
+                        <p className="text-gray-600">
+                          Nota después:{" "}
+                          <span className="text-gray-900 font-semibold">
+                            {edicionPendiente.nota || "-"}
+                          </span>
+                        </p>
+                      </div>
+                    )}
+                    <p className="text-xs text-gray-500">
+                      El comprobante del SINPE no cambia.
+                    </p>
+                  </>
+                )}
+              </div>
+              <div className="bg-gray-50 px-4 py-3 flex justify-end gap-2">
+                <button
+                  type="button"
+                  onClick={() => setEdicionPendiente(null)}
+                  disabled={procesando}
+                  className="rounded-md bg-white px-4 py-2 text-sm font-semibold text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 hover:bg-gray-50 disabled:opacity-50"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="button"
+                  onClick={handleGuardarEdicion}
+                  disabled={procesando}
+                  className="rounded-md bg-primary px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-primary/90 disabled:bg-gray-400 disabled:cursor-not-allowed"
+                >
+                  {procesando ? "Guardando..." : "Guardar cambios"}
                 </button>
               </div>
             </DialogPanel>

@@ -70,6 +70,10 @@ interface Pago {
   creado_por: string;
   created_at?: string;
   sinpe_pago: string | null;
+  // Soft delete: un pago anulado no cuenta para ningun total. Aqui se filtra
+  // desde la query, pero el campo viaja en el tipo que recibe PagoDrawer.
+  anulado_at: string | null;
+  anulado_por: string | null;
 }
 
 interface Reto {
@@ -330,7 +334,13 @@ export default function Dashboard() {
       let retosData: any[] = [];
       if (reservaIds.length > 0) {
         const [pagosResult, retosResult] = await Promise.all([
-          supabase.from("pagos").select("*").in("reserva_id", reservaIds),
+          // Los pagos anulados no cuentan en ningun total: los excluimos aca,
+          // en el origen, en vez de en cada suma que consume este arreglo.
+          supabase
+            .from("pagos")
+            .select("*")
+            .in("reserva_id", reservaIds)
+            .is("anulado_at", null),
           supabase
             .from("retos")
             .select(
@@ -464,7 +474,13 @@ export default function Dashboard() {
       let retosData: any[] = [];
       if (reservaIds.length > 0) {
         const [pagosResult, retosResult] = await Promise.all([
-          supabase.from("pagos").select("*").in("reserva_id", reservaIds),
+          // Los pagos anulados no cuentan en ningun total: los excluimos aca,
+          // en el origen, en vez de en cada suma que consume este arreglo.
+          supabase
+            .from("pagos")
+            .select("*")
+            .in("reserva_id", reservaIds)
+            .is("anulado_at", null),
           supabase
             .from("retos")
             .select(
@@ -929,11 +945,14 @@ export default function Dashboard() {
       }
 
       // Check if a pago for this SINPE confirmation already exists
+      // Un adelanto anulado no cuenta como registrado: si lo fue, hay que
+      // permitir crear el pago de nuevo.
       const { data: existingPago } = await supabase
         .from("pagos")
         .select("id")
         .eq("reserva_id", reservaId)
         .eq("nota", "Adelanto SINPE confirmado")
+        .is("anulado_at", null)
         .maybeSingle();
 
       // Only create pago if one doesn't already exist

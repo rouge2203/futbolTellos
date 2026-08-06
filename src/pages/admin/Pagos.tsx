@@ -54,6 +54,10 @@ interface Pago {
   creado_por: string;
   created_at?: string;
   sinpe_pago: string | null;
+  // Soft delete: un pago anulado no cuenta para ningun total. Aqui se filtra
+  // desde la query, pero el campo viaja en el tipo que recibe PagoDrawer.
+  anulado_at: string | null;
+  anulado_por: string | null;
 }
 
 interface Reserva {
@@ -241,10 +245,13 @@ export default function Pagos() {
       const reservaIds = results.map((r: any) => r.id);
       let pagosData: any[] = [];
       if (reservaIds.length > 0) {
+        // Los pagos anulados no cuentan en ningun total: los excluimos aca,
+        // en el origen, en vez de en cada suma que consume este arreglo.
         const { data: pagos, error: pagosError } = await supabase
           .from("pagos")
           .select("*")
-          .in("reserva_id", reservaIds);
+          .in("reserva_id", reservaIds)
+          .is("anulado_at", null);
 
         if (pagosError) throw pagosError;
         pagosData = pagos || [];
@@ -414,10 +421,13 @@ export default function Pagos() {
       const reservaIds = filteredReservas.map((r: any) => r.id);
       let pagosData: any[] = [];
       if (reservaIds.length > 0) {
+        // Los pagos anulados no cuentan en ningun total: los excluimos aca,
+        // en el origen, en vez de en cada suma que consume este arreglo.
         const { data, error: pagosError } = await supabase
           .from("pagos")
           .select("*")
-          .in("reserva_id", reservaIds);
+          .in("reserva_id", reservaIds)
+          .is("anulado_at", null);
 
         if (pagosError) throw pagosError;
         pagosData = data || [];
@@ -715,10 +725,13 @@ export default function Pagos() {
         .single();
 
       if (!error && data) {
+        // Los pagos anulados no cuentan: el estado de pago de la reserva se
+        // recalcula solo con los vigentes.
         const { data: pagosData } = await supabase
           .from("pagos")
           .select("*")
-          .eq("reserva_id", selectedReserva.id);
+          .eq("reserva_id", selectedReserva.id)
+          .is("anulado_at", null);
 
         const pagos = pagosData || [];
         let pagoStatus: "no_registrado" | "incompleto" | "completo" =
@@ -768,10 +781,13 @@ export default function Pagos() {
         .single();
 
       if (!error && data) {
+        // Los pagos anulados no cuentan: el estado de pago de la reserva se
+        // recalcula solo con los vigentes.
         const { data: pagosData } = await supabase
           .from("pagos")
           .select("*")
-          .eq("reserva_id", selectedReserva.id);
+          .eq("reserva_id", selectedReserva.id)
+          .is("anulado_at", null);
 
         const pagos = pagosData || [];
         let pagoStatus: "no_registrado" | "incompleto" | "completo" =
@@ -888,10 +904,12 @@ export default function Pagos() {
 
           // Fetch pagos for these reservas
           const reservaIds = reservasData.map((r: any) => r.id);
+          // Los pagos anulados no suman al total de SINPE/efectivo.
           const { data: pagosData } = await supabase
             .from("pagos")
             .select("monto_sinpe, monto_efectivo")
-            .in("reserva_id", reservaIds);
+            .in("reserva_id", reservaIds)
+            .is("anulado_at", null);
 
           if (pagosData) {
             pagosData.forEach((p: any) => {

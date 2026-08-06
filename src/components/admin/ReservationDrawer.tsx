@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import type { User } from "@supabase/supabase-js";
 import { supabase } from "../../lib/supabase";
+import { recomputarCompletos } from "../../lib/recomputarCompletos";
 import { Link, useNavigate } from "react-router-dom";
 import {
   Dialog,
@@ -242,10 +243,13 @@ export default function ReservationDrawer({
       setConvertToReto(false);
 
       const fetchPagos = async () => {
+        // Filtramos los anulados en la query: hay muchos totales que suman
+        // sobre este arreglo y excluirlos en el origen es lo unico seguro.
         const { data, error } = await supabase
           .from("pagos")
           .select("*")
-          .eq("reserva_id", reserva.id);
+          .eq("reserva_id", reserva.id)
+          .is("anulado_at", null);
 
         if (!error && data) {
           setPagos(data);
@@ -459,21 +463,39 @@ export default function ReservationDrawer({
 
       // Recalculate pago completo flags based on new price
       if (editPrecio !== reserva.precio) {
-        const { data: allPagos } = await supabase
+        // Un pago anulado no aporta plata, asi que no debe mover el acumulado
+        // que decide la bandera "completo".
+        const { data: allPagos, error: errorPagos } = await supabase
           .from("pagos")
-          .select("id, monto_sinpe, monto_efectivo")
+          .select("id, monto_sinpe, monto_efectivo, completo, created_at")
           .eq("reserva_id", reserva.id)
+          .is("anulado_at", null)
           .order("created_at", { ascending: true });
 
-        if (allPagos && allPagos.length > 0) {
-          let runningTotal = 0;
-          for (const pago of allPagos) {
-            runningTotal += pago.monto_sinpe + pago.monto_efectivo;
-            const shouldBeCompleto = runningTotal >= editPrecio;
-            await supabase
-              .from("pagos")
-              .update({ completo: shouldBeCompleto })
-              .eq("id", pago.id);
+        if (errorPagos) throw errorPagos;
+
+        // Mismo camino que PagoDrawer: una sola implementacion del acumulado
+        // (recomputarCompletos) y se persisten solo las filas que cambian.
+        const cambios = recomputarCompletos(allPagos || [], editPrecio);
+
+        for (const cambio of cambios) {
+          const { data: filas, error: errorUpdate } = await supabase
+            .from("pagos")
+            .update({ completo: cambio.completo })
+            .eq("id", cambio.id)
+            .select();
+
+          if (errorUpdate) throw errorUpdate;
+
+          // RLS: la politica de UPDATE de `pagos` solo deja pasar a
+          // is_superuser(), y PostgREST responde 200 con CERO filas cuando la
+          // politica filtra al llamador. Sin este chequeo el precio quedaria
+          // cambiado y los pagos seguirian diciendo "Pago completo" con la mitad
+          // cobrada, sin ningun aviso.
+          if (!filas || filas.length === 0) {
+            throw new Error(
+              "El precio se guardó, pero no se pudieron recalcular los pagos: solo un superusuario puede editarlos. Pida a un superusuario que revise los pagos de esta reservación.",
+            );
           }
         }
       }
@@ -511,7 +533,14 @@ export default function ReservationDrawer({
       await onRefresh();
     } catch (error) {
       console.error("Error updating reserva:", error);
-      alert("Error al actualizar la reservación");
+      // Los errores de Supabase son objetos planos y caen en el texto generico;
+      // solo los Error que lanzamos aca (p.ej. RLS bloqueando los pagos) traen un
+      // mensaje que el admin necesita leer tal cual.
+      alert(
+        error instanceof Error
+          ? error.message
+          : "Error al actualizar la reservación",
+      );
     } finally {
       setUpdating(false);
     }
@@ -570,11 +599,14 @@ export default function ReservationDrawer({
       if (error) throw error;
 
       // Check if a pago for this SINPE confirmation already exists
+      // Un adelanto anulado no cuenta como registrado: si lo fue, hay que
+      // permitir crear el pago de nuevo.
       const { data: existingPago } = await supabase
         .from("pagos")
         .select("id")
         .eq("reserva_id", reserva.id)
         .eq("nota", "Adelanto SINPE confirmado")
+        .is("anulado_at", null)
         .maybeSingle();
 
       // Only create pago if one doesn't already exist
