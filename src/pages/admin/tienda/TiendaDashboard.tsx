@@ -6,6 +6,7 @@ import VentaDrawer, {
 } from "../../../components/admin/tienda/VentaDrawer";
 import ConfirmDialog from "../../../components/admin/tienda/ConfirmDialog";
 import { supabase } from "../../../lib/supabase";
+import { filterStockRows } from "../../../lib/stockActual";
 import { useAuth } from "../../../contexts/AuthContext";
 import {
   generateCierreTienda,
@@ -276,44 +277,29 @@ export default function TiendaDashboard() {
       const trendStart = getStartOfDay(trendStartDate);
       const trendEnd = getEndOfDay(new Date());
 
-      const [
-        prodRes,
-        ubRes,
-        ventasRes,
-        invRes,
-        stockVentasRes,
-        trendVentasRes,
-      ] = await Promise.all([
-        supabase.from("productos").select("*").eq("activo", true),
-        supabase.from("ubicaciones").select("*").eq("activo", true),
-        supabase
-          .from("producto_ventas")
-          .select("*")
-          .gte("fecha_venta", dateRange.start)
-          .lte("fecha_venta", dateRange.end)
-          .order("fecha_venta", { ascending: false }),
-        supabase
-          .from("producto_inventario")
-          .select(
-            "producto_id, ubicacion_id, cantidad, precio_venta, costo_unitario, created_at",
-          )
-          .order("created_at", { ascending: false }),
-        supabase
-          .from("producto_ventas")
-          .select("producto_id, ubicacion_id, cantidad"),
-        supabase
-          .from("producto_ventas")
-          .select("*")
-          .gte("fecha_venta", trendStart)
-          .lte("fecha_venta", trendEnd)
-          .order("fecha_venta", { ascending: false }),
-      ]);
+      const [prodRes, ubRes, ventasRes, stockRes, trendVentasRes] =
+        await Promise.all([
+          supabase.from("productos").select("*").eq("activo", true),
+          supabase.from("ubicaciones").select("*").eq("activo", true),
+          supabase
+            .from("producto_ventas")
+            .select("*")
+            .gte("fecha_venta", dateRange.start)
+            .lte("fecha_venta", dateRange.end)
+            .order("fecha_venta", { ascending: false }),
+          supabase.from("stock_actual").select("*"),
+          supabase
+            .from("producto_ventas")
+            .select("*")
+            .gte("fecha_venta", trendStart)
+            .lte("fecha_venta", trendEnd)
+            .order("fecha_venta", { ascending: false }),
+        ]);
 
       if (prodRes.error) throw prodRes.error;
       if (ubRes.error) throw ubRes.error;
       if (ventasRes.error) throw ventasRes.error;
-      if (invRes.error) throw invRes.error;
-      if (stockVentasRes.error) throw stockVentasRes.error;
+      if (stockRes.error) throw stockRes.error;
       if (trendVentasRes.error) throw trendVentasRes.error;
 
       const activeProductos = (prodRes.data ?? []) as Producto[];
@@ -326,45 +312,13 @@ export default function TiendaDashboard() {
       setVentas((ventasRes.data ?? []) as Venta[]);
       setTrendVentas((trendVentasRes.data ?? []) as Venta[]);
 
-      const invRows = invRes.data ?? [];
-      const stockMap = new Map<string, StockInfo>();
-      for (const row of invRows) {
-        if (
-          !activeProductoIds.has(row.producto_id) ||
-          !activeUbicacionIds.has(row.ubicacion_id)
-        ) {
-          continue;
-        }
-        const key = `${row.producto_id}-${row.ubicacion_id}`;
-        const existing = stockMap.get(key);
-        if (existing) {
-          existing.stock += row.cantidad;
-        } else {
-          stockMap.set(key, {
-            producto_id: row.producto_id,
-            ubicacion_id: row.ubicacion_id,
-            stock: row.cantidad,
-            precio_venta: row.precio_venta,
-            costo_unitario: row.costo_unitario,
-          });
-        }
-      }
-
-      for (const row of stockVentasRes.data ?? []) {
-        if (
-          !activeProductoIds.has(row.producto_id) ||
-          !activeUbicacionIds.has(row.ubicacion_id)
-        ) {
-          continue;
-        }
-        const key = `${row.producto_id}-${row.ubicacion_id}`;
-        const existing = stockMap.get(key);
-        if (existing) {
-          existing.stock -= row.cantidad;
-        }
-      }
-
-      setStockData(Array.from(stockMap.values()));
+      setStockData(
+        filterStockRows(
+          (stockRes.data ?? []) as StockInfo[],
+          activeProductoIds,
+          activeUbicacionIds,
+        ),
+      );
     } catch (error) {
       console.error("Error fetching data:", error);
     } finally {

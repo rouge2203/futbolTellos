@@ -5,6 +5,10 @@ import InventarioDrawer, {
 } from "../../../components/admin/tienda/InventarioDrawer";
 import MoverStockDrawer from "../../../components/admin/tienda/MoverStockDrawer";
 import { supabase } from "../../../lib/supabase";
+import {
+  buildProductStocks,
+  type StockActualRow,
+} from "../../../lib/stockActual";
 import { useAuth } from "../../../contexts/AuthContext";
 import { MagnifyingGlassIcon } from "@heroicons/react/20/solid";
 import { ChevronDownIcon, ChevronRightIcon } from "@heroicons/react/24/outline";
@@ -38,12 +42,6 @@ interface InventarioEntry {
   tipo: "ingreso" | "ajuste";
 }
 
-interface VentaEntry {
-  producto_id: number;
-  ubicacion_id: number;
-  cantidad: number;
-}
-
 interface StockByLocation {
   [ubicacionId: number]: number;
 }
@@ -71,7 +69,7 @@ export default function Inventario() {
   const [productosLookup, setProductosLookup] = useState<Producto[]>([]);
   const [ubicaciones, setUbicaciones] = useState<Ubicacion[]>([]);
   const [inventario, setInventario] = useState<InventarioEntry[]>([]);
-  const [ventas, setVentas] = useState<VentaEntry[]>([]);
+  const [stockRows, setStockRows] = useState<StockActualRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
   const [filterUbicacion, setFilterUbicacion] = useState<number | "">("");
@@ -95,7 +93,7 @@ export default function Inventario() {
   const fetchData = async () => {
     setLoading(true);
     try {
-      const [prodRes, allProdRes, ubRes, invRes, ventasRes] = await Promise.all([
+      const [prodRes, allProdRes, ubRes, invRes, stockRes] = await Promise.all([
         supabase
           .from("productos")
           .select("*")
@@ -107,22 +105,20 @@ export default function Inventario() {
           .from("producto_inventario")
           .select("*")
           .order("created_at", { ascending: false }),
-        supabase
-          .from("producto_ventas")
-          .select("producto_id, ubicacion_id, cantidad"),
+        supabase.from("stock_actual").select("*"),
       ]);
 
       if (prodRes.error) throw prodRes.error;
       if (allProdRes.error) throw allProdRes.error;
       if (ubRes.error) throw ubRes.error;
       if (invRes.error) throw invRes.error;
-      if (ventasRes.error) throw ventasRes.error;
+      if (stockRes.error) throw stockRes.error;
 
       setProductos(prodRes.data || []);
       setProductosLookup(allProdRes.data || []);
       setUbicaciones(ubRes.data || []);
       setInventario(invRes.data || []);
-      setVentas(ventasRes.data || []);
+      setStockRows((stockRes.data || []) as StockActualRow[]);
     } catch (error) {
       console.error("Error fetching data:", error);
     } finally {
@@ -130,38 +126,10 @@ export default function Inventario() {
     }
   };
 
-  const productStocks: ProductStock[] = useMemo(() => {
-    return productos.map((producto) => {
-      const stockByLocation: StockByLocation = {};
-
-      ubicaciones.forEach((u) => {
-        stockByLocation[u.id] = 0;
-      });
-
-      inventario
-        .filter((i) => i.producto_id === producto.id)
-        .forEach((i) => {
-          if (stockByLocation[i.ubicacion_id] !== undefined) {
-            stockByLocation[i.ubicacion_id] += i.cantidad;
-          }
-        });
-
-      ventas
-        .filter((v) => v.producto_id === producto.id)
-        .forEach((v) => {
-          if (stockByLocation[v.ubicacion_id] !== undefined) {
-            stockByLocation[v.ubicacion_id] -= v.cantidad;
-          }
-        });
-
-      const total = Object.values(stockByLocation).reduce(
-        (sum, val) => sum + val,
-        0,
-      );
-
-      return { producto, stockByLocation, total };
-    });
-  }, [productos, ubicaciones, inventario, ventas]);
+  const productStocks: ProductStock[] = useMemo(
+    () => buildProductStocks(productos, ubicaciones, stockRows),
+    [productos, ubicaciones, stockRows],
+  );
 
   const loteGroups: LoteGroup[] = useMemo(() => {
     const groups: { [loteId: string]: InventarioEntry[] } = {};
