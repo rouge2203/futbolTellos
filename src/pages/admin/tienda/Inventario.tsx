@@ -5,6 +5,7 @@ import InventarioDrawer, {
 } from "../../../components/admin/tienda/InventarioDrawer";
 import MoverStockDrawer from "../../../components/admin/tienda/MoverStockDrawer";
 import { supabase } from "../../../lib/supabase";
+import { fetchAllPages } from "../../../lib/fetchAllPages";
 import {
   buildProductStocks,
   type StockActualRow,
@@ -93,7 +94,7 @@ export default function Inventario() {
   const fetchData = async () => {
     setLoading(true);
     try {
-      const [prodRes, allProdRes, ubRes, invRes, stockRes] = await Promise.all([
+      const [prodRes, allProdRes, ubRes, invRows, stockRes] = await Promise.all([
         supabase
           .from("productos")
           .select("*")
@@ -101,23 +102,26 @@ export default function Inventario() {
           .order("nombre"),
         supabase.from("productos").select("*").order("nombre"),
         supabase.from("ubicaciones").select("*").eq("activo", true).order("id"),
-        supabase
-          .from("producto_inventario")
-          .select("*")
-          .order("created_at", { ascending: false }),
+        fetchAllPages<InventarioEntry>((from, to) =>
+          supabase
+            .from("producto_inventario")
+            .select("*")
+            .order("created_at", { ascending: false })
+            .order("id", { ascending: false })
+            .range(from, to),
+        ),
         supabase.from("stock_actual").select("*"),
       ]);
 
       if (prodRes.error) throw prodRes.error;
       if (allProdRes.error) throw allProdRes.error;
       if (ubRes.error) throw ubRes.error;
-      if (invRes.error) throw invRes.error;
       if (stockRes.error) throw stockRes.error;
 
       setProductos(prodRes.data || []);
       setProductosLookup(allProdRes.data || []);
       setUbicaciones(ubRes.data || []);
-      setInventario(invRes.data || []);
+      setInventario(invRows);
       setStockRows((stockRes.data || []) as StockActualRow[]);
     } catch (error) {
       console.error("Error fetching data:", error);

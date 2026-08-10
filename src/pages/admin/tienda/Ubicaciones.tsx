@@ -55,33 +55,23 @@ export default function Ubicaciones() {
     try {
       const counts: StockCount = {};
 
-      const { data: inventario, error: invError } = await supabase
-        .from("producto_inventario")
-        .select("ubicacion_id, cantidad");
+      const { data: stockRows, error: stockError } = await supabase
+        .from("stock_actual")
+        .select("ubicacion_id, stock");
 
-      if (invError) throw invError;
-
-      const { data: ventas, error: ventasError } = await supabase
-        .from("producto_ventas")
-        .select("ubicacion_id, cantidad");
-
-      if (ventasError) throw ventasError;
+      if (stockError) throw stockError;
 
       for (const ub of ubicacionesList) {
         counts[ub.id] = 0;
       }
 
-      (inventario || []).forEach((item: any) => {
-        if (item.ubicacion_id && counts[item.ubicacion_id] !== undefined) {
-          counts[item.ubicacion_id] += item.cantidad || 0;
-        }
-      });
-
-      (ventas || []).forEach((item: any) => {
-        if (item.ubicacion_id && counts[item.ubicacion_id] !== undefined) {
-          counts[item.ubicacion_id] -= item.cantidad || 0;
-        }
-      });
+      (stockRows || []).forEach(
+        (item: { ubicacion_id: number; stock: number }) => {
+          if (item.ubicacion_id && counts[item.ubicacion_id] !== undefined) {
+            counts[item.ubicacion_id] += item.stock || 0;
+          }
+        },
+      );
 
       setStockCounts(counts);
     } catch (error) {

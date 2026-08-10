@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import AdminLayout from "../../components/admin/AdminLayout";
 import { supabase } from "../../lib/supabase";
+import { fetchAllPages } from "../../lib/fetchAllPages";
 import {
   ArrowLeftIcon,
   DocumentTextIcon,
@@ -68,13 +69,15 @@ export default function Cierres() {
   const fetchCierres = async () => {
     setLoading(true);
     try {
-      const { data, error } = await supabase
-        .from("cierres")
-        .select("*")
-        .order("created_at", { ascending: false });
-
-      if (error) throw error;
-      setCierres(data || []);
+      const data = await fetchAllPages<Cierre>((from, to) =>
+        supabase
+          .from("cierres")
+          .select("*")
+          .order("created_at", { ascending: false })
+          .order("id", { ascending: false })
+          .range(from, to),
+      );
+      setCierres(data);
     } catch (error) {
       console.error("Error fetching cierres:", error);
     } finally {

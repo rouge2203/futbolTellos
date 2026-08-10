@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import AdminLayout from "../../components/admin/AdminLayout";
 import { supabase } from "../../lib/supabase";
+import { fetchAllPages } from "../../lib/fetchAllPages";
 import { FaCheck, FaTimes, FaEye } from "react-icons/fa";
 
 interface Reserva {
@@ -29,30 +30,33 @@ export default function Reservas() {
   const fetchReservas = async () => {
     setLoading(true);
     try {
-      let query = supabase
-        .from("reservas")
-        .select(
+      const data = await fetchAllPages<Reserva>((from, to) => {
+        let query = supabase
+          .from("reservas")
+          .select(
+            `
+            *,
+            cancha:cancha_id (
+              id,
+              nombre,
+              local
+            )
           `
-          *,
-          cancha:cancha_id (
-            id,
-            nombre,
-            local
           )
-        `
-        )
-        .order("hora_inicio", { ascending: false });
+          .order("hora_inicio", { ascending: false })
+          .order("id", { ascending: false })
+          .range(from, to);
 
-      if (filter === "pending") {
-        query = query.not("sinpe_reserva", "is", null).is("confirmada", null);
-      } else if (filter === "confirmed") {
-        query = query.eq("confirmada", true);
-      }
+        if (filter === "pending") {
+          query = query.not("sinpe_reserva", "is", null).is("confirmada", null);
+        } else if (filter === "confirmed") {
+          query = query.eq("confirmada", true);
+        }
 
-      const { data, error } = await query;
+        return query;
+      });
 
-      if (error) throw error;
-      setReservas(data || []);
+      setReservas(data);
     } catch (error) {
       console.error("Error fetching reservas:", error);
     } finally {

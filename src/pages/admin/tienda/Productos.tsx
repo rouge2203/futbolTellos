@@ -2,6 +2,7 @@ import { useState, useEffect, useMemo } from "react";
 import AdminLayout from "../../../components/admin/AdminLayout";
 import ProductoDrawer from "../../../components/admin/tienda/ProductoDrawer";
 import { supabase } from "../../../lib/supabase";
+import { fetchAllPages } from "../../../lib/fetchAllPages";
 import { useAuth } from "../../../contexts/AuthContext";
 import { CubeIcon, MagnifyingGlassIcon } from "@heroicons/react/24/outline";
 
@@ -58,20 +59,27 @@ export default function Productos() {
       thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
       const dateBoundary = thirtyDaysAgo.toISOString();
 
-      const [productosRes, ventasRes] = await Promise.all([
+      const [productosRes, ventasRows] = await Promise.all([
         supabase.from("productos").select("*"),
-        supabase
-          .from("producto_ventas")
-          .select("producto_id, cantidad, created_at")
-          .gte("created_at", dateBoundary),
+        fetchAllPages<{
+          producto_id: number;
+          cantidad: number;
+          created_at: string;
+        }>((from, to) =>
+          supabase
+            .from("producto_ventas")
+            .select("producto_id, cantidad, created_at")
+            .gte("created_at", dateBoundary)
+            .order("id", { ascending: true })
+            .range(from, to),
+        ),
       ]);
 
       const { data, error } = productosRes;
       if (error) throw error;
-      if (ventasRes.error) throw ventasRes.error;
 
       const salesMap: Record<number, number> = {};
-      for (const row of ventasRes.data ?? []) {
+      for (const row of ventasRows) {
         const productoId = row.producto_id;
         salesMap[productoId] = (salesMap[productoId] ?? 0) + (row.cantidad ?? 0);
       }

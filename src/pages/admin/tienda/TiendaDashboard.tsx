@@ -6,6 +6,7 @@ import VentaDrawer, {
 } from "../../../components/admin/tienda/VentaDrawer";
 import ConfirmDialog from "../../../components/admin/tienda/ConfirmDialog";
 import { supabase } from "../../../lib/supabase";
+import { fetchAllPages } from "../../../lib/fetchAllPages";
 import { filterStockRows } from "../../../lib/stockActual";
 import { useAuth } from "../../../contexts/AuthContext";
 import {
@@ -277,30 +278,36 @@ export default function TiendaDashboard() {
       const trendStart = getStartOfDay(trendStartDate);
       const trendEnd = getEndOfDay(new Date());
 
-      const [prodRes, ubRes, ventasRes, stockRes, trendVentasRes] =
+      const [prodRes, ubRes, ventasRows, stockRes, trendVentasRows] =
         await Promise.all([
           supabase.from("productos").select("*").eq("activo", true),
           supabase.from("ubicaciones").select("*").eq("activo", true),
-          supabase
-            .from("producto_ventas")
-            .select("*")
-            .gte("fecha_venta", dateRange.start)
-            .lte("fecha_venta", dateRange.end)
-            .order("fecha_venta", { ascending: false }),
+          fetchAllPages<Venta>((from, to) =>
+            supabase
+              .from("producto_ventas")
+              .select("*")
+              .gte("fecha_venta", dateRange.start)
+              .lte("fecha_venta", dateRange.end)
+              .order("fecha_venta", { ascending: false })
+              .order("id", { ascending: false })
+              .range(from, to),
+          ),
           supabase.from("stock_actual").select("*"),
-          supabase
-            .from("producto_ventas")
-            .select("*")
-            .gte("fecha_venta", trendStart)
-            .lte("fecha_venta", trendEnd)
-            .order("fecha_venta", { ascending: false }),
+          fetchAllPages<Venta>((from, to) =>
+            supabase
+              .from("producto_ventas")
+              .select("*")
+              .gte("fecha_venta", trendStart)
+              .lte("fecha_venta", trendEnd)
+              .order("fecha_venta", { ascending: false })
+              .order("id", { ascending: false })
+              .range(from, to),
+          ),
         ]);
 
       if (prodRes.error) throw prodRes.error;
       if (ubRes.error) throw ubRes.error;
-      if (ventasRes.error) throw ventasRes.error;
       if (stockRes.error) throw stockRes.error;
-      if (trendVentasRes.error) throw trendVentasRes.error;
 
       const activeProductos = (prodRes.data ?? []) as Producto[];
       const activeUbicaciones = (ubRes.data ?? []) as Ubicacion[];
@@ -309,8 +316,8 @@ export default function TiendaDashboard() {
 
       setProductos(activeProductos);
       setUbicaciones(activeUbicaciones);
-      setVentas((ventasRes.data ?? []) as Venta[]);
-      setTrendVentas((trendVentasRes.data ?? []) as Venta[]);
+      setVentas(ventasRows);
+      setTrendVentas(trendVentasRows);
 
       setStockData(
         filterStockRows(
