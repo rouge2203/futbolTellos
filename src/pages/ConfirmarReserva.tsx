@@ -62,6 +62,7 @@ function ConfirmarReserva() {
 
   // Form states
   const [nombre, setNombre] = useState("");
+  const [apellido, setApellido] = useState("");
   const [celular, setCelular] = useState("");
   const [correo, setCorreo] = useState("");
 
@@ -185,9 +186,16 @@ function ConfirmarReserva() {
   const correoTrimmed = correo.trim();
   const emailOk = !correoTrimmed || isValidEmail(correoTrimmed);
 
-  // Check if form is valid (celular required; correo optional but validated when present)
+  // Stored as a single field, so nombre and apellido are joined before use
+  const nombreCompleto = `${nombre.trim()} ${apellido.trim()}`.trim();
+
+  // Check if form is valid (nombre, apellido and celular required; correo
+  // optional but validated when present)
   const isFormValid =
-    Boolean(nombre.trim()) && isValidCelular(celular) && emailOk;
+    Boolean(nombre.trim()) &&
+    Boolean(apellido.trim()) &&
+    isValidCelular(celular) &&
+    emailOk;
 
   const canSubmit = isFormValid && sinpeAcknowledged;
 
@@ -246,7 +254,7 @@ function ConfirmarReserva() {
         .insert({
           hora_inicio: formatLocalTimestamp(horaInicio),
           hora_fin: formatLocalTimestamp(horaFin),
-          nombre_reserva: nombre,
+          nombre_reserva: nombreCompleto,
           celular_reserva: celular,
           correo_reserva: correoForDb,
           cancha_id: cancha.id,
@@ -280,7 +288,7 @@ function ConfirmarReserva() {
               cancha_id: cancha.id,
               cancha_nombre: cancha.nombre,
               cancha_local: cancha.local,
-              nombre_reserva: nombre,
+              nombre_reserva: nombreCompleto,
               celular_reserva: celular,
               correo_reserva: correoForDb || "",
               precio: finalPrice,
@@ -333,7 +341,7 @@ function ConfirmarReserva() {
         selectedPlayers,
         precio: getFinalPrice(),
         arbitro: effectiveArbitro,
-        nombre,
+        nombre: nombreCompleto,
         celular,
         correo,
         reservaId,
@@ -545,24 +553,50 @@ function ConfirmarReserva() {
       <div className="px-4 mb-6 space-y-4">
         <h3 className="text-white font-medium">Datos de contacto</h3>
 
-        {/* Nombre */}
-        <div>
-          <label
-            htmlFor="nombre"
-            className="block text-sm/6 font-medium text-white"
-          >
-            Nombre completo
-          </label>
-          <div className="mt-2">
-            <input
-              id="nombre"
-              name="nombre"
-              type="text"
-              placeholder="Mi Nombre"
-              value={nombre}
-              onChange={(e) => setNombre(e.target.value)}
-              className="block w-full rounded-md bg-white/5 px-3 py-1.5 text-base text-white outline-1 -outline-offset-1 outline-white/10 placeholder:text-gray-500 focus:outline-2 focus:-outline-offset-2 focus:outline-primary sm:text-sm/6"
-            />
+        {/* Nombre y apellido */}
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+          <div>
+            <label
+              htmlFor="nombre"
+              className="block text-sm/6 font-medium text-white"
+            >
+              Nombre <span className="text-red-400">*</span>
+            </label>
+            <div className="mt-2">
+              <input
+                id="nombre"
+                name="nombre"
+                type="text"
+                placeholder="Mi Nombre"
+                value={nombre}
+                onChange={(e) => setNombre(e.target.value)}
+                autoComplete="given-name"
+                aria-required="true"
+                className="block w-full rounded-md bg-white/5 px-3 py-1.5 text-base text-white outline-1 -outline-offset-1 outline-white/10 placeholder:text-gray-500 focus:outline-2 focus:-outline-offset-2 focus:outline-primary sm:text-sm/6"
+              />
+            </div>
+          </div>
+
+          <div>
+            <label
+              htmlFor="apellido"
+              className="block text-sm/6 font-medium text-white"
+            >
+              Apellido <span className="text-red-400">*</span>
+            </label>
+            <div className="mt-2">
+              <input
+                id="apellido"
+                name="apellido"
+                type="text"
+                placeholder="Mi Apellido"
+                value={apellido}
+                onChange={(e) => setApellido(e.target.value)}
+                autoComplete="family-name"
+                aria-required="true"
+                className="block w-full rounded-md bg-white/5 px-3 py-1.5 text-base text-white outline-1 -outline-offset-1 outline-white/10 placeholder:text-gray-500 focus:outline-2 focus:-outline-offset-2 focus:outline-primary sm:text-sm/6"
+              />
+            </div>
           </div>
         </div>
 
