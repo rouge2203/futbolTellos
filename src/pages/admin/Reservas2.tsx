@@ -311,6 +311,7 @@ export default function Reservas2() {
     correo_reserva: string;
     celular_reserva: string;
     precio: number;
+    fut?: number;
     cancha_id?: number;
     arbitro?: boolean;
   }) => {
@@ -324,6 +325,7 @@ export default function Reservas2() {
         correo_reserva: updates.correo_reserva,
         celular_reserva: updates.celular_reserva,
         precio: updates.precio,
+        fut: updates.fut,
       };
 
       if (updates.arbitro !== undefined) {

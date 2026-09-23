@@ -26,6 +26,10 @@ interface ReservaFija {
   correo_reserva_fija: string;
   precio: number;
   arbitro: boolean;
+  frecuencia_semanas?: 1 | 2;
+  fecha_inicio?: string;
+  es_reto?: boolean;
+  fut?: number;
   cancha_id: number;
   dia: number;
   cancha?: Cancha;
@@ -95,6 +99,11 @@ export default function ReservasFijas() {
       if (error) throw error;
 
       setReservasFijas(data || []);
+      setSelectedReservaFija((current) => {
+        if (!current) return null;
+        const updated = data?.find((item) => item.id === current.id);
+        return updated ? { ...updated, cancha: Array.isArray(updated.cancha) ? updated.cancha[0] : updated.cancha } : null;
+      });
     } catch (err) {
       console.error("Error fetching reservas fijas:", err);
     } finally {
@@ -272,6 +281,10 @@ export default function ReservasFijas() {
                             {formatHourAmPm(reservaFija.hora_inicio)} -{" "}
                             {formatHourAmPm(reservaFija.hora_fin)}
                           </div>
+                          <div className="mt-2 flex gap-2 text-xs">
+                            <span className="rounded-md bg-gray-100 px-2 py-1 text-gray-600">{reservaFija.frecuencia_semanas === 2 ? "Cada 2 semanas" : "Cada semana"}</span>
+                            {reservaFija.es_reto && <span className="rounded-md bg-primary/10 px-2 py-1 font-medium text-primary">Reto</span>}
+                          </div>
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                           <div className="flex items-center gap-1">
@@ -282,8 +295,7 @@ export default function ReservasFijas() {
                           </div>
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                          {reservaFija.cancha?.local === 2 &&
-                          reservaFija.arbitro ? (
+                          {reservaFija.arbitro ? (
                             <div className="flex items-center gap-1">
                               <GiWhistle className="text-primary" />
                               Sí

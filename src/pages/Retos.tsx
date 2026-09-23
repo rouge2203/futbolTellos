@@ -25,6 +25,7 @@ interface Reto {
   local: string; // "Sabana" or "Guadalupe"
   fut: number;
   arbitro: boolean;
+  precio?: number | null;
   equipo1_nombre: string | null;
   equipo1_encargado: string;
   equipo1_celular: string;
@@ -250,7 +251,7 @@ function Retos() {
               const canchaPrecio = reto.cancha
                 ? parsePrecio(reto.cancha.precio)
                 : 0;
-              const pricePerTeam =
+              const pricePerTeam = reto.precio != null ? reto.precio / 2 :
                 canchaPrecio > 0
                   ? calculatePricePerTeam(
                       canchaPrecio,
@@ -514,7 +515,7 @@ function Retos() {
                           </span>
                           <span className="text-white font-bold text-lg">
                             ₡{" "}
-                            {selectedReto.cancha
+                            {selectedReto.precio != null ? (selectedReto.precio / 2).toLocaleString() : selectedReto.cancha
                               ? calculatePricePerTeam(
                                   parsePrecio(selectedReto.cancha.precio),
                                   selectedReto.arbitro,

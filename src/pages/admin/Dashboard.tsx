@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import { useSearchParams, useNavigate } from "react-router-dom";
+import { useSearchParams, useNavigate, useLocation } from "react-router-dom";
 import AdminLayout from "../../components/admin/AdminLayout";
 import ReservationDrawer from "../../components/admin/ReservationDrawer";
 import CreateReservationDrawer from "../../components/admin/CreateReservationDrawer";
@@ -165,7 +165,14 @@ export default function Dashboard() {
   const [selectedReserva, setSelectedReserva] = useState<Reserva | null>(null);
 
   // Create drawer state
-  const [createDrawerOpen, setCreateDrawerOpen] = useState(false);
+  const location = useLocation();
+  const [createDrawerOpen, setCreateDrawerOpen] = useState(Boolean(location.state?.crearReserva));
+  useEffect(() => {
+    if (location.state?.crearReserva) {
+      setCreateDrawerOpen(true);
+      navigate(location.pathname, { replace: true, state: null });
+    }
+  }, [location.state, location.pathname, navigate]);
   const [showSuccessNotification, setShowSuccessNotification] = useState(false);
 
   // Reto drawer state
@@ -804,6 +811,7 @@ export default function Dashboard() {
     correo_reserva: string;
     celular_reserva: string;
     precio: number;
+    fut?: number;
     cancha_id?: number;
     arbitro?: boolean;
   }) => {
@@ -817,6 +825,7 @@ export default function Dashboard() {
         correo_reserva: updates.correo_reserva,
         celular_reserva: updates.celular_reserva,
         precio: updates.precio,
+        fut: updates.fut,
       };
 
       if (updates.arbitro !== undefined) {

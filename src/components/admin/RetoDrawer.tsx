@@ -8,7 +8,8 @@ import {
   DialogTitle,
   DialogBackdrop,
 } from "@headlessui/react";
-import { XMarkIcon } from "@heroicons/react/24/outline";
+import RetoConfirmDialog from "./RetoConfirmDialog";
+import { XMarkIcon, UserMinusIcon } from "@heroicons/react/24/outline";
 import {
   PencilSquareIcon,
   ChevronDownIcon,
@@ -34,6 +35,7 @@ interface Reto {
   local: string;
   fut: number;
   arbitro: boolean;
+  precio?: number | null;
   equipo1_nombre: string | null;
   equipo1_encargado: string;
   equipo1_celular: string;
@@ -149,6 +151,10 @@ export default function RetoDrawer({
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [creating, setCreating] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [removeTeam, setRemoveTeam] = useState<1 | 2 | null>(null);
+  const [removing, setRemoving] = useState(false);
+  const [removeError, setRemoveError] = useState("");
+  const [deleteError, setDeleteError] = useState("");
 
   // Generate dates for today + 10 days
   const dates = Array.from({ length: 11 }, (_, i) => {
@@ -185,6 +191,9 @@ export default function RetoDrawer({
   // Initialize form when reto changes
   useEffect(() => {
     if (reto) {
+      setRemoveTeam(null);
+      setRemoveError("");
+      setDeleteError("");
       setLocalReto(reto);
       setEditCanchaId(reto.cancha_id);
       const retoCancha = canchas.find((c) => c.id === reto.cancha_id);
@@ -227,6 +236,7 @@ export default function RetoDrawer({
 
   // Calculate total price based on cancha, FUT, and arbitro
   const calculateTotalPrice = (): number => {
+    if (hasCanchaApartada && localReto?.precio != null) return localReto.precio;
     if (!editCanchaId || editFut === null || editFut === undefined) return 0;
 
     const currentCancha = canchas.find((c) => c.id === editCanchaId);
@@ -483,6 +493,7 @@ export default function RetoDrawer({
           correo_reserva: null,
           cancha_id: editCanchaId!,
           precio: totalPrice,
+          fut: editFut!,
           arbitro: currentCancha?.local === 2 ? editArbitro : false,
         })
         .select()
@@ -628,8 +639,8 @@ export default function RetoDrawer({
     const selectedCancha = canchas.find((c) => c.id === canchaId);
     if (selectedCancha) {
       if (selectedCancha.id === 6) {
-        // For cancha 6, default to FUT 6
-        setEditFut(6);
+        // For cancha completa, default to FUT 7
+        setEditFut(7);
       } else if (selectedCancha.cantidad) {
         // For other canchas, use their cantidad
         const cantidad = parseInt(selectedCancha.cantidad.toString(), 10);
@@ -654,6 +665,8 @@ export default function RetoDrawer({
   const handleDeleteReto = async () => {
     if (!reto || !onDelete) return;
 
+    if (deleting) return;
+    setDeleteError("");
     setDeleting(true);
     try {
       await onDelete(reto.id);
@@ -662,7 +675,7 @@ export default function RetoDrawer({
       await onRefresh();
     } catch (error) {
       console.error("Error deleting reto:", error);
-      alert("Error al eliminar el reto");
+      setDeleteError("No se pudo eliminar el reto. Intente de nuevo.");
     } finally {
       setDeleting(false);
     }
@@ -722,6 +735,7 @@ export default function RetoDrawer({
         hora_inicio: formatTs(horaInicio),
         hora_fin: formatTs(horaFin),
         fut: editFut,
+        precio: calculateTotalPrice(),
         arbitro: currentCancha?.local === 2 ? editArbitro : false,
         local: localStr,
       };
@@ -800,14 +814,17 @@ export default function RetoDrawer({
         updateData.equipo1_nombre = trimmedValue || null;
       }
 
-      const { error } = await supabase
-        .from("retos")
-        .update(updateData)
-        .eq("id", reto.id);
+      const reservaField = { encargado: "nombre_reserva", celular: "celular_reserva", correo: "correo_reserva" }[field];
+      if (reto.reserva_id && reservaField) {
+        const { error } = await supabase.from("reservas")
+          .update({ [reservaField]: finalValue }).eq("id", reto.reserva_id).select("id").single();
+        if (error) throw error;
+      } else {
+        const { error } = await supabase.from("retos").update(updateData).eq("id", reto.id).select("id").single();
+        if (error) throw error;
+      }
 
-      if (error) throw error;
-
-      // Don't call onRefresh to avoid reloading the drawer
+      await onRefresh();
     } catch (error) {
       console.error("Error saving equipo1 field:", error);
       // Revert optimistic update on error
@@ -856,7 +873,7 @@ export default function RetoDrawer({
 
       if (error) throw error;
 
-      // Don't call onRefresh to avoid reloading the drawer
+      await onRefresh();
     } catch (error) {
       console.error("Error saving equipo2 field:", error);
       // Revert optimistic update on error
@@ -939,7 +956,7 @@ export default function RetoDrawer({
                             ? hasCanchaApartada
                               ? "Asigna un rival a este reto."
                               : "Asigna un rival y crea la reservación."
-                            : "Información del reto cerrado."}
+                            : "Información del reto."}
                         </p>
                       </div>
                     </div>
@@ -1191,9 +1208,14 @@ export default function RetoDrawer({
 
                           {/* Equipo 1 Section */}
                           <div>
-                            <h3 className="text-sm/6 font-medium text-gray-900 mb-3">
-                              Equipo 1
-                            </h3>
+                            <div className="mb-3 flex items-center justify-between gap-3">
+                              <h3 className="text-sm/6 font-semibold text-gray-900">Equipo 1</h3>
+                              {displayReto.equipo2_encargado && (
+                                <button type="button" aria-label="Quitar Equipo 1" onClick={() => { setRemoveTeam(1); setRemoveError(""); }} className="inline-flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-3 py-1.5 text-xs font-semibold text-red-700 hover:bg-red-100 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-red-600">
+                                  <UserMinusIcon aria-hidden="true" className="size-4" /> Quitar equipo
+                                </button>
+                              )}
+                            </div>
                             <div className="space-y-2">
                             <div className="flex items-center gap-2">
                                 <div className="flex-1">
@@ -1424,7 +1446,7 @@ export default function RetoDrawer({
                           {mode === "assign" ? (
                             <div>
                               <h3 className="text-sm/6 font-medium text-gray-900 mb-3">
-                                Equipo 2 (Rival)
+                                Equipo 2
                               </h3>
                               <div className="space-y-4">
                               <div>
@@ -1495,9 +1517,12 @@ export default function RetoDrawer({
                             </div>
                           ) : displayReto.equipo2_encargado ? (
                             <div>
-                              <h3 className="text-sm/6 font-medium text-gray-900 mb-3">
-                                Equipo 2
-                              </h3>
+                              <div className="mb-3 flex items-center justify-between gap-3">
+                                <h3 className="text-sm/6 font-semibold text-gray-900">Equipo 2</h3>
+                                <button type="button" aria-label="Quitar Equipo 2" onClick={() => { setRemoveTeam(2); setRemoveError(""); }} className="inline-flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-3 py-1.5 text-xs font-semibold text-red-700 hover:bg-red-100 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-red-600">
+                                  <UserMinusIcon aria-hidden="true" className="size-4" /> Quitar equipo
+                                </button>
+                              </div>
                               <div className="space-y-2">
                               <div className="flex items-center gap-2">
                                   <div className="flex-1">
@@ -1758,7 +1783,9 @@ export default function RetoDrawer({
                             <h3 className="text-sm/6 font-medium text-gray-900 mb-3">
                               Precio Total
                             </h3>
-                            <div className="space-y-2">
+                            {hasCanchaApartada && localReto?.precio != null ? (
+                              <p className="text-lg font-bold text-gray-900">₡ {localReto.precio.toLocaleString()} <span className="block text-xs font-normal text-gray-500">Total de la reservación, incluido el árbitro cuando aplica.</span></p>
+                            ) : <div className="space-y-2">
                               <div className="flex justify-between text-sm">
                                 <span className="text-gray-600">
                                   Precio base:
@@ -1811,7 +1838,7 @@ export default function RetoDrawer({
                                   </span>
                                 </div>
                               </div>
-                            </div>
+                            </div>}
                           </div>
                         </div>
                       </div>
@@ -1841,6 +1868,7 @@ export default function RetoDrawer({
                     >
                       Cerrar
                     </button>
+                    {onDelete && mode === "view" && <button type="button" onClick={() => setShowDeleteConfirm(true)} className="ml-4 rounded-md bg-red-600 px-3 py-2 text-sm font-semibold text-white">Eliminar reto</button>}
                     {mode === "assign" ? (
                       <>
                         {onDelete && (
@@ -1939,77 +1967,57 @@ export default function RetoDrawer({
         </div>
       </Dialog>
 
-      {/* Create Confirmation Dialog */}
-      <Dialog
+      <RetoConfirmDialog
         open={showCreateConfirm}
-        onClose={() => setShowCreateConfirm(false)}
-        className="relative z-50"
-      >
-        <DialogBackdrop className="fixed inset-0 bg-black/80" />
-        <div className="fixed inset-0 z-50 w-screen overflow-y-auto">
-          <div className="flex min-h-full items-end justify-center p-4 text-center sm:items-center sm:p-0">
-            <DialogPanel className="relative transform w-full overflow-hidden rounded-lg bg-white px-4 pt-5 pb-4 text-left shadow-xl ring-1 ring-black/5 transition-all data-closed:translate-y-4 data-closed:opacity-0 data-enter:duration-300 data-enter:ease-out data-leave:duration-200 data-leave:ease-in sm:my-8 sm:w-full sm:max-w-sm sm:p-6 data-closed:sm:translate-y-0 data-closed:sm:scale-95">
-              <DialogTitle className="text-base font-semibold text-gray-900 mb-4">
-                ¿Está seguro de crear esta reservación?
-              </DialogTitle>
-              <p className="text-sm text-gray-600 mb-4">
-                Se creará la reservación y se actualizará el reto con el rival
-                asignado.
-              </p>
-              <div className="flex gap-3">
-                <button
-                  onClick={() => setShowCreateConfirm(false)}
-                  className="flex-1 rounded-md bg-white px-4 py-2 text-sm font-medium text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 hover:bg-gray-50"
-                >
-                  Cancelar
-                </button>
-                <button
-                  onClick={handleCreateReserva}
-                  className="flex-1 rounded-md bg-primary px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-primary/90"
-                >
-                  Crear
-                </button>
-              </div>
-            </DialogPanel>
-          </div>
-        </div>
-      </Dialog>
-
-      {/* Delete Confirmation Dialog */}
-      <Dialog
+        title="¿Crear esta reservación?"
+        description="Se creará la reservación y se actualizará el reto con el Equipo 2 asignado."
+        confirmLabel="Crear reservación"
+        tone="primary"
+        busy={creating}
+        onCancel={() => setShowCreateConfirm(false)}
+        onConfirm={handleCreateReserva}
+      />
+      <RetoConfirmDialog
         open={showDeleteConfirm}
-        onClose={() => setShowDeleteConfirm(false)}
-        className="relative z-50"
-      >
-        <DialogBackdrop className="fixed inset-0 bg-black/80" />
-        <div className="fixed inset-0 z-50 w-screen overflow-y-auto">
-          <div className="flex min-h-full items-end justify-center p-4 text-center sm:items-center sm:p-0">
-            <DialogPanel className="relative transform w-full overflow-hidden rounded-lg bg-white px-4 pt-5 pb-4 text-left shadow-xl ring-1 ring-black/5 transition-all data-closed:translate-y-4 data-closed:opacity-0 data-enter:duration-300 data-enter:ease-out data-leave:duration-200 data-leave:ease-in sm:my-8 sm:w-full sm:max-w-sm sm:p-6 data-closed:sm:translate-y-0 data-closed:sm:scale-95">
-              <DialogTitle className="text-base font-semibold text-gray-900 mb-4">
-                ¿Está seguro de eliminar este reto?
-              </DialogTitle>
-              <p className="text-sm text-gray-600 mb-4">
-                Esta acción no se puede deshacer. El reto será eliminado
-                permanentemente.
-              </p>
-              <div className="flex gap-3">
-                <button
-                  onClick={() => setShowDeleteConfirm(false)}
-                  className="flex-1 rounded-md bg-white px-4 py-2 text-sm font-medium text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 hover:bg-gray-50"
-                >
-                  Cancelar
-                </button>
-                <button
-                  onClick={handleDeleteReto}
-                  className="flex-1 rounded-md bg-red-600 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-red-700"
-                >
-                  Eliminar
-                </button>
-              </div>
-            </DialogPanel>
-          </div>
-        </div>
-      </Dialog>
+        title="¿Eliminar reto y reservación?"
+        description="Al eliminar este reto también se eliminará su reservación vinculada y se liberará la cancha. Esta acción no se puede deshacer."
+        confirmLabel="Eliminar reto"
+        busy={deleting}
+        error={deleteError}
+        onCancel={() => setShowDeleteConfirm(false)}
+        onConfirm={handleDeleteReto}
+      />
+      <RetoConfirmDialog
+        open={removeTeam !== null}
+        title={`¿Quitar Equipo ${removeTeam}?`}
+        description={`${removeTeam === 1
+          ? "El Equipo 2 pasará a ser el Equipo 1. La misma reservación quedará a su nombre y se actualizarán sus datos de contacto."
+          : "Se quitará el Equipo 2 y se conservará la reservación del Equipo 1."} El reto quedará abierto si su fecha aún no ha pasado.`}
+        confirmLabel={`Quitar Equipo ${removeTeam}`}
+        busy={removing}
+        error={removeError}
+        onCancel={() => setRemoveTeam(null)}
+        onConfirm={async () => {
+          if (!reto || !removeTeam || removing) return;
+          setRemoving(true);
+          setRemoveError("");
+          try {
+            const { error } = await supabase.rpc("quitar_oponente_reto", { p_reto_id: reto.id, p_oponente: removeTeam });
+            if (error) throw error;
+            setRemoveTeam(null);
+            await onRefresh();
+            onClose();
+          } catch (error) {
+            console.error("Error removing reto team:", error);
+            const code = (error as { code?: string })?.code;
+            setRemoveError(code === "P0001" || code === "P0002"
+              ? "El reto ya no tiene dos equipos disponibles. Actualice la lista."
+              : code === "23505"
+                ? "La reservación tiene un conflicto de horario. Revise la cancha y la hora en Reservaciones."
+                : "No se pudo quitar el equipo. Intente de nuevo.");
+          } finally { setRemoving(false); }
+        }}
+      />
     </>
   );
 }

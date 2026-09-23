@@ -1,32 +1,23 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
+import { useNavigate } from "react-router-dom";
+import RetoConfirmDialog from "../../components/admin/RetoConfirmDialog";
+import { TbTrash } from "react-icons/tb";
 import AdminLayout from "../../components/admin/AdminLayout";
-
 import RetoDrawer from "../../components/admin/RetoDrawer";
-import CreateRetoDrawer from "../../components/admin/CreateRetoDrawer";
-import SuccessNotification from "../../components/admin/SuccessNotification";
+import CreateRetoDialog from "../../components/admin/CreateRetoDialog";
 import { supabase } from "../../lib/supabase";
 import { useAuth } from "../../contexts/AuthContext";
-import { MdLocationOn } from "react-icons/md";
-import { TbPlayFootball, TbRun } from "react-icons/tb";
-import { GiWhistle } from "react-icons/gi";
-import { TbTrash } from "react-icons/tb";
-
-interface Cancha {
-  id: number;
-  nombre: string;
-  img?: string;
-  precio?: string;
-  local: number;
-  cantidad?: string;
-}
+import { fetchAllPages } from "../../lib/fetchAllPages";
+import { canchaPrice, getRetoStatus, RETOS_PAGE_SIZE, retoStartTime, type RetoStatus } from "../../lib/retos";
 
 interface Reto {
   id: number;
   hora_inicio: string;
   hora_fin: string;
-  local: string; // "Sabana" or "Guadalupe"
+  local: string;
   fut: number;
   arbitro: boolean;
+  precio: number | null;
   equipo1_nombre: string | null;
   equipo1_encargado: string;
   equipo1_celular: string;
@@ -36,455 +27,143 @@ interface Reto {
   equipo2_celular: string | null;
   cancha_id: number;
   reserva_id: number | null;
-  cancha?: Cancha;
+  cancha?: { id: number; nombre: string; img?: string; precio?: string; local: number; cantidad?: string };
 }
 
-const MONTHS_SPANISH = [
-  "Enero",
-  "Febrero",
-  "Marzo",
-  "Abril",
-  "Mayo",
-  "Junio",
-  "Julio",
-  "Agosto",
-  "Septiembre",
-  "Octubre",
-  "Noviembre",
-  "Diciembre",
-];
-
-const DAYS_SPANISH = ["Dom", "Lun", "Mar", "Mié", "Jue", "Vie", "Sáb"];
-
-// Parse precio string "23.000" -> 23000
-const parsePrecio = (precioStr: string | undefined): number => {
-  if (!precioStr) return 0;
-  return parseInt(precioStr.replace(/\./g, ""), 10) || 0;
-};
-
-// Calculate price per team
-const calculatePricePerTeam = (
-  canchaPrecio: number,
-  arbitro: boolean,
-  local: string,
-  fut: number,
-): number => {
-  // For FUT 7/8/9, use fixed prices per team
-  let basePrice: number;
-  if (fut === 7) {
-    basePrice = 20000;
-  } else if (fut === 8) {
-    basePrice = 22500;
-  } else if (fut === 9) {
-    basePrice = 25000;
-  } else {
-    basePrice = canchaPrecio / 2;
-  }
-  // Arbitro cost only for Guadalupe (local == "Guadalupe")
-  const arbitroCost = local === "Guadalupe" && arbitro ? 2500 : 0;
-  return basePrice + arbitroCost;
-};
-
-// Format date and time
-const formatDateTime = (timestamp: string): { date: string; time: string } => {
-  const date = new Date(timestamp);
-  const day = date.getDate();
-  const month = MONTHS_SPANISH[date.getMonth()];
-  const dayName = DAYS_SPANISH[date.getDay()];
-  const hours = date.getHours();
-  const minutes = String(date.getMinutes()).padStart(2, "0");
-  const ampm = hours >= 12 ? "PM" : "AM";
-  const hour12 = hours % 12 || 12;
-
-  return {
-    date: `${dayName} ${day} ${month}`,
-    time: `${hour12}:${minutes} ${ampm}`,
-  };
-};
-
-const getLocalName = (local: string): string => {
-  return local === "Sabana" || local === "Guadalupe" ? local : "Desconocido";
-};
+const labels: Record<RetoStatus, string> = { open: "Retos abiertos", closed: "Retos Próximos", past: "Retos pasados" };
+const currency = (price: number) => `₡ ${price.toLocaleString("es-CR")}`;
 
 export default function Retos() {
   const { user } = useAuth();
-  const [openRetos, setOpenRetos] = useState<Reto[]>([]);
-  const [closedRetos, setClosedRetos] = useState<Reto[]>([]);
+  const navigate = useNavigate();
+  const [retos, setRetos] = useState<Reto[]>([]);
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState<"open" | "closed">("open");
-
-  // Drawer state
-  const [drawerOpen, setDrawerOpen] = useState(false);
-  const [drawerMode, setDrawerMode] = useState<"assign" | "view">("assign");
+  const [error, setError] = useState("");
+  const [activeTab, setActiveTab] = useState<RetoStatus>("open");
+  const [page, setPage] = useState(1);
+  const [now, setNow] = useState(Date.now());
   const [selectedReto, setSelectedReto] = useState<Reto | null>(null);
-  const [showSuccessNotification, setShowSuccessNotification] = useState(false);
-  const [createDrawerOpen, setCreateDrawerOpen] = useState(false);
+  const [drawerOpen, setDrawerOpen] = useState(false);
+  const [createOpen, setCreateOpen] = useState(false);
+  const [deleteTarget, setDeleteTarget] = useState<Reto | null>(null);
+  const [deleting, setDeleting] = useState(false);
+  const [deleteError, setDeleteError] = useState("");
 
-  useEffect(() => {
-    fetchRetos();
-  }, []);
-
-  const fetchRetos = async () => {
-    setLoading(true);
+  const fetchRetos = useCallback(async () => {
+    setError("");
     try {
-      // Fetch open retos (no rival assigned yet)
-      const { data: openData, error: openError } = await supabase
-        .from("retos")
-        .select(
-          `
-          *,
-          cancha:cancha_id (
-            id,
-            nombre,
-            img,
-            precio,
-            local,
-            cantidad
-          )
-        `,
-        )
-        .is("equipo2_encargado", null)
-        .order("hora_inicio", { ascending: false });
-
-      if (openError) throw openError;
-
-      // Fetch closed retos (rival assigned)
-      const { data: closedData, error: closedError } = await supabase
-        .from("retos")
-        .select(
-          `
-          *,
-          cancha:cancha_id (
-            id,
-            nombre,
-            img,
-            precio,
-            local,
-            cantidad
-          )
-        `,
-        )
-        .not("equipo2_encargado", "is", null)
-        .order("hora_inicio", { ascending: false });
-
-      if (closedError) throw closedError;
-
-      setOpenRetos(openData || []);
-      setClosedRetos(closedData || []);
-    } catch (err) {
-      console.error("Error fetching retos:", err);
+      const data = await fetchAllPages<Reto>((from, to) => supabase.from("retos")
+        .select("*, cancha:cancha_id (id, nombre, img, precio, local, cantidad)")
+        .order("hora_inicio", { ascending: false }).order("id").range(from, to));
+      setRetos(data);
+      setNow(Date.now());
+      setSelectedReto(current => current ? data.find(r => r.id === current.id) ?? null : null);
+    } catch {
+      setError("No se pudieron cargar los retos. Intente de nuevo.");
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
-  const handleAsignarRival = (reto: Reto) => {
-    setSelectedReto(reto);
-    setDrawerMode("assign");
-    setDrawerOpen(true);
-  };
+  useEffect(() => {
+    void fetchRetos();
+    const timer = window.setInterval(() => setNow(Date.now()), 30000);
+    return () => window.clearInterval(timer);
+  }, [fetchRetos]);
 
-  const handleVerReto = (reto: Reto) => {
-    setSelectedReto(reto);
-    setDrawerMode("view");
-    setDrawerOpen(true);
-  };
+  const groups = { open: [] as Reto[], closed: [] as Reto[], past: [] as Reto[] };
+  retos.forEach(reto => groups[getRetoStatus(reto, now)].push(reto));
+  groups.open.reverse();
+  groups.closed.reverse();
+  const currentRetos = groups[activeTab];
+  const totalPages = Math.max(1, Math.ceil(currentRetos.length / RETOS_PAGE_SIZE));
+  const currentPage = Math.min(page, totalPages);
+  const start = (currentPage - 1) * RETOS_PAGE_SIZE;
+  const visibleRetos = currentRetos.slice(start, start + RETOS_PAGE_SIZE);
 
-  const handleReservaCreated = async () => {
+  const handleDelete = async (id: number) => {
+    const { error } = await supabase.rpc("eliminar_reto", { p_reto_id: id });
+    if (error) throw error;
     await fetchRetos();
-    setShowSuccessNotification(true);
-    setDrawerOpen(false);
   };
-
-  const handleDeleteReto = async (retoId: number) => {
-    try {
-      const { error } = await supabase.from("retos").delete().eq("id", retoId);
-
-      if (error) throw error;
-
-      await fetchRetos();
-    } catch (error) {
-      console.error("Error deleting reto:", error);
-      throw error;
-    }
-  };
-
-  // Check if reto is expired (hora_inicio has passed)
-  const isRetoExpired = (reto: Reto): boolean => {
-    const retoDate = new Date(reto.hora_inicio);
-    const now = new Date();
-    return retoDate < now;
-  };
-
-  const currentRetos = activeTab === "open" ? openRetos : closedRetos;
-
-  if (loading) {
-    return (
-      <AdminLayout title="Retos">
-        <div className="flex items-center justify-center h-screen">
-          <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary"></div>
-        </div>
-      </AdminLayout>
-    );
-  }
 
   return (
     <AdminLayout title="Retos">
       <div className="min-h-screen w-full">
-        <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-6 space-y-6">
-          {/* Tabs */}
-          <div className="flex items-center justify-between border-b border-gray-200 pb-4">
-            <h3 className="text-lg font-semibold text-gray-900">
-              Lista de Retos
-            </h3>
-            <div className="flex items-center gap-4">
-              <nav className="-mb-px flex space-x-8" aria-label="Tabs">
-                <button
-                  onClick={() => setActiveTab("open")}
-                  className={`${
-                    activeTab === "open"
-                      ? "border-primary text-primary"
-                      : "border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700"
-                  } whitespace-nowrap border-b-2 py-4 px-1 text-sm font-medium`}
-                >
-                  Retos Abiertos ({openRetos.length})
-                </button>
-                <button
-                  onClick={() => setActiveTab("closed")}
-                  className={`${
-                    activeTab === "closed"
-                      ? "border-primary text-primary"
-                      : "border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700"
-                  } whitespace-nowrap border-b-2 py-4 px-1 text-sm font-medium`}
-                >
-                  Retos Cerrados ({closedRetos.length})
-                </button>
-              </nav>
-              <button
-                onClick={() => setCreateDrawerOpen(true)}
-                className="rounded-md bg-primary px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-primary/90 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
-              >
-                Crear Reto
-              </button>
-            </div>
+        <div className="space-y-6 rounded-lg border border-gray-200 bg-white p-4 shadow-sm sm:p-6">
+          <div className="flex flex-wrap items-center justify-between gap-4">
+            <h2 className="text-lg font-semibold text-gray-900">Lista de retos</h2>
+            <button onClick={() => setCreateOpen(true)} className="rounded-md bg-primary px-4 py-2 text-sm font-semibold text-white hover:bg-primary/90">Crear reto</button>
           </div>
-
-          {/* Table */}
-          <div className="overflow-x-auto rounded-lg  border border-gray-200 shadow-lg">
+          <div role="tablist" aria-label="Estado de los retos" className="flex gap-6 overflow-x-auto border-b border-gray-200">
+            {(Object.keys(labels) as RetoStatus[]).map(status => (
+              <button key={status} role="tab" aria-selected={activeTab === status} onClick={() => { setActiveTab(status); setPage(1); }}
+                className={`whitespace-nowrap border-b-2 px-1 pb-3 text-sm font-medium ${activeTab === status ? "border-primary text-primary" : "border-transparent text-gray-500 hover:text-gray-900"}`}>
+                {labels[status]} ({groups[status].length})
+              </button>
+            ))}
+          </div>
+          {error && <div role="alert" className="rounded-lg bg-red-50 p-4 text-sm text-red-700">{error} <button onClick={fetchRetos} className="underline">Reintentar</button></div>}
+          <div className="overflow-x-auto rounded-lg border border-gray-200">
             <table className="min-w-full divide-y divide-gray-200">
-              <thead className="bg-gray-50">
-                <tr>
-                  <th
-                    scope="col"
-                    className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
-                  >
-                    Equipo 1
-                  </th>
-                  <th
-                    scope="col"
-                    className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
-                  >
-                    Cancha
-                  </th>
-                  <th
-                    scope="col"
-                    className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
-                  >
-                    Fecha/Hora
-                  </th>
-                  <th
-                    scope="col"
-                    className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
-                  >
-                    Local
-                  </th>
-                  <th
-                    scope="col"
-                    className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
-                  >
-                    FUT
-                  </th>
-                  <th
-                    scope="col"
-                    className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
-                  >
-                    Árbitro
-                  </th>
-                  <th
-                    scope="col"
-                    className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider"
-                  >
-                    Precio por equipo
-                  </th>
-                  <th
-                    scope="col"
-                    className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider"
-                  >
-                    Acciones
-                  </th>
-                </tr>
-              </thead>
-              <tbody className="bg-white divide-y divide-gray-200">
-                {currentRetos.length === 0 ? (
-                  <tr>
-                    <td
-                      colSpan={8}
-                      className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 text-center"
-                    >
-                      No hay retos{" "}
-                      {activeTab === "open" ? "abiertos" : "cerrados"}
+              <thead className="bg-gray-50"><tr>
+                {["Equipo 1", "Equipo 2", "Cancha", "Fecha / hora", "Local", "FUT", "Árbitro", "Precio total", "Acciones"].map(label => (
+                  <th key={label} scope="col" className="whitespace-nowrap px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">{label}</th>
+                ))}
+              </tr></thead>
+              <tbody className="divide-y divide-gray-200 bg-white">
+                {loading ? <tr><td colSpan={9} className="p-8 text-center text-sm text-gray-500">Cargando retos…</td></tr> : visibleRetos.length === 0 ?
+                  <tr><td colSpan={9} className="p-8 text-center text-sm text-gray-500">No hay {labels[activeTab].toLowerCase()}.</td></tr> : visibleRetos.map(reto => (
+                  <tr key={reto.id} className="hover:bg-gray-50">
+                    <td className="px-4 py-4 text-sm font-medium text-gray-900">{reto.equipo1_encargado || "Pendiente"}</td>
+                    <td className="px-4 py-4 text-sm text-gray-900">{reto.equipo2_encargado || <span className="rounded-md bg-amber-50 px-2 py-1 text-xs font-medium text-amber-700">Pendiente</span>}</td>
+                    <td className="whitespace-nowrap px-4 py-4 text-sm text-gray-900">{reto.cancha?.nombre || "Sin cancha"}</td>
+                    <td className="whitespace-nowrap px-4 py-4 text-sm text-gray-900">
+                      <div>{new Date(retoStartTime(reto.hora_inicio)).toLocaleDateString("es-CR", { timeZone: "America/Costa_Rica", day: "numeric", month: "short", year: "numeric" })}</div>
+                      <div className="text-gray-500">{new Date(retoStartTime(reto.hora_inicio)).toLocaleTimeString("es-CR", { timeZone: "America/Costa_Rica", hour: "numeric", minute: "2-digit", hour12: true })}</div>
                     </td>
+                    <td className="px-4 py-4 text-sm text-gray-500">{reto.local}</td>
+                    <td className="px-4 py-4 text-sm text-gray-500">{reto.fut}</td>
+                    <td className="px-4 py-4 text-sm text-gray-500">{reto.arbitro ? "Sí" : "No"}</td>
+                    <td className="whitespace-nowrap px-4 py-4 text-sm font-semibold text-gray-900">{currency(reto.precio ?? (reto.cancha ? canchaPrice(reto.cancha, reto.fut, reto.arbitro) : 0))}</td>
+                    <td className="px-4 py-4"><div className="flex items-center gap-2 whitespace-nowrap">
+                      <button onClick={() => { setSelectedReto(reto); setDrawerOpen(true); }} className="rounded-lg bg-primary px-3 py-2 text-sm font-medium text-white hover:bg-primary/80">Ver reto</button>
+                      <button aria-label={`Eliminar reto de ${reto.equipo1_encargado || "equipo pendiente"}`} onClick={() => { setDeleteTarget(reto); setDeleteError(""); }} className="rounded-lg bg-red-50 p-2 text-red-600 hover:bg-red-100"><TbTrash className="size-5" /></button>
+                    </div></td>
                   </tr>
-                ) : (
-                  currentRetos.map((reto) => {
-                    const { date, time } = formatDateTime(reto.hora_inicio);
-                    const canchaPrecio = reto.cancha
-                      ? parsePrecio(reto.cancha.precio)
-                      : 0;
-                    const pricePerTeam = calculatePricePerTeam(
-                      canchaPrecio,
-                      reto.arbitro,
-                      reto.local,
-                      reto.fut,
-                    );
-
-                    const expired = activeTab === "open" && isRetoExpired(reto);
-
-                    return (
-                      <tr key={reto.id} className="hover:bg-gray-50">
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <div className="flex items-center gap-2">
-                            <div>
-                              <div className="text-sm font-medium text-gray-900">
-                                {reto.equipo1_nombre || "Sin nombre"}
-                              </div>
-                              <div className="text-sm text-gray-500">
-                                {reto.equipo1_encargado}
-                              </div>
-                            </div>
-                            <div className="flex flex-wrap gap-1.5">
-                              {expired && (
-                                <span className="inline-flex items-center rounded-md bg-red-100/75 px-2.5 py-1 text-xs font-semibold text-red-700">
-                                  Expirado
-                                </span>
-                              )}
-                              {reto.reserva_id !== null ? (
-                                <span className="inline-flex items-center rounded-md bg-green-100/75 px-2.5 py-1 text-xs font-medium text-green-700">
-                                  Cancha apartada
-                                </span>
-                              ) : (
-                                <span className="inline-flex items-center rounded-md bg-yellow-100/75 px-2.5 py-1 text-xs font-medium text-yellow-700">
-                                  Cancha sin apartar
-                                </span>
-                              )}
-                              {reto.equipo2_encargado ? (
-                                <span className="inline-flex items-center rounded-md bg-blue-100/75 px-2.5 py-1 text-xs font-medium text-blue-700">
-                                  Rival asignado
-                                </span>
-                              ) : (
-                                <span className="inline-flex items-center rounded-md bg-orange-100/75 px-2.5 py-1 text-xs font-medium text-orange-700">
-                                  Buscando rival
-                                </span>
-                              )}
-                            </div>
-                          </div>
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                          {reto.cancha?.nombre || "N/A"}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <div className="text-sm text-gray-900">{date}</div>
-                          <div className="text-sm text-gray-500">{time}</div>
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                          <div className="flex items-center gap-1">
-                            <MdLocationOn className="text-primary" />
-                            {getLocalName(reto.local)}
-                          </div>
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                          <div className="flex items-center gap-1">
-                            <TbRun className="text-primary" />
-                            <TbPlayFootball className="text-primary -ml-0.5" />
-                            {reto.fut}
-                          </div>
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                          {reto.local === "Guadalupe" && reto.arbitro ? (
-                            <div className="flex items-center gap-1">
-                              <GiWhistle className="text-primary" />
-                              Sí
-                            </div>
-                          ) : (
-                            <span>No</span>
-                          )}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                          ₡ {pricePerTeam.toLocaleString()}
-                        </td>
-                        <td className="pr-2 py-4 whitespace-nowrap text-right text-sm font-medium">
-                          {activeTab === "open" ? (
-                            <div className="flex items-center gap-2">
-                              <button
-                                onClick={() => handleAsignarRival(reto)}
-                                className="text-white bg-primary hover:bg-primary/80 rounded-lg px-4 py-2"
-                              >
-                                Ver reto
-                              </button>
-                              <button
-                                onClick={() => handleDeleteReto(reto.id)}
-                                className="text-red-600 bg-red-50 hover:bg-red-100 rounded-lg p-2"
-                              >
-                                <TbTrash className="size-5" />
-                              </button>
-                            </div>
-                          ) : (
-                            <button
-                              onClick={() => handleVerReto(reto)}
-                              className="text-white bg-primary hover:bg-primary/80 rounded-lg px-4 py-2"
-                            >
-                              Ver reto
-                            </button>
-                          )}
-                        </td>
-                      </tr>
-                    );
-                  })
-                )}
+                ))}
               </tbody>
             </table>
           </div>
+          <nav aria-label="Paginación de retos" className="flex flex-wrap items-center justify-between gap-3 text-sm text-gray-600">
+            <p>{currentRetos.length ? `${start + 1}–${Math.min(start + RETOS_PAGE_SIZE, currentRetos.length)} de ${currentRetos.length} retos` : "0 retos"} · 25 por página</p>
+            <div className="flex items-center gap-3">
+              <button disabled={currentPage === 1} onClick={() => setPage(currentPage - 1)} className="rounded-md border border-gray-300 px-3 py-2 disabled:opacity-40">Anterior</button>
+              <span>Página {currentPage} de {totalPages}</span>
+              <button disabled={currentPage === totalPages} onClick={() => setPage(currentPage + 1)} className="rounded-md border border-gray-300 px-3 py-2 disabled:opacity-40">Siguiente</button>
+            </div>
+          </nav>
         </div>
       </div>
-
-      {/* Reto Drawer */}
-      <RetoDrawer
-        open={drawerOpen}
-        onClose={() => setDrawerOpen(false)}
-        reto={selectedReto}
-        mode={drawerMode}
-        onReservaCreated={handleReservaCreated}
-        onRefresh={fetchRetos}
-        onDelete={handleDeleteReto}
-        user={user}
-      />
-
-      {/* Create Reto Drawer */}
-      <CreateRetoDrawer
-        open={createDrawerOpen}
-        onClose={() => setCreateDrawerOpen(false)}
-        onSuccess={() => {
-          fetchRetos();
-          setShowSuccessNotification(true);
+      <RetoDrawer open={drawerOpen} onClose={() => { setDrawerOpen(false); void fetchRetos(); }} reto={selectedReto}
+        mode={selectedReto && getRetoStatus(selectedReto, now) === "open" ? "assign" : "view"}
+        onReservaCreated={async () => { await fetchRetos(); setDrawerOpen(false); }} onRefresh={fetchRetos} onDelete={handleDelete} user={user} />
+      <CreateRetoDialog open={createOpen} onClose={() => setCreateOpen(false)} onNavigate={() => navigate("/admin", { state: { crearReserva: true } })} />
+      <RetoConfirmDialog
+        open={deleteTarget !== null}
+        title="¿Eliminar reto y reservación?"
+        description="Al eliminar este reto también se eliminará su reservación vinculada y se liberará la cancha. Esta acción no se puede deshacer."
+        confirmLabel="Eliminar reto"
+        busy={deleting}
+        error={deleteError}
+        onCancel={() => setDeleteTarget(null)}
+        onConfirm={async () => {
+          if (!deleteTarget || deleting) return;
+          setDeleting(true);
+          try { await handleDelete(deleteTarget.id); setDeleteTarget(null); }
+          catch { setDeleteError("No se pudo eliminar el reto. Intente de nuevo."); }
+          finally { setDeleting(false); }
         }}
-      />
-
-      {/* Success Notification */}
-      <SuccessNotification
-        show={showSuccessNotification}
-        onClose={() => setShowSuccessNotification(false)}
-        message="Reto creado"
-        description="El reto se ha creado exitosamente."
       />
     </AdminLayout>
   );

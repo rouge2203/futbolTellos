@@ -11,6 +11,10 @@ import {
 import { XMarkIcon } from "@heroicons/react/24/outline";
 import { PencilSquareIcon, ChevronDownIcon } from "@heroicons/react/20/solid";
 import { FaRegClock } from "react-icons/fa";
+import ReservaFijaOptions from "./ReservaFijaOptions";
+import RetoConfirmDialog from "./RetoConfirmDialog";
+import { refereeAdjustedPrice, formatFixedDate, costaRicaNow } from "../../lib/reservasFijas";
+import { isFullCancha, reservationFut, canchaPrice } from "../../lib/retos";
 import { GiWhistle } from "react-icons/gi";
 
 interface Cancha {
@@ -31,6 +35,10 @@ interface ReservaFija {
   correo_reserva_fija: string;
   precio: number;
   arbitro: boolean;
+  frecuencia_semanas?: 1 | 2;
+  fecha_inicio?: string;
+  es_reto?: boolean;
+  fut?: number;
   cancha_id: number;
   dia: number;
   cancha?: Cancha;
@@ -136,6 +144,10 @@ export default function ReservaFijaDrawer({
   const [editCorreo, setEditCorreo] = useState("");
   const [editCelular, setEditCelular] = useState("");
   const [editPrecio, setEditPrecio] = useState<number>(0);
+  const [editArbitro, setEditArbitro] = useState(false);
+  const [editEsReto, setEditEsReto] = useState(false);
+  const [editFut, setEditFut] = useState(7);
+  const [updateErrorMessage, setUpdateErrorMessage] = useState("");
   const [editDia, setEditDia] = useState<number>(1);
   const [editHoraInicio, setEditHoraInicio] = useState<string>("");
   const [editHoraFin, setEditHoraFin] = useState<string>("");
@@ -184,6 +196,10 @@ export default function ReservaFijaDrawer({
       setEditCorreo(reservaFija.correo_reserva_fija || "");
       setEditCelular(reservaFija.celular_reserva_fija || "");
       setEditPrecio(reservaFija.precio);
+      setEditArbitro(Boolean(reservaFija.arbitro));
+      setEditEsReto(Boolean(reservaFija.es_reto));
+      setEditFut(reservaFija.cancha ? reservationFut({ ...reservaFija, cancha: reservaFija.cancha }) : 7);
+      setUpdateErrorMessage("");
       setEditDia(reservaFija.dia);
       setEditHoraInicio(reservaFija.hora_inicio);
 
@@ -210,16 +226,11 @@ export default function ReservaFijaDrawer({
   const fetchReservas = async (reservaFijaId: number) => {
     setLoadingReservas(true);
     try {
-      // Get today's date at midnight (start of day)
-      const today = new Date();
-      today.setHours(0, 0, 0, 0);
-      const todayStr = today.toISOString().split("T")[0]; // YYYY-MM-DD format
-
       const { data, error } = await supabase
         .from("reservas")
         .select("*")
         .eq("reservacion_fija_id", reservaFijaId)
-        .gte("hora_inicio", `${todayStr} 00:00:00`) // Only get reservas from today onwards
+        .gt("hora_inicio", costaRicaNow())
         .order("hora_inicio", { ascending: true });
 
       if (error) throw error;
@@ -236,6 +247,7 @@ export default function ReservaFijaDrawer({
     if (!reservaFija) return;
 
     setUpdating(true);
+    setUpdateErrorMessage("");
     try {
       // Update the reserva_fija
       const { error: updateError } = await supabase
@@ -245,121 +257,18 @@ export default function ReservaFijaDrawer({
           correo_reserva_fija: editCorreo || null,
           celular_reserva_fija: editCelular || null,
           precio: editPrecio,
+          arbitro: editArbitro,
+          es_reto: editEsReto,
+          fut: editFut,
           dia: editDia,
           hora_inicio: editHoraInicio,
           hora_fin: editHoraFin,
         })
-        .eq("id", reservaFija.id);
+        .eq("id", reservaFija.id).select("id").single();
 
       if (updateError) throw updateError;
 
-      // If day or time changed, update all related reservas
-      const dayChanged = editDia !== reservaFija.dia;
-      const timeChanged =
-        editHoraInicio !== reservaFija.hora_inicio ||
-        editHoraFin !== reservaFija.hora_fin;
-
-      if (dayChanged || timeChanged) {
-        // Get all related reservas
-        const { data: relatedReservas } = await supabase
-          .from("reservas")
-          .select("*")
-          .eq("reservacion_fija_id", reservaFija.id);
-
-        if (relatedReservas && relatedReservas.length > 0) {
-          let updatedCount = 0;
-          let conflictCount = 0;
-
-          for (const reserva of relatedReservas) {
-            const reservaDate = new Date(reserva.hora_inicio);
-
-            if (dayChanged || timeChanged) {
-              const targetDay = editDia === 7 ? 0 : editDia;
-              const currentDay = reservaDate.getDay();
-              const daysToAdd = (targetDay - currentDay + 7) % 7;
-
-              const newDate = new Date(reservaDate);
-              if (daysToAdd !== 0) {
-                newDate.setDate(newDate.getDate() + daysToAdd);
-              }
-
-              const [hours, minutes, seconds] = editHoraInicio.split(":");
-              const [hoursEnd, minutesEnd, secondsEnd] = editHoraFin.split(":");
-
-              const formatLocalTimestamp = (
-                d: Date,
-                h: string,
-                m: string,
-                s: string,
-              ): string => {
-                const year = d.getFullYear();
-                const month = String(d.getMonth() + 1).padStart(2, "0");
-                const day = String(d.getDate()).padStart(2, "0");
-                return `${year}-${month}-${day} ${h}:${m}:${s}`;
-              };
-
-              const horaInicioHour = parseInt(hours, 10);
-              const horaFinHour = parseInt(hoursEnd, 10);
-              const endDate = new Date(newDate);
-
-              if (
-                horaFinHour < horaInicioHour ||
-                (horaFinHour === horaInicioHour &&
-                  parseInt(minutesEnd, 10) < parseInt(minutes, 10))
-              ) {
-                endDate.setDate(endDate.getDate() + 1);
-              }
-
-              const { error: rowError } = await supabase
-                .from("reservas")
-                .update({
-                  hora_inicio: formatLocalTimestamp(
-                    newDate,
-                    hours,
-                    minutes,
-                    seconds,
-                  ),
-                  hora_fin: formatLocalTimestamp(
-                    endDate,
-                    hoursEnd,
-                    minutesEnd,
-                    secondsEnd,
-                  ),
-                  precio: editPrecio,
-                  nombre_reserva: editNombre,
-                  celular_reserva: editCelular || null,
-                  correo_reserva: editCorreo || null,
-                })
-                .eq("id", reserva.id);
-
-              if (rowError && isReservaConflictError(rowError)) {
-                conflictCount++;
-              } else if (rowError) {
-                throw rowError;
-              } else {
-                updatedCount++;
-              }
-            }
-          }
-
-          if (conflictCount > 0) {
-            alert(
-              `Se actualizaron ${updatedCount} reservas. ${conflictCount} no se pudieron mover porque ya existe una reserva en esa hora.`,
-            );
-          }
-        }
-      } else {
-        // Just update contact info and price in related reservas
-        await supabase
-          .from("reservas")
-          .update({
-            nombre_reserva: editNombre,
-            celular_reserva: editCelular || null,
-            correo_reserva: editCorreo || null,
-            precio: editPrecio,
-          })
-          .eq("reservacion_fija_id", reservaFija.id);
-      }
+      // The database synchronizes future reservations and retos in the same transaction.
 
       // Send email for the closest upcoming reservation if correo is provided
       if (editCorreo && editCorreo.trim()) {
@@ -369,10 +278,7 @@ export default function ReservaFijaDrawer({
             .from("reservas")
             .select("*")
             .eq("reservacion_fija_id", reservaFija.id)
-            .gte(
-              "hora_inicio",
-              new Date().toISOString().split("T")[0] + " 00:00:00",
-            )
+            .gt("hora_inicio", costaRicaNow())
             .order("hora_inicio", { ascending: true })
             .limit(1);
 
@@ -396,8 +302,8 @@ export default function ReservaFijaDrawer({
                 nombre_reserva: editNombre,
                 celular_reserva: editCelular || "",
                 correo_reserva: editCorreo,
-                precio: editPrecio,
-                arbitro: reservaFija.arbitro,
+                precio: closestReserva.precio,
+                arbitro: closestReserva.arbitro,
                 jugadores:
                   parseInt(cancha?.cantidad?.toString() || "0", 10) * 2,
                 reserva_url: reservaUrl,
@@ -420,53 +326,6 @@ export default function ReservaFijaDrawer({
 
       setShowUpdateConfirm(false);
 
-      // Fetch updated reserva_fija data to refresh the drawer
-      const { data: updatedReservaFija, error: fetchError } = await supabase
-        .from("reservas_fijas")
-        .select(
-          `
-          *,
-          cancha:cancha_id (
-            id,
-            nombre,
-            img,
-            local,
-            cantidad,
-            precio
-          )
-        `,
-        )
-        .eq("id", reservaFija.id)
-        .single();
-
-      if (!fetchError && updatedReservaFija) {
-        // Update local state with fresh data
-        const updatedData = {
-          ...updatedReservaFija,
-          cancha: Array.isArray(updatedReservaFija.cancha)
-            ? updatedReservaFija.cancha[0]
-            : updatedReservaFija.cancha,
-        };
-
-        // Re-initialize form with updated data
-        setEditNombre(updatedData.nombre_reserva_fija || "");
-        setEditCorreo(updatedData.correo_reserva_fija || "");
-        setEditCelular(updatedData.celular_reserva_fija || "");
-        setEditPrecio(updatedData.precio);
-        setEditDia(updatedData.dia);
-        setEditHoraInicio(updatedData.hora_inicio);
-
-        // Calculate hora_fin as hora_inicio + 1 hour
-        if (updatedData.hora_inicio) {
-          const [hours, minutes] = updatedData.hora_inicio.split(":");
-          const nextHour = (parseInt(hours, 10) + 1) % 24;
-          const calculatedHoraFin = `${String(nextHour).padStart(2, "0")}:${minutes}:00`;
-          setEditHoraFin(calculatedHoraFin);
-        } else {
-          setEditHoraFin(updatedData.hora_fin);
-        }
-      }
-
       onUpdate();
       if (reservaFija) {
         await fetchReservas(reservaFija.id);
@@ -474,11 +333,9 @@ export default function ReservaFijaDrawer({
     } catch (error) {
       console.error("Error updating reserva fija:", error);
       if (isReservaConflictError(error)) {
-        alert(
-          "No se pudo actualizar: la nueva hora ya está reservada en esta cancha.",
-        );
+        setUpdateErrorMessage("No se pudo actualizar: hay un conflicto en el horario elegido. No se guardó ningún cambio.");
       } else {
-        alert("Error al actualizar la reservación fija");
+        setUpdateErrorMessage("No se pudo actualizar la reservación fija. No se guardó ningún cambio. Intente de nuevo.");
       }
     } finally {
       setUpdating(false);
@@ -490,17 +347,11 @@ export default function ReservaFijaDrawer({
 
     setUpdating(true);
     try {
-      // Get today's date at midnight (start of day)
-      const today = new Date();
-      today.setHours(0, 0, 0, 0);
-      const todayStr = today.toISOString().split("T")[0]; // YYYY-MM-DD format
-
-      // Delete only future related reservas (from today onwards)
       const { error: deleteReservasError } = await supabase
         .from("reservas")
         .delete()
         .eq("reservacion_fija_id", reservaFija.id)
-        .gte("hora_inicio", `${todayStr} 00:00:00`);
+        .gt("hora_inicio", costaRicaNow());
 
       if (deleteReservasError) throw deleteReservasError;
 
@@ -547,6 +398,10 @@ export default function ReservaFijaDrawer({
       );
     }
 
+    if (editArbitro !== Boolean(reservaFija.arbitro)) changes.push(editArbitro ? "Se agregará árbitro y ₡5,000 a las próximas reservaciones que aún no lo incluyen." : "Se quitará el árbitro y se restarán ₡5,000 donde esté incluido.");
+    if (editPrecio !== reservaFija.precio) changes.push(`Precio por nueva reservación: ₡${editPrecio.toLocaleString()}.`);
+    if (editEsReto !== Boolean(reservaFija.es_reto)) changes.push(editEsReto ? "Se creará un reto por cada próxima reservación y por cada nueva fecha automática." : "Las nuevas fechas dejarán de crear retos. Los retos existentes se conservan.");
+    setUpdateErrorMessage("");
     setChangesDescription(changes);
     setShowUpdateConfirm(true);
   };
@@ -838,6 +693,21 @@ export default function ReservaFijaDrawer({
                             </div>
                           </div>
 
+                          <div className="rounded-lg border border-gray-200 px-3 py-2 text-sm text-gray-700">
+                            <span className="font-semibold">{reservaFija.frecuencia_semanas === 2 ? "Cada 2 semanas (14 días)" : "Cada semana"}</span>
+                            {reservaFija.fecha_inicio && <span className="mt-1 block text-xs text-gray-500">Desde el {formatFixedDate(reservaFija.fecha_inicio)}</span>}
+                          </div>
+                          {isFullCancha(currentCancha) && (
+                            <div>
+                              <label htmlFor="fixed-edit-fut" className="mb-2 block text-sm font-medium text-gray-900">Modalidad</label>
+                              <select id="fixed-edit-fut" value={editFut} onChange={(e) => { const fut = Number(e.target.value); setEditFut(fut); setEditPrecio(canchaPrice(currentCancha, fut, editArbitro)); }} className="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900">
+                                {[7, 8, 9].map((fut) => <option key={fut} value={fut}>FUT {fut}</option>)}
+                              </select>
+                            </div>
+                          )}
+                          <ReservaFijaOptions editing arbitro={editArbitro} esReto={editEsReto}
+                            onRefereeChange={(value) => { setEditPrecio(refereeAdjustedPrice(editPrecio, editArbitro, value)); setEditArbitro(value); }} onRetoChange={setEditEsReto} />
+
                           {/* Price Information */}
                           <div>
                             <div className="flex items-center justify-between mb-3">
@@ -879,8 +749,7 @@ export default function ReservaFijaDrawer({
                                     step="1000"
                                   />
                                 </div>
-                                {reservaFija.cancha?.local === 2 &&
-                                  reservaFija.arbitro && (
+                                {editArbitro && (
                                     <div className="flex items-center gap-2 text-sm text-gray-600">
                                       <GiWhistle className="text-primary" />
                                       <span>Árbitro incluido</span>
@@ -894,11 +763,10 @@ export default function ReservaFijaDrawer({
                                     Precio total:
                                   </span>
                                   <span className="font-medium text-gray-900">
-                                    ₡{reservaFija.precio.toLocaleString()}
+                                    ₡{editPrecio.toLocaleString()}
                                   </span>
                                 </div>
-                                {reservaFija.cancha?.local === 2 &&
-                                  reservaFija.arbitro && (
+                                {editArbitro && (
                                     <div className="flex items-center gap-2 text-sm text-gray-600">
                                       <GiWhistle className="text-primary" />
                                       <span>Árbitro incluido</span>
@@ -915,9 +783,7 @@ export default function ReservaFijaDrawer({
                             </h3>
                             <div className="bg-blue-50 border border-blue-200 rounded-xl p-3 mb-3">
                               <p className="text-xs text-blue-900">
-                                <strong>Nota:</strong> Siempre habrá
-                                reservaciones para esta reservación fija 8
-                                semanas adelante.
+                                Se generan reservaciones {reservaFija.frecuencia_semanas === 2 ? "cada 2 semanas" : "cada semana"}, hasta 8 semanas adelante. Las fechas canceladas no se vuelven a crear.
                               </p>
                             </div>
                             {loadingReservas ? (
@@ -1014,7 +880,7 @@ export default function ReservaFijaDrawer({
                       <button
                         type="button"
                         onClick={handleShowUpdateConfirm}
-                        disabled={updating || !editNombre}
+                        disabled={updating || !editNombre.trim() || !Number.isFinite(editPrecio) || editPrecio < 0}
                         className="inline-flex justify-center rounded-md bg-primary px-3 py-2 text-sm font-semibold text-white shadow-xs hover:bg-primary/90 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary disabled:bg-gray-700 disabled:cursor-not-allowed"
                       >
                         {updating ? "Actualizando..." : "Actualizar"}
@@ -1028,52 +894,12 @@ export default function ReservaFijaDrawer({
         </div>
       </Dialog>
 
-      {/* Update Confirmation Dialog */}
-      <Dialog
-        open={showUpdateConfirm}
-        onClose={() => setShowUpdateConfirm(false)}
-        className="relative z-50"
-      >
-        <DialogBackdrop className="fixed inset-0 bg-black/80" />
-        <div className="fixed inset-0 z-50 w-screen overflow-y-auto">
-          <div className="flex min-h-full items-end justify-center p-4 text-center sm:items-center sm:p-0">
-            <DialogPanel className="relative transform w-full overflow-hidden rounded-lg bg-white px-4 pt-5 pb-4 text-left shadow-xl ring-1 ring-black/5 transition-all data-closed:translate-y-4 data-closed:opacity-0 data-enter:duration-300 data-enter:ease-out data-leave:duration-200 data-leave:ease-in sm:my-8 sm:w-full sm:max-w-lg sm:p-6 data-closed:sm:translate-y-0 data-closed:sm:scale-95">
-              <DialogTitle className="text-base font-semibold text-gray-900 mb-4">
-                ¿Está seguro de actualizar esta reservación fija?
-              </DialogTitle>
-              {changesDescription.length > 0 && (
-                <div className="mb-4">
-                  <p className="text-sm text-gray-600 mb-2">
-                    Se actualizarán todas las reservaciones relacionadas:
-                  </p>
-                  <ul className="list-disc list-inside text-sm text-gray-600 space-y-1">
-                    {changesDescription.map((change, index) => (
-                      <li key={index}>{change}</li>
-                    ))}
-                  </ul>
-                  <p className="text-sm text-gray-600 mt-2">
-                    Total de reservaciones a actualizar: {reservas.length}
-                  </p>
-                </div>
-              )}
-              <div className="flex gap-3">
-                <button
-                  onClick={() => setShowUpdateConfirm(false)}
-                  className="flex-1 rounded-md bg-white px-4 py-2 text-sm font-medium text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 hover:bg-gray-50"
-                >
-                  Cancelar
-                </button>
-                <button
-                  onClick={handleUpdateReservaFija}
-                  className="flex-1 rounded-md bg-primary px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-primary/90"
-                >
-                  Actualizar
-                </button>
-              </div>
-            </DialogPanel>
-          </div>
-        </div>
-      </Dialog>
+      <RetoConfirmDialog
+        open={showUpdateConfirm} title="Actualizar reservación fija" tone="primary"
+        description={`Los cambios se aplicarán a ${reservas.length} próximas reservaciones y a las que se generen después. Las reservaciones pasadas se conservan. ${changesDescription.join(" ")}`}
+        confirmLabel="Actualizar" busy={updating} error={updateErrorMessage}
+        onCancel={() => setShowUpdateConfirm(false)} onConfirm={handleUpdateReservaFija}
+      />
 
       {/* Delete Confirmation Dialog */}
       <Dialog

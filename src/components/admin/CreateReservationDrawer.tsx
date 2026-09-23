@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { isFullCancha } from "../../lib/retos";
 import {
   Dialog,
   DialogPanel,
@@ -137,7 +138,7 @@ export default function CreateReservationDrawer({
         );
         if (defaultCancha) {
           setSelectedCancha(defaultCancha);
-          if (defaultCancha.cantidad === "7-8-9") {
+          if (isFullCancha(defaultCancha)) {
             setSelectedPlayers(7);
           }
         }
@@ -275,7 +276,7 @@ export default function CreateReservationDrawer({
     return hours;
   };
 
-  const isSpecialCancha = selectedCancha?.cantidad === "7-8-9";
+  const isSpecialCancha = isFullCancha(selectedCancha);
 
   const parsePrecio = (precioStr: string | undefined): number => {
     if (!precioStr) return 0;
@@ -350,6 +351,7 @@ export default function CreateReservationDrawer({
           correo_reserva: correo || null,
           cancha_id: selectedCancha.id,
           precio: getPrice(),
+          fut: getPlayerCount(),
           arbitro: arbitro,
         })
         .select()
@@ -363,7 +365,7 @@ export default function CreateReservationDrawer({
           ? selectedPlayers || parseInt(selectedCancha.cantidad, 10)
           : parseInt(selectedCancha.cantidad, 10);
 
-        await supabase.from("retos").insert({
+        const { error: retoError } = await supabase.from("retos").insert({
           hora_inicio: formatLocalTimestamp(horaInicio),
           hora_fin: formatLocalTimestamp(horaFin),
           local: localStr,
@@ -375,7 +377,14 @@ export default function CreateReservationDrawer({
           equipo1_correo: correo || null,
           cancha_id: selectedCancha.id,
           reserva_id: data.id,
+          precio: getPrice(),
         });
+        if (retoError) {
+          // Keep the saved reservation visible; conversion can be retried there.
+          onSuccess(data.id);
+          onClose();
+          throw new Error("La reservación se creó, pero no se pudo crear el reto. Abra la reservación y active Crear reto para reintentarlo.");
+        }
       }
 
       // Notify backend (admin emails + optional client email)
@@ -430,7 +439,7 @@ export default function CreateReservationDrawer({
           "Esta hora ya está reservada en esta cancha. Por favor seleccione otra hora.",
         );
       } else {
-        alert("Error al crear la reservación. Por favor intente de nuevo.");
+        alert(error instanceof Error ? error.message : "Error al crear la reservación. Por favor intente de nuevo.");
       }
     } finally {
       setSubmitting(false);
@@ -527,7 +536,7 @@ export default function CreateReservationDrawer({
                                       if (cancha) {
                                         setSelectedCancha(cancha);
                                         setSelectedHour(null);
-                                        if (cancha.cantidad === "7-8-9") {
+                                        if (isFullCancha(cancha)) {
                                           setSelectedPlayers(7);
                                         } else {
                                           setSelectedPlayers(null);
@@ -1140,12 +1149,13 @@ export default function CreateReservationDrawer({
                                         <div className="flex items-center justify-between">
                                           <div>
                                             <label className="text-sm font-medium text-gray-900">
-                                              Es Reto
+                                              Crear reto
                                             </label>
                                           </div>
                                           <button
                                             type="button"
                                             role="switch"
+                                            aria-label="Crear reto"
                                             aria-checked={isReto}
                                             onClick={() => setIsReto(!isReto)}
                                             className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out ${isReto ? "bg-primary" : "bg-gray-200"}`}

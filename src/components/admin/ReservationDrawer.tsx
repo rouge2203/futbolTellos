@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import type { User } from "@supabase/supabase-js";
 import { supabase } from "../../lib/supabase";
+import { isFullCancha, canchaPrice, reservationFut } from "../../lib/retos";
 import { recomputarCompletos } from "../../lib/recomputarCompletos";
 import { Link, useNavigate } from "react-router-dom";
 import {
@@ -43,6 +44,7 @@ interface Pago {
 
 interface Reto {
   id: number;
+  fut?: number;
   equipo1_nombre: string | null;
   equipo1_encargado: string;
   equipo1_celular: string;
@@ -63,6 +65,7 @@ interface Reserva {
   confirmada: boolean | null;
   confirmada_por: string | null;
   precio: number;
+  fut?: number | null;
   arbitro: boolean;
   cancha: Cancha;
   reservacion_fija_id: number | null;
@@ -88,6 +91,7 @@ interface ReservationDrawerProps {
     correo_reserva: string;
     celular_reserva: string;
     precio: number;
+    fut?: number;
     cancha_id?: number;
     arbitro?: boolean;
   }) => Promise<void>;
@@ -152,6 +156,7 @@ export default function ReservationDrawer({
   const [editCorreo, setEditCorreo] = useState("");
   const [editCelular, setEditCelular] = useState("");
   const [editPrecio, setEditPrecio] = useState<number>(0);
+  const [editFut, setEditFut] = useState(7);
   const [editArbitro, setEditArbitro] = useState(false);
   const [editDate, setEditDate] = useState<Date | null>(null);
   const [editHour, setEditHour] = useState<number | null>(null);
@@ -219,10 +224,12 @@ export default function ReservationDrawer({
   // Initialize form when reserva changes
   useEffect(() => {
     if (reserva) {
-      setEditNombre(reserva.nombre_reserva);
-      setEditCorreo(reserva.correo_reserva);
-      setEditCelular(reserva.celular_reserva);
+      setEditNombre(reserva.nombre_reserva || "");
+      setEditCorreo(reserva.correo_reserva || "");
+      setEditCelular(reserva.celular_reserva || "");
       setEditPrecio(reserva.precio);
+      setEditFut(reservationFut(reserva));
+      setRetoData(null);
       setEditArbitro(reserva.arbitro);
       setEditCanchaId(reserva.cancha.id);
 
@@ -259,15 +266,17 @@ export default function ReservationDrawer({
       const fetchRetoData = async () => {
         if (reserva.reto) {
           setRetoData(reserva.reto);
+          if (isFullCancha(reserva.cancha) && !reserva.fut && [7, 8, 9].includes(reserva.reto.fut ?? 0)) setEditFut(reserva.reto.fut!);
         } else {
           const { data } = await supabase
             .from("retos")
             .select(
-              "id, equipo1_nombre, equipo1_encargado, equipo1_celular, equipo1_correo, equipo2_nombre, equipo2_encargado, equipo2_celular",
+              "id, fut, equipo1_nombre, equipo1_encargado, equipo1_celular, equipo1_correo, equipo2_nombre, equipo2_encargado, equipo2_celular",
             )
             .eq("reserva_id", reserva.id)
             .maybeSingle();
           setRetoData(data || null);
+          if (isFullCancha(reserva.cancha) && !reserva.fut && [7, 8, 9].includes(data?.fut ?? 0)) setEditFut(data!.fut);
         }
       };
 
@@ -433,33 +442,14 @@ export default function ReservationDrawer({
         correo_reserva: editCorreo,
         celular_reserva: editCelular,
         precio: editPrecio,
-        arbitro: editArbitro,
+        arbitro: updatedCancha.local === 2 && editArbitro,
+        fut: isFullCancha(updatedCancha) ? editFut : parseInt(updatedCancha.cantidad || "5", 10),
         ...(editCanchaId && editCanchaId !== reserva.cancha.id
           ? { cancha_id: editCanchaId }
           : {}),
       });
 
-      if (retoData) {
-        const localStr = updatedCancha.local === 1 ? "Sabana" : "Guadalupe";
-        const retoUpdate: Record<string, unknown> = {
-          hora_inicio: formatLocalTimestamp(horaInicio),
-          hora_fin: formatLocalTimestamp(horaFin),
-          cancha_id: finalCanchaId,
-          local: localStr,
-          arbitro: updatedCancha.local === 2 ? editArbitro : false,
-          equipo1_encargado: editNombre,
-          equipo1_celular: editCelular,
-          equipo1_correo: editCorreo || null,
-        };
-        if (updatedCancha.id !== 6) {
-          retoUpdate.fut = parseInt(updatedCancha.cantidad || "0", 10);
-        }
-
-        await supabase
-          .from("retos")
-          .update(retoUpdate)
-          .eq("id", retoData.id);
-      }
+      // The database synchronizes the linked reto in the same transaction.
 
       // Recalculate pago completo flags based on new price
       if (editPrecio !== reserva.precio) {
@@ -502,15 +492,16 @@ export default function ReservationDrawer({
 
       if (convertToReto && !retoData) {
         const localStr = currentCancha.local === 1 ? "Sabana" : "Guadalupe";
-        const futValue = parseInt(currentCancha.cantidad || "0", 10);
-        const { data: newReto } = await supabase
+        const futValue = isFullCancha(updatedCancha) ? editFut : parseInt(updatedCancha.cantidad || "5", 10);
+        const { data: newReto, error: retoError } = await supabase
           .from("retos")
           .insert({
             hora_inicio: formatLocalTimestamp(horaInicio),
             hora_fin: formatLocalTimestamp(horaFin),
             local: localStr,
             fut: futValue,
-            arbitro: editArbitro,
+            arbitro: updatedCancha.local === 2 && editArbitro,
+            precio: editPrecio,
             equipo1_nombre: null,
             equipo1_encargado: editNombre,
             equipo1_celular: editCelular,
@@ -519,10 +510,11 @@ export default function ReservationDrawer({
             reserva_id: reserva.id,
           })
           .select(
-            "id, equipo1_nombre, equipo1_encargado, equipo1_celular, equipo1_correo, equipo2_nombre, equipo2_encargado, equipo2_celular",
+            "id, fut, equipo1_nombre, equipo1_encargado, equipo1_celular, equipo1_correo, equipo2_nombre, equipo2_encargado, equipo2_celular",
           )
           .single();
 
+        if (retoError) throw new Error("La reservación se guardó, pero no se pudo crear el reto. Intente de nuevo.");
         if (newReto) {
           setRetoData(newReto);
           setConvertToReto(false);
@@ -672,9 +664,9 @@ export default function ReservationDrawer({
         };
 
         // Re-initialize form with updated data
-        setEditNombre(updatedReservaWithCancha.nombre_reserva);
-        setEditCorreo(updatedReservaWithCancha.correo_reserva);
-        setEditCelular(updatedReservaWithCancha.celular_reserva);
+        setEditNombre(updatedReservaWithCancha.nombre_reserva || "");
+        setEditCorreo(updatedReservaWithCancha.correo_reserva || "");
+        setEditCelular(updatedReservaWithCancha.celular_reserva || "");
         setEditPrecio(updatedReservaWithCancha.precio);
         setEditCanchaId(updatedReservaWithCancha.cancha.id);
 
@@ -720,6 +712,14 @@ export default function ReservationDrawer({
 
   const handleCanchaSelect = (canchaId: number) => {
     setEditCanchaId(canchaId);
+    const cancha = canchas.find(c => c.id === canchaId);
+    if (cancha) {
+      const fut = isFullCancha(cancha) ? 7 : parseInt(cancha.cantidad || "5", 10);
+      const arbitro = cancha.local === 2 && editArbitro;
+      setEditFut(fut);
+      setEditArbitro(arbitro);
+      setEditPrecio(canchaPrice(cancha, fut, arbitro));
+    }
     setShowCanchaSelector(false);
     setEditDate(null);
     setEditHour(null);
@@ -1235,6 +1235,21 @@ export default function ReservationDrawer({
                             </div>
                           ) : null}
 
+                          {isFullCancha(currentCancha) && (
+                            <fieldset>
+                              <legend className="mb-3 text-sm font-medium text-gray-900">Formato de juego · Cancha completa</legend>
+                              <div className="flex gap-2">
+                                {[7, 8, 9].map(fut => (
+                                  <button key={fut} type="button" disabled={mode !== "edit"} aria-pressed={editFut === fut}
+                                    onClick={() => { setEditFut(fut); setEditPrecio(canchaPrice(currentCancha, fut, editArbitro)); }}
+                                    className={`flex-1 rounded-lg border px-3 py-3 text-sm font-semibold ${editFut === fut ? "border-primary bg-primary text-white" : "border-gray-300 text-gray-900 hover:bg-gray-50"}`}>
+                                    FUT {fut}
+                                  </button>
+                                ))}
+                              </div>
+                              <p className="mt-2 text-xs text-gray-500">Selecciona el formato para aplicar su tarifa. Puedes ajustar el precio total abajo.</p>
+                            </fieldset>
+                          )}
                           {/* Price Information */}
                           <div>
                             <div className="flex items-center justify-between mb-3">
@@ -1363,11 +1378,12 @@ export default function ReservationDrawer({
                             {!retoData && mode === "edit" && (
                               <div className="mt-4 flex items-center justify-between rounded-lg border border-gray-200 bg-gray-50 px-4 py-3">
                                 <label className="text-sm font-medium text-gray-900">
-                                  Convertir en Reto 🔥
+                                  Crear reto
                                 </label>
                                 <button
                                   type="button"
                                   role="switch"
+                                  aria-label="Crear reto"
                                   aria-checked={convertToReto}
                                   onClick={() =>
                                     setConvertToReto(!convertToReto)

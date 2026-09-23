@@ -596,7 +596,7 @@ function Index() {
                         Encuentra un reto
                       </p>
                       <p className="mt-1 text-sm text-white/70">
-                        Busca oponentes o crea tu propio reto
+                        Busca equipos o crea tu propio reto
                       </p>
                     </div>
                     <div className="ml-4 flex shrink-0">

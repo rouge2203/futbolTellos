@@ -9,7 +9,9 @@ import {
 import { XMarkIcon } from "@heroicons/react/24/outline";
 import { supabase, isReservaConflictError } from "../../lib/supabase";
 import { FaRegClock } from "react-icons/fa";
-import { GiWhistle } from "react-icons/gi";
+import { isFullCancha } from "../../lib/retos";
+import ReservaFijaOptions from "./ReservaFijaOptions";
+import { addDays, fixedReservationDates, formatFixedDate, nextFixedDate, refereeAdjustedPrice, schedulesOverlap, type FrequencyWeeks } from "../../lib/reservasFijas";
 import { TbPlayFootball, TbRun } from "react-icons/tb";
 
 interface Cancha {
@@ -69,6 +71,10 @@ export default function CreateReservaFijaDrawer({
   const [selectedHour, setSelectedHour] = useState<number | null>(null);
   const [selectedPlayers, setSelectedPlayers] = useState<number | null>(null);
   const [arbitro, setArbitro] = useState(false);
+  const [esReto, setEsReto] = useState(false);
+  const [frequency, setFrequency] = useState<FrequencyWeeks>(1);
+  const [startWeekOffset, setStartWeekOffset] = useState(0);
+  const firstDate = addDays(nextFixedDate(selectedDay, selectedHour), startWeekOffset * 7);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [reservedHoursByReservasFijas, setReservedHoursByReservasFijas] =
@@ -123,7 +129,7 @@ export default function CreateReservaFijaDrawer({
         // Set default cancha
         if (sortedCanchas.length > 0) {
           setSelectedCancha(sortedCanchas[0]);
-          if (sortedCanchas[0].cantidad === "7-8-9") {
+          if (isFullCancha(sortedCanchas[0])) {
             setSelectedPlayers(7);
           }
         }
@@ -147,6 +153,9 @@ export default function CreateReservaFijaDrawer({
       setSelectedHour(null);
       setSelectedPlayers(null);
       setArbitro(false);
+      setEsReto(false);
+      setFrequency(1);
+      setStartWeekOffset(0);
       setNombre("");
       setCelular("");
       setCorreo("");
@@ -158,11 +167,11 @@ export default function CreateReservaFijaDrawer({
     }
   }, [open]);
 
-  // Reset custom price when cancha, players, or arbitro changes
+  // Reset custom price when cancha or players changes
   useEffect(() => {
     setCustomPrice(null);
     setShowPriceEdit(false);
-  }, [selectedCancha?.id, selectedPlayers, arbitro]);
+  }, [selectedCancha?.id, selectedPlayers]);
 
   // Fetch existing reservas_fijas for the selected day and cancha
   useEffect(() => {
@@ -181,13 +190,13 @@ export default function CreateReservaFijaDrawer({
 
         const { data: reservasFijasData, error } = await supabase
           .from("reservas_fijas")
-          .select("hora_inicio")
+          .select("hora_inicio, frecuencia_semanas, fecha_inicio")
           .eq("dia", selectedDay)
           .in("cancha_id", canchaIds);
 
         if (error) throw error;
 
-        const occupiedHours = (reservasFijasData || []).map((rf) => {
+        const occupiedHours = (reservasFijasData || []).filter((rf) => schedulesOverlap({ frecuencia_semanas: frequency, fecha_inicio: firstDate }, rf)).map((rf) => {
           const timeMatch = rf.hora_inicio.match(/(\d{2}):(\d{2}):(\d{2})/);
           if (timeMatch) {
             return parseInt(timeMatch[1], 10);
@@ -203,7 +212,7 @@ export default function CreateReservaFijaDrawer({
     };
 
     fetchReservasFijas();
-  }, [selectedDay, selectedCancha]);
+  }, [selectedDay, selectedCancha, frequency, firstDate]);
 
   const parseTimeToHour = (timeStr: string): number => {
     return parseInt(timeStr.split(":")[0], 10);
@@ -237,7 +246,7 @@ export default function CreateReservaFijaDrawer({
     return hours;
   };
 
-  const isSpecialCancha = selectedCancha?.cantidad === "7-8-9";
+  const isSpecialCancha = isFullCancha(selectedCancha);
 
   const parsePrecio = (precioStr: string | undefined): number => {
     if (!precioStr) return 0;
@@ -263,7 +272,7 @@ export default function CreateReservaFijaDrawer({
     }
     // Otherwise, calculate the default price
     const arbitroCost =
-      selectedCancha?.local === 2 && arbitro ? ARBITRO_COST : 0;
+      arbitro ? ARBITRO_COST : 0;
     return getBasePrice() + arbitroCost;
   };
 
@@ -276,27 +285,8 @@ export default function CreateReservaFijaDrawer({
     setStep(1);
   };
 
-  // Get next 8 weeks of dates for the selected day
-  const getNext8WeeksDates = (): Date[] => {
-    const dates: Date[] = [];
-    const today = new Date();
-
-    // Find the next occurrence of the selected day
-    let currentDate = new Date(today);
-    const targetDay = selectedDay === 7 ? 0 : selectedDay; // Convert to JS day (0 = Sunday)
-
-    while (currentDate.getDay() !== targetDay) {
-      currentDate.setDate(currentDate.getDate() + 1);
-    }
-
-    // Add the next 8 occurrences
-    for (let i = 0; i < 8; i++) {
-      dates.push(new Date(currentDate));
-      currentDate.setDate(currentDate.getDate() + 7);
-    }
-
-    return dates;
-  };
+  const getNext8WeeksDates = (): Date[] =>
+    fixedReservationDates(firstDate, frequency).map((date) => new Date(`${date}T12:00:00`));
 
   const checkForConflicts = async (
     dates: Date[],
@@ -319,12 +309,14 @@ export default function CreateReservaFijaDrawer({
         canchaIds = [selectedCancha.id];
       }
 
-      const { data: reservasData } = await supabase
+      const { data: reservasData, error } = await supabase
         .from("reservas")
         .select("hora_inicio, nombre_reserva")
         .in("cancha_id", canchaIds)
         .gte("hora_inicio", startOfDay)
         .lte("hora_inicio", endOfDay);
+
+      if (error) throw error;
 
       const conflictingReserva = (reservasData || []).find(
         (r) => parseHourFromTimestamp(r.hora_inicio) === selectedHour,
@@ -377,6 +369,9 @@ export default function CreateReservaFijaDrawer({
       setConflictDates(conflicts);
       setAvailableDatesToCreate(availableDates);
       setShowConfirmDialog(true);
+    } catch (error) {
+      console.error("Error checking availability:", error);
+      alert("No se pudo verificar la disponibilidad. Intente de nuevo.");
     } finally {
       setCheckingConflicts(false);
     }
@@ -384,7 +379,7 @@ export default function CreateReservaFijaDrawer({
 
   const handleProceedWithCreation = async () => {
     setShowConfirmDialog(false);
-    await createReservaFija(availableDatesToCreate);
+    await createReservaFija();
   };
 
   const formatConflictDate = (date: Date): string => {
@@ -399,7 +394,7 @@ export default function CreateReservaFijaDrawer({
     return `${dayOfWeek} ${day} de ${month} de ${year}`;
   };
 
-  const createReservaFija = async (availableDates: Date[]) => {
+  const createReservaFija = async () => {
     setSubmitting(true);
 
     try {
@@ -410,85 +405,26 @@ export default function CreateReservaFijaDrawer({
         "0",
       )}:00:00`;
 
-      const { data: reservaFijaData, error: reservaFijaError } = await supabase
-        .from("reservas_fijas")
-        .insert({
+      const { data, error } = await supabase.rpc("crear_reserva_fija", {
+        p_datos: {
           hora_inicio: horaInicio,
           hora_fin: horaFin,
-          nombre_reserva_fija: nombre,
+          nombre_reserva_fija: nombre.trim(),
           celular_reserva_fija: celular || null,
           correo_reserva_fija: correo || null,
           cancha_id: selectedCancha!.id,
           precio: getPrice(),
           arbitro: arbitro,
           dia: selectedDay,
-        })
-        .select()
-        .single();
-
-      if (reservaFijaError) throw reservaFijaError;
-
-      // Create reservas for available dates only
-      if (availableDates.length > 0) {
-        const formatLocalTimestamp = (d: Date, hour: number): string => {
-          const year = d.getFullYear();
-          const month = String(d.getMonth() + 1).padStart(2, "0");
-          const day = String(d.getDate()).padStart(2, "0");
-          const hours = String(hour).padStart(2, "0");
-          return `${year}-${month}-${day} ${hours}:00:00`;
-        };
-
-        const reservasToInsert = availableDates.map((date) => {
-          const horaInicioTimestamp = formatLocalTimestamp(date, selectedHour!);
-
-          // Calculate end hour and date
-          const endHour = (selectedHour! + 1) % 24;
-          const endDate = new Date(date);
-
-          // If end hour wraps around (e.g., 23 -> 0), add one day
-          if (
-            endHour < selectedHour! ||
-            (endHour === 0 && selectedHour! === 23)
-          ) {
-            endDate.setDate(endDate.getDate() + 1);
-          }
-
-          const horaFinTimestamp = formatLocalTimestamp(endDate, endHour);
-
-          return {
-            hora_inicio: horaInicioTimestamp,
-            hora_fin: horaFinTimestamp,
-            nombre_reserva: nombre,
-            celular_reserva: celular || null,
-            correo_reserva: correo || null,
-            cancha_id: selectedCancha!.id,
-            precio: getPrice(),
-            arbitro: arbitro,
-            reservacion_fija_id: reservaFijaData.id,
-          };
-        });
-
-        let created = 0;
-        let skippedConflict = 0;
-
-        for (const reserva of reservasToInsert) {
-          const { error: insertError } = await supabase
-            .from("reservas")
-            .insert(reserva);
-
-          if (insertError && isReservaConflictError(insertError)) {
-            skippedConflict++;
-            continue;
-          }
-          if (insertError) throw insertError;
-          created++;
-        }
-
-        if (skippedConflict > 0) {
-          alert(
-            `Reservación fija creada. Se crearon ${created} reservas y se omitieron ${skippedConflict} por conflicto con reservas existentes.`,
-          );
-        }
+          frecuencia_semanas: frequency,
+          fecha_inicio: firstDate,
+          es_reto: esReto,
+          fut: isSpecialCancha ? selectedPlayers : Number(selectedCancha!.cantidad),
+        },
+      });
+      if (error) throw error;
+      if (data.omitidas > 0) {
+        alert(`Reservación fija creada. Se crearon ${data.creadas} reservaciones y se omitieron ${data.omitidas} por conflictos.`);
       }
 
       setShowSuccessNotification(true);
@@ -501,7 +437,7 @@ export default function CreateReservaFijaDrawer({
       console.error("Error creating reserva fija:", error);
       if (isReservaConflictError(error)) {
         alert(
-          "No se pudo crear la reservación fija porque todas las fechas tienen conflictos con reservas existentes.",
+          "No se pudo crear la reservación fija porque ya existe otra reservación fija en ese horario y semanas.",
         );
       } else {
         alert(
@@ -514,7 +450,7 @@ export default function CreateReservaFijaDrawer({
   };
 
   const availableHours = getAvailableHours();
-  const canProceedToStep2 = selectedCancha && selectedHour !== null;
+  const canProceedToStep2 = selectedCancha && selectedHour !== null && !reservedHoursByReservasFijas.includes(selectedHour);
   const canSubmit = nombre.trim() && !submitting && !checkingConflicts;
 
   return (
@@ -611,6 +547,7 @@ export default function CreateReservaFijaDrawer({
                                     Cancha
                                   </label>
                                   <select
+                                    aria-label="Cancha"
                                     value={selectedCancha?.id || ""}
                                     onChange={(e) => {
                                       const cancha = canchas.find(
@@ -619,14 +556,10 @@ export default function CreateReservaFijaDrawer({
                                       if (cancha) {
                                         setSelectedCancha(cancha);
                                         setSelectedHour(null);
-                                        if (cancha.cantidad === "7-8-9") {
+                                        if (isFullCancha(cancha)) {
                                           setSelectedPlayers(7);
                                         } else {
                                           setSelectedPlayers(null);
-                                        }
-                                        // Reset arbitro if switching to Sabana (local == 1)
-                                        if (cancha.local === 1) {
-                                          setArbitro(false);
                                         }
                                       }
                                     }}
@@ -650,6 +583,7 @@ export default function CreateReservaFijaDrawer({
                                     Día de la semana
                                   </label>
                                   <select
+                                    aria-label="Día de la semana"
                                     value={selectedDay}
                                     onChange={(e) =>
                                       setSelectedDay(Number(e.target.value))
@@ -666,6 +600,23 @@ export default function CreateReservaFijaDrawer({
                                       </option>
                                     ))}
                                   </select>
+                                </div>
+
+                                <div className="space-y-3">
+                                  <label className="block text-sm font-medium text-gray-900" htmlFor="fixed-frequency">Frecuencia</label>
+                                  <select id="fixed-frequency" value={frequency} onChange={(e) => { setFrequency(Number(e.target.value) as FrequencyWeeks); setStartWeekOffset(0); }} className="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900">
+                                    <option value={1}>Cada semana</option>
+                                    <option value={2}>Cada 2 semanas (14 días)</option>
+                                  </select>
+                                  {frequency === 2 && (
+                                    <div>
+                                      <label htmlFor="fixed-start" className="mb-2 block text-sm font-medium text-gray-900">Primera reservación</label>
+                                      <select id="fixed-start" value={startWeekOffset} onChange={(e) => setStartWeekOffset(Number(e.target.value))} className="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900">
+                                        {[0, 1].map((offset) => <option key={offset} value={offset}>{formatFixedDate(addDays(nextFixedDate(selectedDay, selectedHour), offset * 7))}</option>)}
+                                      </select>
+                                    </div>
+                                  )}
+                                  <p className="text-xs leading-5 text-gray-600">{8 / frequency} reservaciones en las próximas 8 semanas, desde el {formatFixedDate(firstDate)}. Se seguirán generando con esta frecuencia.</p>
                                 </div>
 
                                 {/* Player Selection (Special Cancha) */}
@@ -733,52 +684,11 @@ export default function CreateReservaFijaDrawer({
                                   </div>
                                 </div>
 
-                                {/* Arbitro Checkbox - Only for Guadalupe (local == 2) */}
-                                {selectedCancha?.local === 2 && (
-                                  <div>
-                                    <div className="flex gap-3">
-                                      <div className="flex h-6 shrink-0 items-center">
-                                        <div className="group grid size-4 grid-cols-1">
-                                          <input
-                                            id="arbitro-create"
-                                            name="arbitro-create"
-                                            type="checkbox"
-                                            checked={arbitro}
-                                            onChange={(e) =>
-                                              setArbitro(e.target.checked)
-                                            }
-                                            className="col-start-1 row-start-1 appearance-none rounded-sm border border-gray-300 bg-white checked:border-primary checked:bg-primary focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
-                                          />
-                                          <svg
-                                            fill="none"
-                                            viewBox="0 0 14 14"
-                                            className="pointer-events-none col-start-1 row-start-1 size-3.5 self-center justify-self-center stroke-white"
-                                          >
-                                            <path
-                                              d="M3 8L6 11L11 3.5"
-                                              strokeWidth={2}
-                                              strokeLinecap="round"
-                                              strokeLinejoin="round"
-                                              className="opacity-0 group-has-checked:opacity-100"
-                                            />
-                                          </svg>
-                                        </div>
-                                      </div>
-                                      <div className="text-base">
-                                        <label
-                                          htmlFor="arbitro-create"
-                                          className="font-medium text-gray-900 flex items-center gap-2"
-                                        >
-                                          <GiWhistle className="text-primary text-lg" />
-                                          Contratar árbitro (todas las semanas)
-                                        </label>
-                                        <p className="text-gray-600 text-sm">
-                                          + ₡5,000 al precio total
-                                        </p>
-                                      </div>
-                                    </div>
-                                  </div>
-                                )}
+                                <ReservaFijaOptions
+                                  arbitro={arbitro} esReto={esReto}
+                                  onRefereeChange={(value) => { if (customPrice !== null) setCustomPrice(refereeAdjustedPrice(customPrice, arbitro, value)); setArbitro(value); }}
+                                  onRetoChange={setEsReto}
+                                />
 
                                 {/* Price Display */}
                                 {selectedHour !== null && (
@@ -993,9 +903,10 @@ export default function CreateReservaFijaDrawer({
                                     {/* Info about automatic reservas */}
                                     <div className="bg-blue-50 border border-blue-200 rounded-xl p-4">
                                       <p className="text-sm text-blue-900">
-                                        <strong>Nota:</strong> Se crearán
-                                        automáticamente reservaciones para las
-                                        próximas 8 semanas.
+                                        <strong>{8 / frequency} reservaciones en 8 semanas.</strong>{" "}
+                                        {frequency === 2 ? "Cada 2 semanas" : "Cada semana"}, desde el {formatFixedDate(firstDate)}.
+                                        {arbitro && " Todas con árbitro."}
+                                        {esReto && " Cada reservación creará un reto abierto."}
                                       </p>
                                     </div>
                                   </>
@@ -1104,11 +1015,12 @@ export default function CreateReservaFijaDrawer({
                 </>
               ) : (
                 <p className="text-sm text-gray-600 mb-4">
-                  Se crearán <strong>8 reservaciones</strong> automáticamente
+                  Se crearán <strong>{8 / frequency} reservaciones</strong> automáticamente
                   para las próximas 8 semanas.
                 </p>
               )}
 
+              <p className="mb-4 text-sm text-gray-600">{frequency === 2 ? "Cada 2 semanas" : "Cada semana"}, desde el {formatFixedDate(firstDate)}. {arbitro && "Con árbitro incluido."} {esReto && "Se creará un reto por reservación."}</p>
               <div className="flex gap-3">
                 <button
                   onClick={() => setShowConfirmDialog(false)}
