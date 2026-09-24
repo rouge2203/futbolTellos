@@ -83,6 +83,7 @@ export function offerTimeLabel(value: string): string {
 export function offerWhatsAppUrl(client: OfferClient, cancha: OfferCancha, slot: OfferSlot): string {
   const sede = cancha.local === 1 ? 'La Sabana' : 'El Carmen de Guadalupe';
   const ending = `${slot.end.slice(0, 10) !== slot.start.slice(0, 10) ? `${offerDateLabel(slot.end)}, ` : ''}${offerTimeLabel(slot.end)}`;
-  const message = `Hola ${client.name} 👋🏻, tenemos ${cancha.nombre} disponible en ${sede} el ${offerDateLabel(slot.start)}, de ${offerTimeLabel(slot.start)} a ${ending}. ⚽\n\nPuede reservarla antes de que se ocupe en https://futboltello.com\n\n¡Le esperamos!`;
-  return `https://wa.me/${client.phone}?text=${encodeURIComponent(message)}`;
+  const message = `*Reservaciones Fútbol Tello*\n\nHola ${client.name} 👋🏻, le contamos que tenemos una cancha disponible:\n\n📆 ${offerDateLabel(slot.start)}\n🕑 ${offerTimeLabel(slot.start)} - ${ending}\n🏟️ ${cancha.nombre}\n📍 ${sede}\n\nPuede reservarla antes de que se ocupe en:\nhttps://futboltello.com\n\n¡Le esperamos! ⚽`;
+  // Encode the complete Unicode message once and skip the wa.me redirect.
+  return `https://api.whatsapp.com/send?phone=${client.phone}&text=${encodeURIComponent(message)}`;
 }
