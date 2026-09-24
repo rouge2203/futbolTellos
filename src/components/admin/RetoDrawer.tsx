@@ -1991,7 +1991,7 @@ export default function RetoDrawer({
         open={removeTeam !== null}
         title={`¿Quitar Equipo ${removeTeam}?`}
         description={`${removeTeam === 1
-          ? "El Equipo 2 pasará a ser el Equipo 1. La misma reservación quedará a su nombre y se actualizarán sus datos de contacto."
+          ? "El Equipo 2 pasará a ser el Equipo 1. La misma reservación quedará a su nombre y se actualizarán sus datos de contacto. Se enviará una solicitud de confirmación por WhatsApp al nuevo titular."
           : "Se quitará el Equipo 2 y se conservará la reservación del Equipo 1."} El reto quedará abierto si su fecha aún no ha pasado.`}
         confirmLabel={`Quitar Equipo ${removeTeam}`}
         busy={removing}

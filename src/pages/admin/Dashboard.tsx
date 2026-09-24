@@ -3,6 +3,7 @@ import { useSearchParams, useNavigate, useLocation } from "react-router-dom";
 import AdminLayout from "../../components/admin/AdminLayout";
 import ReservationDrawer from "../../components/admin/ReservationDrawer";
 import CreateReservationDrawer from "../../components/admin/CreateReservationDrawer";
+import OfrecerCanchasDrawer from "../../components/admin/OfrecerCanchasDrawer";
 import RetoDrawer from "../../components/admin/RetoDrawer";
 import PagoDrawer from "../../components/admin/PagoDrawer";
 import SuccessNotification from "../../components/admin/SuccessNotification";
@@ -166,6 +167,7 @@ export default function Dashboard() {
 
   // Create drawer state
   const location = useLocation();
+  const [offerDrawerOpen, setOfferDrawerOpen] = useState(false);
   const [createDrawerOpen, setCreateDrawerOpen] = useState(Boolean(location.state?.crearReserva));
   useEffect(() => {
     if (location.state?.crearReserva) {
@@ -1592,6 +1594,13 @@ export default function Dashboard() {
             >
               Crear reservación
             </button>
+            <button
+              type="button"
+              onClick={() => setOfferDrawerOpen(true)}
+              className="mt-3 w-full rounded-md border border-primary bg-white px-3 py-2 text-sm font-semibold text-primary shadow-sm hover:bg-primary/5 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+            >
+              Ofrecer Canchas
+            </button>
           </div>
 
           {/* Reservations List */}
@@ -2168,6 +2177,12 @@ export default function Dashboard() {
         defaultDate={selectedDate || undefined}
         onSuccess={handleReservationCreated}
       />
+
+      {offerDrawerOpen && <OfrecerCanchasDrawer
+        onClose={() => setOfferDrawerOpen(false)}
+        defaultCanchaId={selectedCanchas[0] || 1}
+        defaultDate={selectedDate || undefined}
+      />}
 
       {/* Reto Drawer */}
       <RetoDrawer

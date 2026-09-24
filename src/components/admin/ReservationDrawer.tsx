@@ -1680,10 +1680,10 @@ export default function ReservationDrawer({
           <div className="flex min-h-full items-end justify-center p-4 text-center sm:items-center sm:p-0">
             <DialogPanel className="relative transform w-full overflow-hidden rounded-lg bg-white px-4 pt-5 pb-4 text-left shadow-xl ring-1 ring-black/5 transition-all data-closed:translate-y-4 data-closed:opacity-0 data-enter:duration-300 data-enter:ease-out data-leave:duration-200 data-leave:ease-in sm:my-8 sm:w-full sm:max-w-sm sm:p-6 data-closed:sm:translate-y-0 data-closed:sm:scale-95">
               <DialogTitle className="text-base font-semibold text-gray-900 mb-4">
-                ¿Está seguro de cancelar esta reservación?
+                ¿Cancelar toda la reservación?
               </DialogTitle>
               <p className="text-sm text-gray-600 mb-4">
-                Esta acción no se puede deshacer.
+                Se eliminará la reservación completa y su reto vinculado, aunque tenga dos equipos. No se enviarán recordatorios pendientes. Para retirar solo al Equipo 1 y conservar el reto, use «Quitar Equipo 1» en Retos. Esta acción no se puede deshacer.
               </p>
               <div className="flex gap-3">
                 <button

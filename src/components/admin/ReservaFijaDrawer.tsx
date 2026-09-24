@@ -915,9 +915,7 @@ export default function ReservaFijaDrawer({
                 ¿Está seguro de eliminar esta reservación fija?
               </DialogTitle>
               <p className="text-sm text-gray-600 mb-4">
-                Esta acción eliminará también todas las reservaciones
-                relacionadas ({reservas.length} reservaciones). Esta acción no
-                se puede deshacer.
+                Se eliminarán las próximas reservaciones ({reservas.length}), sus retos vinculados y sus recordatorios pendientes. Las reservaciones pasadas se conservan. Esta acción no se puede deshacer.
               </p>
               <div className="flex gap-3">
                 <button
