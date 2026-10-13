@@ -1,3 +1,4 @@
+import { STAFF_OPENING_HOUR } from "../../lib/staffHours";
 import { useState, useEffect } from "react";
 import type { User } from "@supabase/supabase-js";
 import { useNavigate } from "react-router-dom";
@@ -313,10 +314,6 @@ export default function RetoDrawer({
       const currentCancha = canchas.find((c) => c.id === editCanchaId);
       if (!currentCancha) return;
 
-      const aperturaStr =
-        currentCancha.local === 1
-          ? configuracion.apertura_sabana
-          : configuracion.apertura_guada;
       const cierreStr =
         currentCancha.local === 1
           ? configuracion.cierre_sabana
@@ -326,7 +323,7 @@ export default function RetoDrawer({
         return parseInt(timeStr.split(":")[0], 10);
       };
 
-      const apertura = parseTimeToHour(aperturaStr);
+      const apertura = STAFF_OPENING_HOUR;
       let cierre = parseTimeToHour(cierreStr);
 
       if (cierre <= apertura) {

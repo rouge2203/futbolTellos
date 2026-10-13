@@ -1,3 +1,4 @@
+import { STAFF_OPENING_HOUR } from "../../lib/staffHours";
 import { useState, useEffect, useRef } from "react";
 import { useSearchParams, useNavigate, useLocation } from "react-router-dom";
 import AdminLayout from "../../components/admin/AdminLayout";
@@ -1046,16 +1047,12 @@ export default function Dashboard() {
   const getAvailableHoursForCancha = (cancha: Cancha): number[] => {
     if (!configuracion) return [];
 
-    const aperturaStr =
-      cancha.local === 1
-        ? configuracion.apertura_sabana
-        : configuracion.apertura_guada;
     const cierreStr =
       cancha.local === 1
         ? configuracion.cierre_sabana
         : configuracion.cierre_guada;
 
-    const apertura = parseTimeToHour(aperturaStr);
+    const apertura = STAFF_OPENING_HOUR;
     let cierre = parseTimeToHour(cierreStr);
 
     if (cierre <= apertura) {

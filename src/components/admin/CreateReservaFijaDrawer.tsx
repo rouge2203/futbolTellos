@@ -1,3 +1,4 @@
+import { STAFF_OPENING_HOUR } from "../../lib/staffHours";
 import { useState, useEffect } from "react";
 import type { User } from "@supabase/supabase-js";
 import {
@@ -221,16 +222,12 @@ export default function CreateReservaFijaDrawer({
   const getAvailableHours = (): number[] => {
     if (!configuracion || !selectedCancha) return [];
 
-    const aperturaStr =
-      selectedCancha.local === 1
-        ? configuracion.apertura_sabana
-        : configuracion.apertura_guada;
     const cierreStr =
       selectedCancha.local === 1
         ? configuracion.cierre_sabana
         : configuracion.cierre_guada;
 
-    const apertura = parseTimeToHour(aperturaStr);
+    const apertura = STAFF_OPENING_HOUR;
     let cierre = parseTimeToHour(cierreStr);
 
     if (cierre <= apertura) {

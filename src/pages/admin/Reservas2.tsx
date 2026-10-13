@@ -1,3 +1,4 @@
+import { STAFF_OPENING_HOUR } from "../../lib/staffHours";
 import { useState, useEffect } from "react";
 import AdminLayout from "../../components/admin/AdminLayout";
 import ReservationDrawer from "../../components/admin/ReservationDrawer";
@@ -192,16 +193,16 @@ export default function Reservas2() {
     fetchReservas();
   }, [selectedDate, selectedCanchaId]);
 
-  // Calculate earliest hour needed (7 AM or earlier if reservations exist before 7 AM)
+  // Include staff opening time and any reservations starting earlier.
   const getEarliestHour = (): number => {
-    if (reservas.length === 0) return 7;
+    if (reservas.length === 0) return STAFF_OPENING_HOUR;
     const earliestHour = Math.min(
       ...reservas.map((r) => {
         const date = parseDateFromTimestamp(r.hora_inicio);
         return date.getHours();
       })
     );
-    return Math.min(earliestHour, 7);
+    return Math.min(earliestHour, STAFF_OPENING_HOUR);
   };
 
   const earliestHour = getEarliestHour();

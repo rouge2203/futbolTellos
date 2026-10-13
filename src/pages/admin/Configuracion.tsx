@@ -125,7 +125,7 @@ export default function Configuracion() {
         <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-6 space-y-6">
           <div className="flex items-center justify-between border-b border-gray-200 pb-4">
             <h3 className="text-lg font-semibold text-gray-900">
-              Horarios de Operación
+              Horarios de Reservación para Clientes
             </h3>
             {!isEditing && isSuperuser && (
               <button
@@ -137,6 +137,11 @@ export default function Configuracion() {
               </button>
             )}
           </div>
+
+          <p className="text-sm text-gray-600">
+            El personal puede reservar desde las 5:00 a.m. en ambas sedes.
+            Estos horarios de apertura se aplican al portal de clientes.
+          </p>
 
           {/* Sabana Hours */}
           <div className="space-y-4">

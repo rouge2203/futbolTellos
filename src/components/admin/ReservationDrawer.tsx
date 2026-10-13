@@ -1,3 +1,4 @@
+import { STAFF_OPENING_HOUR } from "../../lib/staffHours";
 import { useState, useEffect } from "react";
 import type { User } from "@supabase/supabase-js";
 import { supabase } from "../../lib/supabase";
@@ -332,10 +333,6 @@ export default function ReservationDrawer({
       const currentCancha =
         canchas.find((c) => c.id === currentCanchaId) || reserva.cancha;
 
-      const aperturaStr =
-        currentCancha.local === 1
-          ? configuracion.apertura_sabana
-          : configuracion.apertura_guada;
       const cierreStr =
         currentCancha.local === 1
           ? configuracion.cierre_sabana
@@ -345,7 +342,7 @@ export default function ReservationDrawer({
         return parseInt(timeStr.split(":")[0], 10);
       };
 
-      const apertura = parseTimeToHour(aperturaStr);
+      const apertura = STAFF_OPENING_HOUR;
       let cierre = parseTimeToHour(cierreStr);
 
       if (cierre <= apertura) {
