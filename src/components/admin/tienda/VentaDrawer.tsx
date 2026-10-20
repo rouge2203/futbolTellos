@@ -359,9 +359,10 @@ export default function VentaDrawer({
       const remaining = getRemainingWithPrev(productoId);
       if (remaining <= 0) return prev;
       const stock = getStockInfo(productoId);
-      const fallbackPrice =
-        stock?.precio_venta ??
+      // Product edits define the current sale price; inventory prices are historical.
+      const defaultPrice =
         productos.find((p) => p.id === productoId)?.precio_sugerido ??
+        stock?.precio_venta ??
         0;
       return [
         ...prev,
@@ -369,7 +370,7 @@ export default function VentaDrawer({
           key: crypto.randomUUID(),
           productoId,
           cantidad: "1",
-          precio: String(fallbackPrice),
+          precio: String(defaultPrice),
         },
       ];
     });
