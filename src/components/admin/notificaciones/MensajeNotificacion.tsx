@@ -1,5 +1,6 @@
 import { cn } from "../../../lib/utils";
 import { formatFechaHoraCorta } from "./format";
+import { describirFalloWhatsapp, esWhatsappFallido } from "./mensaje";
 import { esAgrupada, type Notificacion } from "./types";
 
 interface MensajeNotificacionProps {
@@ -15,6 +16,7 @@ export default function MensajeNotificacion({
   muted = false,
 }: MensajeNotificacionProps) {
   const strong = cn("font-semibold", muted ? "text-gray-500" : "text-gray-900");
+  if (esWhatsappFallido(n)) return <>{describirFalloWhatsapp(n)}</>;
   const nombre = n.nombre_reserva ?? "Cliente";
   const cancha = n.cancha_nombre ?? "la cancha";
   const cuando = esAgrupada(n)

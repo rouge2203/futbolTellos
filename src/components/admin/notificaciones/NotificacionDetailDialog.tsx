@@ -5,7 +5,11 @@ import {
   DialogPanel,
   DialogTitle,
 } from "@headlessui/react";
-import { CalendarIcon, CheckCircleIcon } from "@heroicons/react/24/outline";
+import {
+  CalendarIcon,
+  CheckCircleIcon,
+  ExclamationTriangleIcon,
+} from "@heroicons/react/24/outline";
 import { GiWhistle } from "react-icons/gi";
 import {
   formatDateTime,
@@ -15,6 +19,7 @@ import {
   getLocalName,
 } from "./format";
 import MensajeNotificacion from "./MensajeNotificacion";
+import { esWhatsappFallido } from "./mensaje";
 import { esAgrupada, type Notificacion } from "./types";
 
 interface NotificacionDetailDialogProps {
@@ -38,6 +43,7 @@ export default function NotificacionDetailDialog({
   if (notificacion && notificacion !== cached) setCached(notificacion);
   const n = notificacion ?? cached;
   if (!n) return null;
+  const fallo = esWhatsappFallido(n);
 
   return (
     <Dialog
@@ -58,11 +64,23 @@ export default function NotificacionDetailDialog({
             className="relative w-full max-w-md transform overflow-hidden rounded-xl bg-white shadow-2xl transition-all data-closed:scale-95 data-closed:opacity-0 data-enter:duration-200 data-enter:ease-out data-leave:duration-150 data-leave:ease-in"
           >
             <div className="bg-primary px-4 py-3 flex items-center gap-2">
-              <GiWhistle aria-hidden="true" className="size-5 text-secondary" />
+              {fallo ? (
+                <ExclamationTriangleIcon
+                  aria-hidden="true"
+                  className="size-5 text-secondary"
+                />
+              ) : (
+                <GiWhistle
+                  aria-hidden="true"
+                  className="size-5 text-secondary"
+                />
+              )}
               <DialogTitle className="text-base font-semibold text-white">
-                {esAgrupada(n)
-                  ? "Reserva fija cancelada con árbitro"
-                  : "Reserva cancelada con árbitro"}
+                {fallo
+                  ? "Mensajes de WhatsApp sin enviar"
+                  : esAgrupada(n)
+                    ? "Reserva fija cancelada con árbitro"
+                    : "Reserva cancelada con árbitro"}
               </DialogTitle>
             </div>
 
@@ -72,56 +90,68 @@ export default function NotificacionDetailDialog({
               </p>
 
               <dl className="rounded-lg border border-gray-200 bg-gray-50 p-3 text-sm text-gray-700 space-y-1.5">
-                <div className="flex justify-between gap-4">
-                  <dt className="text-gray-500 shrink-0">Cliente</dt>
-                  <dd className="text-right font-medium text-gray-900 min-w-0 break-words">
-                    {n.nombre_reserva ?? "—"}
-                  </dd>
-                </div>
-                <div className="flex justify-between gap-4">
-                  <dt className="text-gray-500 shrink-0">Teléfono</dt>
-                  <dd className="text-right font-medium text-gray-900 min-w-0 break-words">
-                    {n.celular_reserva ?? "—"}
-                  </dd>
-                </div>
-                {n.correo_reserva && (
-                  <div className="flex justify-between gap-4">
-                    <dt className="text-gray-500 shrink-0">Correo</dt>
-                    <dd className="text-right font-medium text-gray-900 min-w-0 break-words">
-                      {n.correo_reserva}
-                    </dd>
-                  </div>
-                )}
-                <div className="flex justify-between gap-4">
-                  <dt className="text-gray-500 shrink-0">Cancha</dt>
-                  <dd className="text-right font-medium text-gray-900 min-w-0 break-words">
-                    {n.cancha_nombre ?? "—"}
-                    {n.cancha_local != null && (
-                      <> · {getLocalName(n.cancha_local)}</>
+                {!fallo && (
+                  <>
+                    <div className="flex justify-between gap-4">
+                      <dt className="text-gray-500 shrink-0">Cliente</dt>
+                      <dd className="text-right font-medium text-gray-900 min-w-0 break-words">
+                        {n.nombre_reserva ?? "—"}
+                      </dd>
+                    </div>
+                    <div className="flex justify-between gap-4">
+                      <dt className="text-gray-500 shrink-0">Teléfono</dt>
+                      <dd className="text-right font-medium text-gray-900 min-w-0 break-words">
+                        {n.celular_reserva ?? "—"}
+                      </dd>
+                    </div>
+                    {n.correo_reserva && (
+                      <div className="flex justify-between gap-4">
+                        <dt className="text-gray-500 shrink-0">Correo</dt>
+                        <dd className="text-right font-medium text-gray-900 min-w-0 break-words">
+                          {n.correo_reserva}
+                        </dd>
+                      </div>
                     )}
-                  </dd>
-                </div>
-                {!esAgrupada(n) && n.hora_inicio && (
-                  <div className="flex justify-between gap-4">
-                    <dt className="text-gray-500 shrink-0">Fecha</dt>
-                    <dd className="text-right font-medium text-gray-900 min-w-0 break-words">
-                      {formatFechaLarga(n.hora_inicio)}
-                    </dd>
-                  </div>
+                    <div className="flex justify-between gap-4">
+                      <dt className="text-gray-500 shrink-0">Cancha</dt>
+                      <dd className="text-right font-medium text-gray-900 min-w-0 break-words">
+                        {n.cancha_nombre ?? "—"}
+                        {n.cancha_local != null && (
+                          <> · {getLocalName(n.cancha_local)}</>
+                        )}
+                      </dd>
+                    </div>
+                    {!esAgrupada(n) && n.hora_inicio && (
+                      <div className="flex justify-between gap-4">
+                        <dt className="text-gray-500 shrink-0">Fecha</dt>
+                        <dd className="text-right font-medium text-gray-900 min-w-0 break-words">
+                          {formatFechaLarga(n.hora_inicio)}
+                        </dd>
+                      </div>
+                    )}
+                    {n.hora_inicio && n.hora_fin && (
+                      <div className="flex justify-between gap-4">
+                        <dt className="text-gray-500 shrink-0">Horario</dt>
+                        <dd className="text-right font-medium text-gray-900 min-w-0 break-words">
+                          {formatHora(n.hora_inicio)} – {formatHora(n.hora_fin)}
+                        </dd>
+                      </div>
+                    )}
+                    {n.precio != null && (
+                      <div className="flex justify-between gap-4">
+                        <dt className="text-gray-500 shrink-0">Precio</dt>
+                        <dd className="text-right font-medium text-gray-900 min-w-0 break-words">
+                          ₡{n.precio.toLocaleString()}
+                        </dd>
+                      </div>
+                    )}
+                  </>
                 )}
-                {n.hora_inicio && n.hora_fin && (
+                {fallo && (
                   <div className="flex justify-between gap-4">
-                    <dt className="text-gray-500 shrink-0">Horario</dt>
+                    <dt className="text-gray-500 shrink-0">Reservas</dt>
                     <dd className="text-right font-medium text-gray-900 min-w-0 break-words">
-                      {formatHora(n.hora_inicio)} – {formatHora(n.hora_fin)}
-                    </dd>
-                  </div>
-                )}
-                {n.precio != null && (
-                  <div className="flex justify-between gap-4">
-                    <dt className="text-gray-500 shrink-0">Precio</dt>
-                    <dd className="text-right font-medium text-gray-900 min-w-0 break-words">
-                      ₡{n.precio.toLocaleString()}
+                      {n.cantidad_fechas}
                     </dd>
                   </div>
                 )}
@@ -133,10 +163,11 @@ export default function NotificacionDetailDialog({
                 </div>
               </dl>
 
-              {esAgrupada(n) && n.fechas_canceladas.length > 0 && (
+              {(fallo || esAgrupada(n)) && n.fechas_canceladas.length > 0 && (
                 <div>
                   <p className="text-xs font-semibold uppercase tracking-wider text-gray-400">
-                    Fechas canceladas ({n.cantidad_fechas})
+                    {fallo ? "Reservas afectadas" : "Fechas canceladas"} (
+                    {n.cantidad_fechas})
                   </p>
                   <ul className="mt-1 max-h-40 space-y-1 overflow-y-auto">
                     {n.fechas_canceladas.map((f) => (
@@ -148,7 +179,10 @@ export default function NotificacionDetailDialog({
                           aria-hidden="true"
                           className="size-4 shrink-0 text-gray-400"
                         />
-                        {formatFechaCorta(f.hora_inicio)}
+                        <span className="min-w-0 break-words">
+                          {f.nombre_reserva && <>{f.nombre_reserva} · </>}
+                          {formatFechaCorta(f.hora_inicio)}
+                        </span>
                       </li>
                     ))}
                   </ul>

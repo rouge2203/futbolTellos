@@ -8,11 +8,16 @@
 // from PostgREST/Realtime) — parseDateFromTimestamp handles both. created_at /
 // atendida_at are timestamptz ISO strings -> new Date().
 
+// For tipo='cancelacion_arbitro' these are the cancelled dates. For
+// tipo='whatsapp_fallido' the same list carries the reservas whose reminder
+// could not be delivered, which is why the client fields are optional.
 export interface FechaCancelada {
   hora_inicio: string;
   hora_fin: string | null;
   cancha_id: number | null;
   cancha_nombre: string | null;
+  nombre_reserva?: string | null;
+  celular_reserva?: string | null;
 }
 
 export interface Notificacion {
