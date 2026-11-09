@@ -18,7 +18,9 @@ const navigation = [
     filter: "guadalupe",
   },
   { name: "Retos 🔥", href: "/retos", path: "/retos" },
-  { name: "Reservaciones", href: "/reservas-hoy", path: "/reservas-hoy" },
+  // "/reservas-hoy" is deliberately absent: the page still works for anyone who
+  // types the URL, but it is not advertised in either menu. This array feeds the
+  // desktop and mobile navs, so adding it back here exposes it in both.
 ];
 
 function classNames(...classes: (string | boolean | undefined)[]) {

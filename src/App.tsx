@@ -78,6 +78,8 @@ function App() {
             </Layout>
           }
         />
+        {/* Unlisted on purpose — reachable only by typing the URL. See the
+            navigation array in src/components/Layout.tsx. */}
         <Route
           path="/reservas-hoy"
           element={
