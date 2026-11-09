@@ -2,6 +2,11 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { supabase } from "../../../lib/supabase";
 import { useAuth } from "../../../contexts/AuthContext";
 import type { Notificacion, UseNotificacionesResult } from "./types";
+import {
+  shouldPollNotificaciones,
+  NOTIFICACIONES_POLL_MS,
+  type ChannelStatus,
+} from "./realtimeFallback";
 
 const QUICK_VIEW_SIZE = 5;
 
@@ -43,6 +48,7 @@ export function useNotificaciones(): UseNotificacionesResult {
   useEffect(() => {
     let disposed = false;
     let hadFirstSubscribe = false;
+    let channelStatus: ChannelStatus | null = null;
 
     const fetchInitial = async (isFirstLoad: boolean) => {
       if (isFirstLoad) setLoading(true);
@@ -71,6 +77,33 @@ export function useNotificaciones(): UseNotificacionesResult {
     };
 
     fetchInitial(true);
+
+    // Realtime never connects in production (see realtimeFallback.ts), so the
+    // bell refetches on a timer whenever the socket is not carrying events.
+    // A hidden tab stops polling and catches up once on the way back.
+    let poller: ReturnType<typeof setInterval> | null = null;
+    const syncPolling = () => {
+      if (disposed) return;
+      const hidden =
+        typeof document !== "undefined" && document.visibilityState === "hidden";
+      const wanted = shouldPollNotificaciones(channelStatus, hidden);
+      if (wanted && poller === null) {
+        poller = setInterval(() => void fetchInitial(false), NOTIFICACIONES_POLL_MS);
+      } else if (!wanted && poller !== null) {
+        clearInterval(poller);
+        poller = null;
+      }
+    };
+
+    const onVisibility = () => {
+      if (disposed) return;
+      if (document.visibilityState === "visible" && channelStatus !== "SUBSCRIBED") {
+        void fetchInitial(false);
+      }
+      syncPolling();
+    };
+    document.addEventListener("visibilitychange", onVisibility);
+    syncPolling();
 
     const channel = supabase
       .channel("notificaciones-admin")
@@ -114,10 +147,14 @@ export function useNotificaciones(): UseNotificacionesResult {
           if (hadFirstSubscribe) fetchInitial(false);
           hadFirstSubscribe = true;
         }
+        channelStatus = status as ChannelStatus;
+        syncPolling();
       });
 
     return () => {
       disposed = true;
+      document.removeEventListener("visibilitychange", onVisibility);
+      if (poller !== null) clearInterval(poller);
       supabase.removeChannel(channel);
     };
   }, [reloadCount]);
