@@ -3,6 +3,7 @@ import { useState, useEffect } from "react";
 import type { User } from "@supabase/supabase-js";
 import { useNavigate } from "react-router-dom";
 import { supabase, isReservaConflictError } from "../../lib/supabase";
+import { retoDeleteDialog, type RetoDeleteAction } from "../../lib/retos";
 import {
   Dialog,
   DialogPanel,
@@ -30,7 +31,7 @@ interface Cancha {
 }
 
 interface Reto {
-  id: number;
+  id: string;
   hora_inicio: string;
   hora_fin: string;
   local: string;
@@ -45,7 +46,7 @@ interface Reto {
   equipo2_encargado: string | null;
   equipo2_celular: string | null;
   cancha_id: number;
-  reserva_id: number | null;
+  reserva_id: string | null;
   cancha?: Cancha;
 }
 
@@ -63,7 +64,8 @@ interface RetoDrawerProps {
   mode: "assign" | "view";
   onReservaCreated: () => Promise<void>;
   onRefresh: () => Promise<void>;
-  onDelete?: (retoId: number) => Promise<void>;
+  onDelete?: (retoId: string) => Promise<void>;
+  onDeleteRetoOnly?: (retoId: string) => Promise<void>;
   user: User | null;
 }
 
@@ -108,6 +110,7 @@ export default function RetoDrawer({
   onReservaCreated,
   onRefresh,
   onDelete,
+  onDeleteRetoOnly,
 }: RetoDrawerProps) {
   const navigate = useNavigate();
   const [configuracion, setConfiguracion] = useState<Configuracion | null>(
@@ -149,7 +152,8 @@ export default function RetoDrawer({
 
   // Confirmation dialogs
   const [showCreateConfirm, setShowCreateConfirm] = useState(false);
-  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [deleteAction, setDeleteAction] = useState<RetoDeleteAction | null>(null);
+  const [pagosTotal, setPagosTotal] = useState(0);
   const [creating, setCreating] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [removeTeam, setRemoveTeam] = useState<1 | 2 | null>(null);
@@ -659,15 +663,28 @@ export default function RetoDrawer({
     });
   };
 
+  const openDeleteConfirm = async (action: RetoDeleteAction) => {
+    if (!reto) return;
+    setDeleteError("");
+    setPagosTotal(0);
+    setDeleteAction(action);
+    if (action !== "full" || !reto.reserva_id) return;
+    const { data } = await supabase.from("pagos")
+      .select("monto_sinpe, monto_efectivo").eq("reserva_id", reto.reserva_id).is("anulado_at", null);
+    if (data) setPagosTotal(data.reduce((s, g) => s + (g.monto_sinpe || 0) + (g.monto_efectivo || 0), 0));
+  };
+
   const handleDeleteReto = async () => {
-    if (!reto || !onDelete) return;
+    if (!reto || !deleteAction) return;
+    const run = deleteAction === "full" ? onDelete : onDeleteRetoOnly;
+    if (!run) return;
 
     if (deleting) return;
     setDeleteError("");
     setDeleting(true);
     try {
-      await onDelete(reto.id);
-      setShowDeleteConfirm(false);
+      await run(reto.id);
+      setDeleteAction(null);
       onClose();
       await onRefresh();
     } catch (error) {
@@ -900,6 +917,8 @@ export default function RetoDrawer({
 
   if (!currentCancha) return null;
 
+  const deleteCopy = reto && deleteAction ? retoDeleteDialog(deleteAction, reto, pagosTotal) : null;
+
   return (
     <>
       {/* Creating Overlay */}
@@ -926,10 +945,10 @@ export default function RetoDrawer({
             <div className="pointer-events-none fixed inset-y-0 right-0 flex max-w-full pl-10 sm:pl-16">
               <DialogPanel
                 transition
-                className="pointer-events-auto w-screen max-w-2xl transform transition duration-500 ease-in-out data-closed:translate-x-full sm:duration-700"
+                className="pointer-events-auto w-full max-w-2xl transform transition duration-500 ease-in-out data-closed:translate-x-full sm:duration-700"
               >
-                <div className="relative flex h-full flex-col divide-y divide-gray-200 bg-white shadow-xl">
-                  <div className="h-0 flex-1 overflow-y-auto">
+                <div className="relative flex h-full flex-col divide-y divide-gray-200 overflow-y-auto bg-white shadow-xl">
+                  <div>
                     <div className="bg-primary px-4 py-6 sm:px-6">
                       <div className="flex items-center justify-between">
                         <DialogTitle className="text-base font-semibold text-white">
@@ -1857,25 +1876,36 @@ export default function RetoDrawer({
                       </div>
                     </div>
                   )}
-                  <div className="flex shrink-0 justify-end px-4 py-4">
+                  <div className="mt-auto flex shrink-0 flex-col-reverse gap-3 px-4 py-4 sm:flex-row sm:justify-end">
                     <button
                       type="button"
                       onClick={onClose}
-                      className="rounded-md bg-white px-3 py-2 text-sm font-semibold text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 hover:bg-gray-50"
+                      className="w-full rounded-md bg-white px-3 py-2 text-sm font-semibold text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 hover:bg-gray-50 sm:w-auto"
                     >
                       Cerrar
                     </button>
-                    {onDelete && mode === "view" && <button type="button" onClick={() => setShowDeleteConfirm(true)} className="ml-4 rounded-md bg-red-600 px-3 py-2 text-sm font-semibold text-white">Eliminar reto</button>}
+                    {onDeleteRetoOnly && mode === "view" && <button type="button" onClick={() => void openDeleteConfirm("keep")} className="w-full sm:w-auto rounded-md bg-amber-500 px-3 py-2 text-sm font-semibold text-white hover:bg-amber-600">Eliminar reto y conservar reservación</button>}
+                    {onDelete && mode === "view" && <button type="button" onClick={() => void openDeleteConfirm("full")} className="w-full sm:w-auto rounded-md bg-red-600 px-3 py-2 text-sm font-semibold text-white hover:bg-red-700">Eliminar reto y reservación</button>}
                     {mode === "assign" ? (
                       <>
+                        {onDeleteRetoOnly && (
+                          <button
+                            type="button"
+                            onClick={() => void openDeleteConfirm("keep")}
+                            disabled={deleting}
+                            className="w-full sm:w-auto inline-flex justify-center rounded-md bg-amber-500 px-3 py-2 text-sm font-semibold text-white shadow-xs hover:bg-amber-600 disabled:bg-gray-700 disabled:cursor-not-allowed"
+                          >
+                            Eliminar reto y conservar reservación
+                          </button>
+                        )}
                         {onDelete && (
                           <button
                             type="button"
-                            onClick={() => setShowDeleteConfirm(true)}
+                            onClick={() => void openDeleteConfirm("full")}
                             disabled={deleting}
-                            className="ml-4 inline-flex justify-center rounded-md bg-red-600 px-3 py-2 text-sm font-semibold text-white shadow-xs hover:bg-red-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-red-600 disabled:bg-gray-700 disabled:cursor-not-allowed"
+                            className="w-full sm:w-auto inline-flex justify-center rounded-md bg-red-600 px-3 py-2 text-sm font-semibold text-white shadow-xs hover:bg-red-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-red-600 disabled:bg-gray-700 disabled:cursor-not-allowed"
                           >
-                            {deleting ? "Eliminando..." : "Eliminar Reto"}
+                            {deleting ? "Eliminando..." : "Eliminar reto y reservación"}
                           </button>
                         )}
                         {hasCanchaApartada ? (
@@ -1887,7 +1917,7 @@ export default function RetoDrawer({
                               !equipo2Encargado.trim() ||
                               !equipo2Celular.trim()
                             }
-                            className="ml-4 inline-flex items-center justify-center gap-2 rounded-md bg-primary px-3 py-2 text-sm font-semibold text-white shadow-xs hover:bg-primary/90 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary disabled:bg-gray-700 disabled:cursor-not-allowed"
+                            className="w-full sm:w-auto inline-flex items-center justify-center gap-2 rounded-md bg-primary px-3 py-2 text-sm font-semibold text-white shadow-xs hover:bg-primary/90 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary disabled:bg-gray-700 disabled:cursor-not-allowed"
                           >
                             {creating ? (
                               <>
@@ -1910,7 +1940,7 @@ export default function RetoDrawer({
                               !editCanchaId ||
                               editFut === null
                             }
-                            className="ml-4 inline-flex items-center justify-center gap-2 rounded-md bg-white px-3 py-2 text-sm font-semibold text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 hover:bg-gray-50 disabled:bg-gray-100 disabled:text-gray-400 disabled:cursor-not-allowed"
+                            className="w-full sm:w-auto inline-flex items-center justify-center gap-2 rounded-md bg-white px-3 py-2 text-sm font-semibold text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 hover:bg-gray-50 disabled:bg-gray-100 disabled:text-gray-400 disabled:cursor-not-allowed"
                           >
                             {creating ? (
                               <>
@@ -1933,7 +1963,7 @@ export default function RetoDrawer({
                               !editCanchaId ||
                               editFut === null
                             }
-                            className="ml-4 inline-flex items-center justify-center gap-2 rounded-md bg-primary px-3 py-2 text-sm font-semibold text-white shadow-xs hover:bg-primary/90 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary disabled:bg-gray-700 disabled:cursor-not-allowed"
+                            className="w-full sm:w-auto inline-flex items-center justify-center gap-2 rounded-md bg-primary px-3 py-2 text-sm font-semibold text-white shadow-xs hover:bg-primary/90 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary disabled:bg-gray-700 disabled:cursor-not-allowed"
                           >
                             {creating ? (
                               <>
@@ -1951,7 +1981,7 @@ export default function RetoDrawer({
                       <button
                         type="button"
                         onClick={handleVerReservacion}
-                        className="ml-4 inline-flex justify-center rounded-md bg-primary px-3 py-2 text-sm font-semibold text-white shadow-xs hover:bg-primary/90 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+                        className="w-full sm:w-auto inline-flex justify-center rounded-md bg-primary px-3 py-2 text-sm font-semibold text-white shadow-xs hover:bg-primary/90 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
                       >
                         Ver Reservación
                       </button>
@@ -1975,13 +2005,14 @@ export default function RetoDrawer({
         onConfirm={handleCreateReserva}
       />
       <RetoConfirmDialog
-        open={showDeleteConfirm}
-        title="¿Eliminar reto y reservación?"
-        description="Al eliminar este reto también se eliminará su reservación vinculada y se liberará la cancha. Esta acción no se puede deshacer."
-        confirmLabel="Eliminar reto"
+        open={deleteAction !== null}
+        title={deleteCopy?.title ?? ""}
+        description={deleteCopy?.description ?? ""}
+        confirmLabel={deleteCopy?.confirmLabel ?? ""}
+        tone={deleteCopy?.tone}
         busy={deleting}
         error={deleteError}
-        onCancel={() => setShowDeleteConfirm(false)}
+        onCancel={() => setDeleteAction(null)}
         onConfirm={handleDeleteReto}
       />
       <RetoConfirmDialog

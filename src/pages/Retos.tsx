@@ -19,7 +19,7 @@ interface Cancha {
 }
 
 interface Reto {
-  id: number;
+  id: string;
   hora_inicio: string;
   hora_fin: string;
   local: string; // "Sabana" or "Guadalupe"
@@ -34,7 +34,7 @@ interface Reto {
   equipo2_encargado: string;
   equipo2_celular: string;
   cancha_id: number;
-  reserva_id: number | null;
+  reserva_id: string | null;
   cancha?: Cancha;
 }
 

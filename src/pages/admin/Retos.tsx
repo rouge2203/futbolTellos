@@ -1,7 +1,5 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef, type PointerEvent } from "react";
 import { useNavigate } from "react-router-dom";
-import RetoConfirmDialog from "../../components/admin/RetoConfirmDialog";
-import { TbTrash } from "react-icons/tb";
 import AdminLayout from "../../components/admin/AdminLayout";
 import RetoDrawer from "../../components/admin/RetoDrawer";
 import CreateRetoDialog from "../../components/admin/CreateRetoDialog";
@@ -11,7 +9,7 @@ import { fetchAllPages } from "../../lib/fetchAllPages";
 import { canchaPrice, getRetoStatus, RETOS_PAGE_SIZE, retoStartTime, type RetoStatus } from "../../lib/retos";
 
 interface Reto {
-  id: number;
+  id: string;
   hora_inicio: string;
   hora_fin: string;
   local: string;
@@ -26,7 +24,7 @@ interface Reto {
   equipo2_encargado: string | null;
   equipo2_celular: string | null;
   cancha_id: number;
-  reserva_id: number | null;
+  reserva_id: string | null;
   cancha?: { id: number; nombre: string; img?: string; precio?: string; local: number; cantidad?: string };
 }
 
@@ -45,9 +43,6 @@ export default function Retos() {
   const [selectedReto, setSelectedReto] = useState<Reto | null>(null);
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [createOpen, setCreateOpen] = useState(false);
-  const [deleteTarget, setDeleteTarget] = useState<Reto | null>(null);
-  const [deleting, setDeleting] = useState(false);
-  const [deleteError, setDeleteError] = useState("");
 
   const fetchRetos = useCallback(async () => {
     setError("");
@@ -81,10 +76,33 @@ export default function Retos() {
   const start = (currentPage - 1) * RETOS_PAGE_SIZE;
   const visibleRetos = currentRetos.slice(start, start + RETOS_PAGE_SIZE);
 
-  const handleDelete = async (id: number) => {
+  // Deletes the linked reservation; retos_reserva_id_fkey cascades to the reto.
+  const handleDelete = async (id: string) => {
     const { error } = await supabase.rpc("eliminar_reto", { p_reto_id: id });
     if (error) throw error;
     await fetchRetos();
+  };
+
+  // Drops only the reto. The reservation, its pagos and its owner_reminder stay;
+  // whatsapp_notifications_reto_id_fkey cascades away the team2_reminder.
+  const handleDeleteRetoOnly = async (id: string) => {
+    const { error } = await supabase.from("retos").delete().eq("id", id);
+    if (error) throw error;
+    await fetchRetos();
+  };
+
+  const openReto = (reto: Reto) => { setSelectedReto(reto); setDrawerOpen(true); };
+
+  // A touch that travels is a scroll, not a tap, so the row only opens on a still
+  // press. Taps on the row's own buttons are left to those buttons.
+  const pressAt = useRef<{ x: number; y: number } | null>(null);
+  const handleRowPointerUp = (reto: Reto) => (e: PointerEvent<HTMLTableRowElement>) => {
+    const press = pressAt.current;
+    pressAt.current = null;
+    if (!press) return;
+    if (Math.hypot(e.clientX - press.x, e.clientY - press.y) > 10) return;
+    if ((e.target as HTMLElement).closest("button")) return;
+    openReto(reto);
   };
 
   return (
@@ -114,7 +132,10 @@ export default function Retos() {
               <tbody className="divide-y divide-gray-200 bg-white">
                 {loading ? <tr><td colSpan={9} className="p-8 text-center text-sm text-gray-500">Cargando retos…</td></tr> : visibleRetos.length === 0 ?
                   <tr><td colSpan={9} className="p-8 text-center text-sm text-gray-500">No hay {labels[activeTab].toLowerCase()}.</td></tr> : visibleRetos.map(reto => (
-                  <tr key={reto.id} className="hover:bg-gray-50">
+                  <tr key={reto.id}
+                    onPointerDown={e => { pressAt.current = { x: e.clientX, y: e.clientY }; }}
+                    onPointerUp={handleRowPointerUp(reto)}
+                    className="cursor-pointer hover:bg-gray-50">
                     <td className="px-4 py-4 text-sm font-medium text-gray-900">{reto.equipo1_encargado || "Pendiente"}</td>
                     <td className="px-4 py-4 text-sm text-gray-900">{reto.equipo2_encargado || <span className="rounded-md bg-amber-50 px-2 py-1 text-xs font-medium text-amber-700">Pendiente</span>}</td>
                     <td className="whitespace-nowrap px-4 py-4 text-sm text-gray-900">{reto.cancha?.nombre || "Sin cancha"}</td>
@@ -127,8 +148,7 @@ export default function Retos() {
                     <td className="px-4 py-4 text-sm text-gray-500">{reto.arbitro ? "Sí" : "No"}</td>
                     <td className="whitespace-nowrap px-4 py-4 text-sm font-semibold text-gray-900">{currency(reto.precio ?? (reto.cancha ? canchaPrice(reto.cancha, reto.fut, reto.arbitro) : 0))}</td>
                     <td className="px-4 py-4"><div className="flex items-center gap-2 whitespace-nowrap">
-                      <button onClick={() => { setSelectedReto(reto); setDrawerOpen(true); }} className="rounded-lg bg-primary px-3 py-2 text-sm font-medium text-white hover:bg-primary/80">Ver reto</button>
-                      <button aria-label={`Eliminar reto de ${reto.equipo1_encargado || "equipo pendiente"}`} onClick={() => { setDeleteTarget(reto); setDeleteError(""); }} className="rounded-lg bg-red-50 p-2 text-red-600 hover:bg-red-100"><TbTrash className="size-5" /></button>
+                      <button onClick={() => openReto(reto)} className="rounded-lg bg-primary px-3 py-2 text-sm font-medium text-white hover:bg-primary/80">Ver reto</button>
                     </div></td>
                   </tr>
                 ))}
@@ -147,24 +167,8 @@ export default function Retos() {
       </div>
       <RetoDrawer open={drawerOpen} onClose={() => { setDrawerOpen(false); void fetchRetos(); }} reto={selectedReto}
         mode={selectedReto && getRetoStatus(selectedReto, now) === "open" ? "assign" : "view"}
-        onReservaCreated={async () => { await fetchRetos(); setDrawerOpen(false); }} onRefresh={fetchRetos} onDelete={handleDelete} user={user} />
+        onReservaCreated={async () => { await fetchRetos(); setDrawerOpen(false); }} onRefresh={fetchRetos} onDelete={handleDelete} onDeleteRetoOnly={handleDeleteRetoOnly} user={user} />
       <CreateRetoDialog open={createOpen} onClose={() => setCreateOpen(false)} onNavigate={() => navigate("/admin", { state: { crearReserva: true } })} />
-      <RetoConfirmDialog
-        open={deleteTarget !== null}
-        title="¿Eliminar reto y reservación?"
-        description="Al eliminar este reto también se eliminará su reservación vinculada y se liberará la cancha. Esta acción no se puede deshacer."
-        confirmLabel="Eliminar reto"
-        busy={deleting}
-        error={deleteError}
-        onCancel={() => setDeleteTarget(null)}
-        onConfirm={async () => {
-          if (!deleteTarget || deleting) return;
-          setDeleting(true);
-          try { await handleDelete(deleteTarget.id); setDeleteTarget(null); }
-          catch { setDeleteError("No se pudo eliminar el reto. Intente de nuevo."); }
-          finally { setDeleting(false); }
-        }}
-      />
     </AdminLayout>
   );
 }

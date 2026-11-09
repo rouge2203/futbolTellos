@@ -44,7 +44,7 @@ interface Pago {
 }
 
 interface Reto {
-  id: number;
+  id: string;
   fut?: number;
   equipo1_nombre: string | null;
   equipo1_encargado: string;
