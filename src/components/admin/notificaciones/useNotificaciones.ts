@@ -4,6 +4,7 @@ import { useAuth } from "../../../contexts/AuthContext";
 import type { Notificacion, UseNotificacionesResult } from "./types";
 import {
   shouldPollNotificaciones,
+  realtimeCanConnect,
   NOTIFICACIONES_POLL_MS,
   type ChannelStatus,
 } from "./realtimeFallback";
@@ -139,8 +140,14 @@ export function useNotificaciones(): UseNotificacionesResult {
           );
           reloadCount();
         },
-      )
-      .subscribe((status) => {
+      );
+
+    // subscribe() is what dials the socket, so where it cannot reach Supabase
+    // we simply never call it: the client would retry the handshake forever and
+    // bury real errors in the console. Polling above already covers that case,
+    // since the status then stays null.
+    if (realtimeCanConnect(import.meta.env.VITE_SUPABASE_URL)) {
+      channel.subscribe((status) => {
         if (disposed) return;
         if (status === "SUBSCRIBED") {
           // On reconnect, re-sync whatever was missed while offline.
@@ -150,6 +157,7 @@ export function useNotificaciones(): UseNotificacionesResult {
         channelStatus = status as ChannelStatus;
         syncPolling();
       });
+    }
 
     return () => {
       disposed = true;

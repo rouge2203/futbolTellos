@@ -26,3 +26,20 @@ export function shouldPollNotificaciones(
   if (hidden) return false;
   return status !== "SUBSCRIBED";
 }
+
+/**
+ * Whether opening a Realtime channel is worth attempting, given the raw
+ * `VITE_SUPABASE_URL`. A relative value means requests are proxied same-origin
+ * through the vercel.json rewrite, which cannot upgrade a websocket — the
+ * client would retry the handshake forever and fill the console. An absolute
+ * URL reaches Supabase directly, as it does in local dev, so the socket works.
+ *
+ * This reads the raw env value on purpose: `src/lib/supabase.ts` resolves a
+ * relative value against `window.location.origin`, which hides the difference.
+ */
+export function realtimeCanConnect(
+  rawSupabaseUrl: string | undefined,
+): boolean {
+  if (!rawSupabaseUrl) return false;
+  return !rawSupabaseUrl.startsWith("/");
+}

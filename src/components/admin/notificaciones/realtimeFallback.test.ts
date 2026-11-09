@@ -1,6 +1,7 @@
 import { describe, it, expect } from "vitest";
 import {
   shouldPollNotificaciones,
+  realtimeCanConnect,
   NOTIFICACIONES_POLL_MS,
 } from "./realtimeFallback";
 
@@ -36,5 +37,27 @@ describe("notificaciones polling fallback", () => {
   it("polls often enough to be useful but not every second", () => {
     expect(NOTIFICACIONES_POLL_MS).toBeGreaterThanOrEqual(10_000);
     expect(NOTIFICACIONES_POLL_MS).toBeLessThanOrEqual(60_000);
+  });
+});
+
+describe("realtime reachability", () => {
+  it("rejects a same-origin proxied URL", () => {
+    // "/sb" is served by a Vercel rewrite, which does not upgrade websockets.
+    expect(realtimeCanConnect("/sb")).toBe(false);
+  });
+
+  it("accepts an absolute Supabase URL", () => {
+    expect(realtimeCanConnect("https://mosxqfeuzhhkyufpztjk.supabase.co")).toBe(
+      true,
+    );
+  });
+
+  it("accepts a local Supabase stack", () => {
+    expect(realtimeCanConnect("http://localhost:54321")).toBe(true);
+  });
+
+  it("treats a missing URL as unreachable rather than guessing", () => {
+    expect(realtimeCanConnect(undefined)).toBe(false);
+    expect(realtimeCanConnect("")).toBe(false);
   });
 });
